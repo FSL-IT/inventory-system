@@ -1,0 +1,20 @@
+# Environment
+.env
+
+# Composer dependencies
+vendor/
+
+# Database backups
+storage/backups/*.sql
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Uploaded temp files
+storage/temp/

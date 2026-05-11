@@ -1,0 +1,52 @@
+/* assets/css/variables.css */
+
+:root {
+    /* Brand Colors */
+    --navy:        #0a0f1e;
+    --navy-2:      #0d1526;
+    --navy-3:      #111d35;
+    --navy-4:      #162040;
+    --navy-5:      #1c2b54;
+    --blue:        #1a3a6b;
+    --blue-mid:    #1e4d8c;
+    --accent:      #f97316;
+    --accent-2:    #fb923c;
+    --accent-dim:  rgba(249, 115, 22, 0.15);
+
+    /* Neutral */
+    --white:   #f8fafc;
+    --white-2: #e2e8f0;
+    --white-3: #94a3b8;
+    --white-4: #475569;
+    --white-5: #334155;
+
+    /* Status Colors */
+    --green:      #22c55e;
+    --green-dim:  rgba(34, 197, 94, 0.12);
+    --red:        #ef4444;
+    --red-dim:    rgba(239, 68, 68, 0.12);
+    --yellow:     #eab308;
+    --yellow-dim: rgba(234, 179, 8, 0.12);
+    --purple:     #a855f7;
+    --purple-dim: rgba(168, 85, 247, 0.12);
+    --blue-tag:   #60a5fa;
+    --blue-dim:   rgba(59, 130, 246, 0.12);
+
+    /* Borders & Shadows */
+    --border:     rgba(255, 255, 255, 0.07);
+    --border-2:   rgba(255, 255, 255, 0.04);
+    --shadow:     0 4px 24px rgba(0, 0, 0, 0.4);
+    --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.3);
+
+    /* Radius */
+    --radius:    12px;
+    --radius-sm: 8px;
+
+    /* Layout */
+    --sidebar-w: 260px;
+    --header-h:  60px;
+
+    /* Typography */
+    --font-body:    'DM Sans', sans-serif;
+    --font-display: 'Syne', sans-serif;
+}

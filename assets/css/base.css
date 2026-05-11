@@ -1,0 +1,74 @@
+/* assets/css/base.css */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-body);
+    background: var(--navy);
+    color: var(--white);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+ul,
+ol {
+    list-style: none;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+button {
+    font-family: var(--font-body);
+    cursor: pointer;
+}
+
+input,
+select,
+textarea {
+    font-family: var(--font-body);
+}
+
+/* Login body override */
+body.login-body {
+    overflow: auto;
+    display: block;
+}
+
+/* Utility: hidden (replaces inline style="display:none") */
+.hidden {
+    display: none !important;
+}
+
+/* Toast fade-out (replaces inline style opacity/transform) */
+.toast--fade-out {
+    opacity: 0;
+    transform: translateX(20px);
+    transition: all 0.3s;
+}
+
+/* Sidebar overlay open state */
+.sidebar-overlay.open {
+    display: block;
+}

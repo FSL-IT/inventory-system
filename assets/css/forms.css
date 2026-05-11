@@ -1,0 +1,152 @@
+/* assets/css/forms.css */
+
+.search-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--navy-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-field input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--white);
+    font-size: 13px;
+    flex: 1;
+}
+
+.search-field input::placeholder {
+    color: var(--white-4);
+}
+
+.filter-select {
+    background: var(--navy-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--white-2);
+    font-family: var(--font-body);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+}
+
+.filter-select option {
+    background: var(--navy-3);
+    color: var(--white-2);
+}
+
+/* Form fields used in modals */
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-field label {
+    font-size: 10px;
+    color: var(--white-4);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--white);
+    font-family: var(--font-body);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+    border-color: var(--accent);
+}
+
+.form-field input[readonly] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.form-field select option {
+    background: var(--navy-2);
+}
+
+.form-field textarea {
+    resize: vertical;
+    min-height: 70px;
+}
+
+/* Info field (read-only display) */
+.info-field {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+}
+
+.info-field .val {
+    font-size: 13px;
+    color: var(--white);
+    font-weight: 500;
+}
+
+/* Form group (login) */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--white-3);
+}
+
+.form-group input {
+    background: var(--navy-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    color: var(--white);
+    font-family: var(--font-body);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.form-group input:focus {
+    border-color: var(--accent);
+}
+
+/* Field grid */
+.field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.field-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+}
