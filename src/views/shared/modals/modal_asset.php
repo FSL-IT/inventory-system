@@ -14,7 +14,7 @@
             </button>
         </div>
         <div class="modal-body">
-            <input type="hidden" id="asset_edit_id">
+            <input id="asset_edit_id">
 
             <div class="modal-section-title">Asset Information</div>
             <div class="field-grid">
@@ -57,7 +57,7 @@
             <div class="field-grid">
                 <div class="form-field">
                     <label for="asset_po">PO Number</label>
-                    <select id="asset_po">
+                    <select id="asset_po" onchange="onPoChange(this)">
                         <option value="">— Select PO —</option>
                     </select>
                 </div>
