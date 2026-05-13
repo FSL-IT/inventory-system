@@ -13,7 +13,9 @@ header('Content-Type: application/json');
 $method = $_SERVER['REQUEST_METHOD'];
 $id = getQueryInt('id');
 
-if ($method === 'GET') {
+if ($method === 'GET' && $id) {
+    fetchSinglePO($id);
+} elseif ($method === 'GET') {
     fetchPOs();
 } elseif ($method === 'POST') {
     requireCsrf();
@@ -28,26 +30,51 @@ if ($method === 'GET') {
     sendError('Method not allowed.', 405);
 }
 
+function fetchSinglePO(int $id): void {
+    $pdo  = getDbConnection();
+    $stmt = $pdo->prepare("
+        SELECT po.*, v.id AS vendor_id, v.name AS vendor_name
+        FROM purchase_orders po
+        LEFT JOIN vendors v ON po.vendor_id = v.id
+        WHERE po.id = :id LIMIT 1
+    ");
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch();
+    if (!$row) sendError('PO not found.', 404);
+    sendSuccess($row);
+}
+
 function fetchPOs(): void {
     $pdo = getDbConnection();
 
-    $search = getQueryString('search');
-    $vendorId = getQueryInt('vendor_id');
-    $page = max(1, getQueryInt('page', 1));
-    $perPage = min(100, max(10, getQueryInt('per_page', 25)));
-    $offset = ($page - 1) * $perPage;
+    $search     = getQueryString('search');
+    $vendorId   = getQueryInt('vendor_id');
+    $endorsed   = getQueryString('endorsed'); // 'yes' | 'no' | ''
 
-    $where = ['1=1'];
+    $allowedSorts = ['po.po_number','po.date_received','po.date_endorsed','po.created_at','v.name','asset_count'];
+    $sortRaw = getQueryString('sort') ?: 'po.created_at';
+    $sort    = in_array($sortRaw, $allowedSorts) ? $sortRaw : 'po.created_at';
+    $dir     = getQueryString('dir') === 'asc' ? 'ASC' : 'DESC';
+
+    $page    = max(1, getQueryInt('page', 1));
+    $perPage = min(100, max(5, getQueryInt('per_page', 25)));
+    $offset  = ($page - 1) * $perPage;
+
+    $where  = ['1=1'];
     $params = [];
 
     if ($search) {
         $where[] = '(po.po_number LIKE :search OR v.name LIKE :search)';
         $params[':search'] = "%{$search}%";
     }
-
     if ($vendorId) {
         $where[] = 'po.vendor_id = :vendor_id';
         $params[':vendor_id'] = $vendorId;
+    }
+    if ($endorsed === 'yes') {
+        $where[] = 'po.date_endorsed IS NOT NULL';
+    } elseif ($endorsed === 'no') {
+        $where[] = 'po.date_endorsed IS NULL';
     }
 
     $whereClause = 'WHERE ' . implode(' AND ', $where);
@@ -59,12 +86,15 @@ function fetchPOs(): void {
     $countStmt->execute($params);
     $total = (int) $countStmt->fetchColumn();
 
+    // asset_count in ORDER BY needs HAVING or subquery — use subquery for portability
+    $orderClause = $sort === 'asset_count'
+        ? "ORDER BY asset_count {$dir}"
+        : "ORDER BY {$sort} {$dir}";
+
     $sql = "
         SELECT
-            po.id, po.po_number, po.date_received, po.date_endorsed,
-            po.created_at,
-            v.id   AS vendor_id,
-            v.name AS vendor_name,
+            po.id, po.po_number, po.date_received, po.date_endorsed, po.created_at,
+            v.id AS vendor_id, v.name AS vendor_name,
             COUNT(a.id) AS asset_count
         FROM purchase_orders po
         LEFT JOIN vendors v ON po.vendor_id = v.id
@@ -72,22 +102,17 @@ function fetchPOs(): void {
         {$whereClause}
         GROUP BY po.id, po.po_number, po.date_received,
                  po.date_endorsed, po.created_at, v.id, v.name
-        ORDER BY po.created_at DESC
+        {$orderClause}
         LIMIT :limit OFFSET :offset
     ";
 
     $stmt = $pdo->prepare($sql);
-
-    foreach ($params as $key => $val) {
-        $stmt->bindValue($key, $val);
-    }
-
-    $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    foreach ($params as $k => $val) $stmt->bindValue($k, $val);
+    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
     $stmt->execute();
-    $rows = $stmt->fetchAll();
 
-    sendPaginated($rows, $total, $page, $perPage);
+    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
 }
 
 function createPO(): void {

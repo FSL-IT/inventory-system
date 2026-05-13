@@ -29,18 +29,46 @@ if ($method === 'GET') {
 }
 
 function fetchLocations(): void {
-    $pdo = getDbConnection();
-    $sql = '
+    $pdo     = getDbConnection();
+    $search  = getQueryString('search');
+    $sort    = in_array(getQueryString('sort'), ['name','asset_count','created_at']) ? getQueryString('sort') : 'name';
+    $dir     = getQueryString('dir') === 'desc' ? 'DESC' : 'ASC';
+    $page    = max(1, getQueryInt('page', 1));
+    $perPage = min(100, max(5, getQueryInt('per_page', 10)));
+    $offset  = ($page - 1) * $perPage;
+
+    $where  = [];
+    $params = [];
+
+    if ($search) {
+        $where[]           = 'l.name LIKE :search';
+        $params[':search'] = "%{$search}%";
+    }
+
+    $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM locations l {$whereClause}");
+    $countStmt->execute($params);
+    $total = (int) $countStmt->fetchColumn();
+
+    $sql = "
         SELECT l.id, l.name, l.created_at,
                COUNT(a.id) AS asset_count
         FROM locations l
         LEFT JOIN assets a ON a.location_id = l.id AND a.deleted_at IS NULL
-        GROUP BY l.id, l.name, l.created_at
-        ORDER BY l.name ASC
-    ';
-    sendSuccess($pdo->query($sql)->fetchAll());
-}
+        {$whereClause}
+        GROUP BY l.id
+        ORDER BY {$sort} {$dir}
+        LIMIT :limit OFFSET :offset
+    ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $val) $stmt->bindValue($k, $val);
+    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
+    $stmt->execute();
 
+    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
+}
 function createLocation(): void {
     $body = json_decode(file_get_contents('php://input'), true);
     $name = sanitizeString($body['name'] ?? '');

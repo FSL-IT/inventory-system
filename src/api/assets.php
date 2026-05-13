@@ -70,45 +70,51 @@ function fetchSingleAsset(int $id): void {
 function fetchAssets(): void {
     $pdo = getDbConnection();
 
-    $search = getQueryString('search');
-    $status = getQueryString('status');
+    $search     = getQueryString('search');
+    $status     = getQueryString('status');
     $categoryId = getQueryInt('category_id');
     $locationId = getQueryInt('location_id');
-    $page = max(1, getQueryInt('page', 1));
-    $perPage = min(100, max(10, getQueryInt('per_page', 25)));
-    $offset = ($page - 1) * $perPage;
+    $ownerId    = getQueryInt('owner_id');
 
-    $where = ['a.deleted_at IS NULL'];
+    $allowedSorts = ['a.serial_number','a.description','a.status','a.created_at',
+                     'c.name','l.name','o.name','po.date_received'];
+    $sortRaw = getQueryString('sort') ?: 'a.created_at';
+    $sort    = in_array($sortRaw, $allowedSorts) ? $sortRaw : 'a.created_at';
+    $dir     = getQueryString('dir') === 'asc' ? 'ASC' : 'DESC';
+
+    $page    = max(1, getQueryInt('page', 1));
+    $perPage = min(100, max(5, getQueryInt('per_page', 25)));
+    $offset  = ($page - 1) * $perPage;
+
+    $where  = ['a.deleted_at IS NULL'];
     $params = [];
 
     if ($search) {
-        $where[] = '(a.serial_number LIKE :search1
-                    OR a.description LIKE :search2
-                    OR po.po_number LIKE :search3)';
-        $params[':search1'] = "%{$search}%";
-        $params[':search2'] = "%{$search}%";
-        $params[':search3'] = "%{$search}%";
+        $where[] = '(a.serial_number LIKE :s1 OR a.description LIKE :s2 OR po.po_number LIKE :s3 OR v.name LIKE :s4)';
+        $params[':s1'] = $params[':s2'] = $params[':s3'] = $params[':s4'] = "%{$search}%";
     }
-
     if ($status && validateEnum($status, ASSET_STATUSES)) {
         $where[] = 'a.status = :status';
         $params[':status'] = $status;
     }
-
     if ($categoryId) {
         $where[] = 'a.category_id = :cat_id';
         $params[':cat_id'] = $categoryId;
     }
-
     if ($locationId) {
         $where[] = 'a.location_id = :loc_id';
         $params[':loc_id'] = $locationId;
+    }
+    if ($ownerId) {
+        $where[] = 'a.owner_id = :owner_id';
+        $params[':owner_id'] = $ownerId;
     }
 
     $whereClause = 'WHERE ' . implode(' AND ', $where);
 
     $countSql = "SELECT COUNT(*) FROM assets a
                  LEFT JOIN purchase_orders po ON a.po_id = po.id
+                 LEFT JOIN vendors v ON po.vendor_id = v.id
                  {$whereClause}";
     $countStmt = $pdo->prepare($countSql);
     $countStmt->execute($params);
@@ -118,40 +124,30 @@ function fetchAssets(): void {
         SELECT
             a.id, a.serial_number, a.description, a.status, a.remarks,
             a.created_at, a.updated_at,
-            c.id   AS category_id,
-            c.name AS category_name,
-            l.id   AS location_id,
-            l.name AS location_name,
-            o.id   AS owner_id,
-            o.name AS owner_name,
-            po.id        AS po_id,
-            po.po_number AS po_number,
-            po.date_received, po.date_endorsed,
-            v.id   AS vendor_id,
-            v.name AS vendor_name
+            c.id   AS category_id,   c.name AS category_name,
+            l.id   AS location_id,   l.name AS location_name,
+            o.id   AS owner_id,      o.name AS owner_name,
+            po.id  AS po_id,         po.po_number,
+            po.date_received,        po.date_endorsed,
+            v.id   AS vendor_id,     v.name AS vendor_name
         FROM assets a
-        LEFT JOIN categories     c  ON a.category_id = c.id
-        LEFT JOIN locations      l  ON a.location_id  = l.id
-        LEFT JOIN process_owners o  ON a.owner_id     = o.id
-        LEFT JOIN purchase_orders po ON a.po_id       = po.id
-        LEFT JOIN vendors         v  ON po.vendor_id  = v.id
+        LEFT JOIN categories      c  ON a.category_id = c.id
+        LEFT JOIN locations       l  ON a.location_id  = l.id
+        LEFT JOIN process_owners  o  ON a.owner_id     = o.id
+        LEFT JOIN purchase_orders po ON a.po_id        = po.id
+        LEFT JOIN vendors         v  ON po.vendor_id   = v.id
         {$whereClause}
-        ORDER BY a.created_at DESC
+        ORDER BY {$sort} {$dir}
         LIMIT :limit OFFSET :offset
     ";
 
     $stmt = $pdo->prepare($sql);
-
-    foreach ($params as $key => $val) {
-        $stmt->bindValue($key, $val);
-    }
-
-    $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    foreach ($params as $k => $v2) $stmt->bindValue($k, $v2);
+    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
     $stmt->execute();
-    $rows = $stmt->fetchAll();
 
-    sendPaginated($rows, $total, $page, $perPage);
+    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
 }
 
 function createAsset(): void {

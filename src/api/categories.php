@@ -29,17 +29,45 @@ if ($method === 'GET') {
 }
 
 function fetchCategories(): void {
-    $pdo = getDbConnection();
-    $sql = '
+    $pdo     = getDbConnection();
+    $search  = getQueryString('search');
+    $sort    = in_array(getQueryString('sort'), ['name','asset_count','created_at']) ? getQueryString('sort') : 'name';
+    $dir     = getQueryString('dir') === 'desc' ? 'DESC' : 'ASC';
+    $page    = max(1, getQueryInt('page', 1));
+    $perPage = min(100, max(5, getQueryInt('per_page', 10)));
+    $offset  = ($page - 1) * $perPage;
+
+    $where  = [];
+    $params = [];
+
+    if ($search) {
+        $where[]           = 'c.name LIKE :search';
+        $params[':search'] = "%{$search}%";
+    }
+
+    $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM categories c {$whereClause}");
+    $countStmt->execute($params);
+    $total = (int) $countStmt->fetchColumn();
+
+    $sql = "
         SELECT c.id, c.name, c.created_at,
                COUNT(a.id) AS asset_count
         FROM categories c
         LEFT JOIN assets a ON a.category_id = c.id AND a.deleted_at IS NULL
-        GROUP BY c.id, c.name, c.created_at
-        ORDER BY c.name ASC
-    ';
-    $rows = $pdo->query($sql)->fetchAll();
-    sendSuccess($rows);
+        {$whereClause}
+        GROUP BY c.id
+        ORDER BY {$sort} {$dir}
+        LIMIT :limit OFFSET :offset
+    ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $val) $stmt->bindValue($k, $val);
+    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
+    $stmt->execute();
+
+    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
 }
 
 function createCategory(): void {

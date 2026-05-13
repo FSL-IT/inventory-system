@@ -29,16 +29,45 @@ if ($method === 'GET') {
 }
 
 function fetchOwners(): void {
-    $pdo = getDbConnection();
-    $sql = '
+    $pdo     = getDbConnection();
+    $search  = getQueryString('search');
+    $sort    = in_array(getQueryString('sort'), ['name','asset_count','created_at']) ? getQueryString('sort') : 'name';
+    $dir     = getQueryString('dir') === 'desc' ? 'DESC' : 'ASC';
+    $page    = max(1, getQueryInt('page', 1));
+    $perPage = min(100, max(5, getQueryInt('per_page', 10)));
+    $offset  = ($page - 1) * $perPage;
+
+    $where  = [];
+    $params = [];
+
+    if ($search) {
+        $where[]           = 'o.name LIKE :search';
+        $params[':search'] = "%{$search}%";
+    }
+
+    $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM process_owners o {$whereClause}");
+    $countStmt->execute($params);
+    $total = (int) $countStmt->fetchColumn();
+
+    $sql = "
         SELECT o.id, o.name, o.created_at,
                COUNT(a.id) AS asset_count
         FROM process_owners o
         LEFT JOIN assets a ON a.owner_id = o.id AND a.deleted_at IS NULL
-        GROUP BY o.id, o.name, o.created_at
-        ORDER BY o.name ASC
-    ';
-    sendSuccess($pdo->query($sql)->fetchAll());
+        {$whereClause}
+        GROUP BY o.id
+        ORDER BY {$sort} {$dir}
+        LIMIT :limit OFFSET :offset
+    ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $val) $stmt->bindValue($k, $val);
+    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
+    $stmt->execute();
+
+    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
 }
 
 function createOwner(): void {

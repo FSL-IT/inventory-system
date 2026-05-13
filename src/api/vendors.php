@@ -29,16 +29,45 @@ if ($method === 'GET') {
 }
 
 function fetchVendors(): void {
-    $pdo = getDbConnection();
-    $sql = '
+    $pdo     = getDbConnection();
+    $search  = getQueryString('search');
+    $sort    = in_array(getQueryString('sort'), ['name','po_count','created_at']) ? getQueryString('sort') : 'name';
+    $dir     = getQueryString('dir') === 'desc' ? 'DESC' : 'ASC';
+    $page    = max(1, getQueryInt('page', 1));
+    $perPage = min(100, max(5, getQueryInt('per_page', 10)));
+    $offset  = ($page - 1) * $perPage;
+
+    $where  = [];
+    $params = [];
+
+    if ($search) {
+        $where[]          = 'v.name LIKE :search';
+        $params[':search'] = "%{$search}%";
+    }
+
+    $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM vendors v {$whereClause}");
+    $countStmt->execute($params);
+    $total = (int) $countStmt->fetchColumn();
+
+    $sql = "
         SELECT v.id, v.name, v.created_at,
                COUNT(po.id) AS po_count
         FROM vendors v
         LEFT JOIN purchase_orders po ON po.vendor_id = v.id
-        GROUP BY v.id, v.name, v.created_at
-        ORDER BY v.name ASC
-    ';
-    sendSuccess($pdo->query($sql)->fetchAll());
+        {$whereClause}
+        GROUP BY v.id
+        ORDER BY {$sort} {$dir}
+        LIMIT :limit OFFSET :offset
+    ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $val) $stmt->bindValue($k, $val);
+    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
+    $stmt->execute();
+
+    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
 }
 
 function createVendor(): void {
