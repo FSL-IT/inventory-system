@@ -1,12 +1,21 @@
 <?php
 // src/api/import_export.php
 
+// Allow large Excel uploads (override php.ini for this endpoint only)
+@ini_set('upload_max_filesize', '64M');
+@ini_set('post_max_size',       '64M');
+@ini_set('memory_limit',        '512M');
+@ini_set('max_execution_time',  '300');
+
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/response.php';
 require_once __DIR__ . '/../core/validator.php';
 require_once __DIR__ . '/../helpers/export_helper.php';
 require_once __DIR__ . '/../helpers/import_helper.php';
+
+
 
 requireRole('admin');
 
