@@ -19,7 +19,7 @@ include __DIR__ . '/../shared/sidebar.php';
         <div class="topbar__title">User Management</div>
         <div class="topbar__search">
             <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="global_search" placeholder="Search...">
+            <input type="text" id="global_search" placeholder="Search..." oninput="globalSearch(this.value)">
         </div>
         <div class="topbar__actions">
             <div class="icon-btn"

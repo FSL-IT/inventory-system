@@ -49,6 +49,11 @@ include __DIR__ . '/shared/sidebar.php';
                     onclick="exportAssets()">
                     <i class="bi bi-download"></i> Export
                 </button>
+                <button
+                    class="btn btn-secondary"
+                    onclick="openImportModal()">
+                    <i class="bi bi-file-earmark-arrow-up"></i> Import Excel
+                </button>
                 <?php endif; ?>
                 <button
                     class="btn btn-primary"
@@ -57,7 +62,6 @@ include __DIR__ . '/shared/sidebar.php';
                 </button>
             </div>
         </div>
-
         <div class="table-toolbar">
             <div class="search-field" style="max-width:360px">
                 <i class="bi bi-search"></i>
@@ -125,4 +129,5 @@ include __DIR__ . '/shared/sidebar.php';
 
 <?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
 <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
+<?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 <?php include __DIR__ . '/shared/footer.php'; ?>

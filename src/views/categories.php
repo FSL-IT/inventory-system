@@ -57,6 +57,45 @@ include __DIR__ . '/shared/sidebar.php';
                     <p class="text-muted">Loading categories...</p>
                 </div>
             </div>
+            <div class="card">
+                <div class="card-title">
+                    <i class="bi bi-lightbulb"></i> Category Tips
+                </div>
+                <div class="insight-card">
+                    <div class="insight-card__icon">📈</div>
+                    <div>
+                        <div class="insight-card__title">Scalable by Design</div>
+                        <div class="insight-card__desc">
+                            Your database uses a separate categories table —
+                            add unlimited new asset types without changing the schema.
+                        </div>
+                    </div>
+                </div>
+                <div class="insight-card insight-card--blue">
+                    <div class="insight-card__icon">🔗</div>
+                    <div>
+                        <div class="insight-card__title" style="color:#60a5fa">
+                            Linked to Assets
+                        </div>
+                        <div class="insight-card__desc">
+                            Each category is linked via category_id in the assets table.
+                            Renaming updates across all assets automatically.
+                        </div>
+                    </div>
+                </div>
+                <div class="insight-card insight-card--red">
+                    <div class="insight-card__icon">⛔</div>
+                    <div>
+                        <div class="insight-card__title" style="color:var(--red)">
+                            Safe Delete
+                        </div>
+                        <div class="insight-card__desc">
+                            Categories with existing assets cannot be deleted.
+                            Reassign those assets first.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
