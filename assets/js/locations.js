@@ -1,55 +1,56 @@
 // assets/js/locations.js
 
-document.addEventListener('DOMContentLoaded', loadLocations);
-
-async function loadLocations() {
-    try {
-        const data = await apiFetch('/src/api/locations.php');
-        renderLocationTable(data.data);
-    } catch (err) {
-        showToast('Failed to load locations.', 'error');
-    }
-}
-
-function renderLocationTable(locations) {
-    const tbody = document.getElementById('locations_body');
-
-    if (!locations.length) {
-        tbody.innerHTML = `
+document.addEventListener('DOMContentLoaded', () => {
+    window._refTable = new RefTable({
+        apiUrl:      '/src/api/locations.php',
+        tbodyId:     'locations_body',
+        paginationId:'location_pagination',
+        counterId:   'ref_counter',
+        defaultSort: 'name',
+        emptyLabel:  'No locations found.',
+        columns: [
+            { key: 'name',        label: 'Location Name', sortable: true },
+            { key: 'asset_count', label: 'Assets',        sortable: true },
+            { key: 'created_at',  label: 'Date Added',    sortable: true },
+            { key: '_actions',    label: 'Actions',       sortable: false },
+        ],
+        renderRow: (l) => `
             <tr>
-                <td colspan="4">
-                    <div class="empty-state">
-                        <div class="empty-state__title">No locations yet.</div>
+                <td style="font-weight:600">
+                    <i class="bi bi-geo-alt" style="color:var(--accent);margin-right:6px;font-size:12px"></i>
+                    ${l.name}
+                </td>
+                <td>
+                    <span class="tag" style="background:var(--green-dim);color:var(--green)">
+                        ${l.asset_count ?? 0} asset${l.asset_count != 1 ? 's' : ''}
+                    </span>
+                </td>
+                <td style="font-size:12px;color:var(--white-3)">${formatDate(l.created_at)}</td>
+                <td>
+                    <div class="table-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="openEditLocation(${l.id}, '${escHtml(l.name)}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteLocation(${l.id}, '${escHtml(l.name)}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </td>
-            </tr>
-        `;
-        return;
-    }
+            </tr>`,
+    });
+    window._refTable.init();
+});
 
-    tbody.innerHTML = locations.map(l => `
-        <tr>
-            <td style="font-weight:500">${l.name}</td>
-            <td>${l.asset_count ?? 0}</td>
-            <td style="font-size:11px;color:var(--white-3)">
-                ${formatDate(l.created_at)}
-            </td>
-            <td>
-                <div class="table-actions">
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        onclick="openEditLocation(${l.id}, '${l.name}')">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button
-                        class="btn btn-danger btn-sm"
-                        onclick="deleteLocation(${l.id}, '${l.name}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+function loadLocations(page = 1) {
+    window._refTable.page = page;
+    window._refTable.load();
+}
+
+function openAddLocation() {
+    document.getElementById('location_edit_id').value = '';
+    document.getElementById('location_modal_title').textContent = '📍 Add New Location';
+    document.getElementById('location_name').value = '';
+    openModal('add_location');
 }
 
 function openEditLocation(id, name) {
@@ -60,47 +61,35 @@ function openEditLocation(id, name) {
 }
 
 async function saveLocation() {
-    const id = document.getElementById('location_edit_id').value;
+    const id   = document.getElementById('location_edit_id').value;
     const name = document.getElementById('location_name').value.trim();
 
-    if (!name) {
-        showToast('Location name is required.', 'error');
-        return;
-    }
+    if (!name) { showToast('Location name is required.', 'error'); return; }
 
     const isEdit = !!id;
-    const url = isEdit
-        ? `/src/api/locations.php?id=${id}`
-        : '/src/api/locations.php';
-    const method = isEdit ? 'PUT' : 'POST';
-
     try {
-        await apiFetch(url, { method, body: JSON.stringify({ name }) });
+        await apiFetch(isEdit ? `/src/api/locations.php?id=${id}` : '/src/api/locations.php', {
+            method: isEdit ? 'PUT' : 'POST',
+            body:   JSON.stringify({ name }),
+        });
         closeModal('add_location');
-        document.getElementById('location_edit_id').value = '';
-        document.getElementById('location_name').value = '';
-        document.getElementById('location_modal_title').textContent = '📍 Add New Location';
         showToast(`Location ${isEdit ? 'updated' : 'created'}.`, 'success');
-        loadLocations();
+        window._refTable.reload();
     } catch (err) {
         showToast(err.message, 'error');
     }
 }
 
 function deleteLocation(id, name) {
-    showConfirm(
-        'Delete Location',
-        `Delete location "${name}"?`,
-        async () => {
-            try {
-                await apiFetch(`/src/api/locations.php?id=${id}`, {
-                    method: 'DELETE',
-                });
-                showToast('Location deleted.', 'success');
-                loadLocations();
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
+    showConfirm('Delete Location', `Delete "${name}"? Assets here will become unassigned.`, async () => {
+        try {
+            await apiFetch(`/src/api/locations.php?id=${id}`, { method: 'DELETE' });
+            showToast('Location deleted.', 'success');
+            window._refTable.reload();
+        } catch (err) {
+            showToast(err.message, 'error');
         }
-    );
+    });
 }
+
+function escHtml(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }

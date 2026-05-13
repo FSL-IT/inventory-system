@@ -1,55 +1,54 @@
 // assets/js/vendors.js
 
-document.addEventListener('DOMContentLoaded', loadVendors);
-
-async function loadVendors() {
-    try {
-        const data = await apiFetch('/src/api/vendors.php');
-        renderVendorTable(data.data);
-    } catch (err) {
-        showToast('Failed to load vendors.', 'error');
-    }
-}
-
-function renderVendorTable(vendors) {
-    const tbody = document.getElementById('vendors_body');
-
-    if (!vendors.length) {
-        tbody.innerHTML = `
+document.addEventListener('DOMContentLoaded', () => {
+    window._refTable = new RefTable({
+        apiUrl:      '/src/api/vendors.php',
+        tbodyId:     'vendors_body',
+        paginationId:'vendor_pagination',
+        counterId:   'ref_counter',
+        defaultSort: 'name',
+        emptyLabel:  'No vendors found.',
+        columns: [
+            { key: 'name',       label: 'Vendor Name',  sortable: true },
+            { key: 'po_count',   label: 'PO Count',     sortable: true },
+            { key: 'created_at', label: 'Date Added',   sortable: true },
+            { key: '_actions',   label: 'Actions',      sortable: false },
+        ],
+        renderRow: (v) => `
             <tr>
-                <td colspan="4">
-                    <div class="empty-state">
-                        <div class="empty-state__title">No vendors yet.</div>
+                <td style="font-weight:600">${v.name}</td>
+                <td>
+                    <span class="tag" style="background:var(--blue-dim);color:var(--blue-tag)">
+                        ${v.po_count ?? 0} PO${v.po_count != 1 ? 's' : ''}
+                    </span>
+                </td>
+                <td style="font-size:12px;color:var(--white-3)">${formatDate(v.created_at)}</td>
+                <td>
+                    <div class="table-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="openEditVendor(${v.id}, '${escHtml(v.name)}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteVendor(${v.id}, '${escHtml(v.name)}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </td>
-            </tr>
-        `;
-        return;
-    }
+            </tr>`,
+    });
+    window._refTable.init();
+});
 
-    tbody.innerHTML = vendors.map(v => `
-        <tr>
-            <td style="font-weight:500">${v.name}</td>
-            <td>${v.po_count ?? 0}</td>
-            <td style="font-size:11px;color:var(--white-3)">
-                ${formatDate(v.created_at)}
-            </td>
-            <td>
-                <div class="table-actions">
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        onclick="openEditVendor(${v.id}, '${v.name}')">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button
-                        class="btn btn-danger btn-sm"
-                        onclick="deleteVendor(${v.id}, '${v.name}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+// Wire topbar global search into local search field
+function loadVendors(page = 1) {
+    window._refTable.page = page;
+    window._refTable.load();
+}
+
+function openAddVendor() {
+    document.getElementById('vendor_edit_id').value = '';
+    document.getElementById('vendor_modal_title').textContent = '🏭 Add New Vendor';
+    document.getElementById('vendor_name').value = '';
+    openModal('add_vendor');
 }
 
 function openEditVendor(id, name) {
@@ -60,47 +59,37 @@ function openEditVendor(id, name) {
 }
 
 async function saveVendor() {
-    const id = document.getElementById('vendor_edit_id').value;
+    const id   = document.getElementById('vendor_edit_id').value;
     const name = document.getElementById('vendor_name').value.trim();
 
-    if (!name) {
-        showToast('Vendor name is required.', 'error');
-        return;
-    }
+    if (!name) { showToast('Vendor name is required.', 'error'); return; }
 
     const isEdit = !!id;
-    const url = isEdit
-        ? `/src/api/vendors.php?id=${id}`
-        : '/src/api/vendors.php';
-    const method = isEdit ? 'PUT' : 'POST';
-
     try {
-        await apiFetch(url, { method, body: JSON.stringify({ name }) });
+        await apiFetch(isEdit ? `/src/api/vendors.php?id=${id}` : '/src/api/vendors.php', {
+            method: isEdit ? 'PUT' : 'POST',
+            body:   JSON.stringify({ name }),
+        });
         closeModal('add_vendor');
-        document.getElementById('vendor_edit_id').value = '';
-        document.getElementById('vendor_name').value = '';
-        document.getElementById('vendor_modal_title').textContent = '🏭 Add New Vendor';
         showToast(`Vendor ${isEdit ? 'updated' : 'created'}.`, 'success');
-        loadVendors();
+        window._refTable.reload();
     } catch (err) {
         showToast(err.message, 'error');
     }
 }
 
 function deleteVendor(id, name) {
-    showConfirm(
-        'Delete Vendor',
-        `Delete vendor "${name}"?`,
-        async () => {
-            try {
-                await apiFetch(`/src/api/vendors.php?id=${id}`, {
-                    method: 'DELETE',
-                });
-                showToast('Vendor deleted.', 'success');
-                loadVendors();
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
+    showConfirm('Delete Vendor', `Delete vendor "${name}"? This cannot be undone.`, async () => {
+        try {
+            await apiFetch(`/src/api/vendors.php?id=${id}`, { method: 'DELETE' });
+            showToast('Vendor deleted.', 'success');
+            window._refTable.reload();
+        } catch (err) {
+            showToast(err.message, 'error');
         }
-    );
+    });
+}
+
+function escHtml(s) {
+    return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
