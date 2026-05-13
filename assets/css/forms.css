@@ -10,6 +10,17 @@
     padding: 8px 14px;
     flex: 1;
     min-width: 200px;
+    transition: border-color 0.15s;
+}
+
+.search-field:focus-within {
+    border-color: var(--accent);
+}
+
+.search-field i {
+    color: var(--white-4);
+    font-size: 13px;
+    flex-shrink: 0;
 }
 
 .search-field input {
@@ -19,6 +30,7 @@
     color: var(--white);
     font-size: 13px;
     flex: 1;
+    font-family: var(--font-body);
 }
 
 .search-field input::placeholder {
@@ -35,6 +47,11 @@
     font-size: 12px;
     outline: none;
     cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.filter-select:focus {
+    border-color: var(--accent);
 }
 
 .filter-select option {
@@ -46,12 +63,12 @@
 .form-field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
 }
 
 .form-field label {
-    font-size: 10px;
-    color: var(--white-4);
+    font-size: 11px;
+    color: var(--white-3);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -63,32 +80,39 @@
     background: var(--navy-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: 9px 12px;
     color: var(--white);
     font-family: var(--font-body);
     font-size: 13px;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+    color: var(--white-4);
 }
 
 .form-field input:focus,
 .form-field select:focus,
 .form-field textarea:focus {
     border-color: var(--accent);
+    background: var(--navy-3);
 }
 
 .form-field input[readonly] {
-    opacity: 0.6;
+    opacity: 0.55;
     cursor: not-allowed;
 }
 
 .form-field select option {
     background: var(--navy-2);
+    color: var(--white);
 }
 
 .form-field textarea {
     resize: vertical;
-    min-height: 70px;
+    min-height: 72px;
 }
 
 /* Info field (read-only display) */
@@ -96,7 +120,10 @@
     background: var(--navy-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: 9px 12px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
 }
 
 .info-field .val {
@@ -113,7 +140,7 @@
 }
 
 .form-group label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.8px;
@@ -132,6 +159,10 @@
     transition: border-color 0.15s;
 }
 
+.form-group input::placeholder {
+    color: var(--white-4);
+}
+
 .form-group input:focus {
     border-color: var(--accent);
 }
@@ -140,13 +171,13 @@
 .field-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 14px;
+    margin-bottom: 18px;
 }
 
 .field-grid-3 {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 14px;
+    margin-bottom: 18px;
 }

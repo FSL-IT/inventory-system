@@ -1,6 +1,5 @@
 /* assets/css/components.css */
 
-/* ===== BUTTONS ===== */
 .btn {
     padding: 8px 16px;
     border-radius: var(--radius-sm);
@@ -160,11 +159,11 @@
 .data-table th {
     text-align: left;
     padding: 10px 14px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    color: var(--white-4);
+    color: var(--white-3);
     background: var(--navy-2);
     border-bottom: 1px solid var(--border);
     position: sticky;
@@ -174,10 +173,11 @@
 }
 
 .data-table td {
-    padding: 11px 14px;
-    border-bottom: 1px solid var(--border-2);
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
     color: var(--white-2);
     vertical-align: middle;
+    font-size: 13px;
 }
 
 .data-table tr:hover td {
@@ -554,6 +554,13 @@
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    transform: scale(1.01);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
 }
 
 .upload-zone:hover {
