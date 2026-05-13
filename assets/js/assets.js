@@ -9,6 +9,11 @@ const debounceSearch = debounce(value => {
 }, 350);
 
 document.addEventListener('DOMContentLoaded', () => {
+    const urlSearch = new URLSearchParams(window.location.search).get('search');
+    if (urlSearch) {
+        const searchEl = document.getElementById('asset_search');
+        if (searchEl) searchEl.value = urlSearch;
+    }
     loadAssets(1);
     populateAssetFormDropdowns();
 });
@@ -208,6 +213,7 @@ function openAddAsset() {
     document.getElementById('asset_category').value = '';
     document.getElementById('asset_status').value = 'active';
     document.getElementById('asset_po').value = '';
+    document.getElementById('asset_vendor').value = '';
     document.getElementById('asset_location').value = '';
     document.getElementById('asset_owner').value = '';
     document.getElementById('asset_remarks').value = '';
@@ -229,6 +235,7 @@ async function openEditAsset(id) {
         document.getElementById('asset_category').value = a.category_id ?? '';
         document.getElementById('asset_status').value = a.status;
         document.getElementById('asset_po').value = a.po_id ?? '';
+        document.getElementById('asset_vendor').value = a.vendor_name ?? '';
         document.getElementById('asset_location').value = a.location_id ?? '';
         document.getElementById('asset_owner').value = a.owner_id ?? '';
         document.getElementById('asset_remarks').value = a.remarks ?? '';
@@ -305,7 +312,7 @@ function deleteAsset(id, serial) {
 async function populateAssetFormDropdowns() {
     await Promise.all([
         populateSelect('asset_category', '/src/api/categories.php', 'id', 'name'),
-        populateSelect('asset_po', '/src/api/purchase_orders.php', 'id', 'po_number'),
+        populateSelect('asset_po', '/src/api/purchase_orders.php', 'id', 'po_number', 'vendor_name'),
         populateSelect('asset_location', '/src/api/locations.php', 'id', 'name'),
         populateSelect('asset_owner', '/src/api/process_owners.php', 'id', 'name'),
         populateSelect('filter_category', '/src/api/categories.php', 'id', 'name'),
@@ -313,7 +320,7 @@ async function populateAssetFormDropdowns() {
     ]);
 }
 
-async function populateSelect(selectId, url, valKey, labelKey) {
+async function populateSelect(selectId, url, valKey, labelKey, extraDataKey = null) {
     const el = document.getElementById(selectId);
 
     if (!el) {
@@ -328,11 +335,19 @@ async function populateSelect(selectId, url, valKey, labelKey) {
             const opt = document.createElement('option');
             opt.value = item[valKey];
             opt.textContent = item[labelKey];
+            if (extraDataKey) opt.dataset[extraDataKey] = item[extraDataKey] ?? '';
             el.appendChild(opt);
         });
     } catch (err) {
         // Non-critical; dropdowns just stay empty
     }
+}
+
+function onPoChange(selectEl) {
+    const selected = selectEl.options[selectEl.selectedIndex];
+    const vendorEl = document.getElementById('asset_vendor');
+    if (!vendorEl) return;
+    vendorEl.value = selected?.dataset?.vendorName || '';
 }
 
 // ===== EXPORT =====
@@ -347,4 +362,157 @@ async function exportAssets() {
     });
 
     window.location.href = `/src/api/import_export.php?${params}`;
+}
+
+// ===== IMPORT =====
+
+let importFile = null;
+
+function openImportModal() {
+    importFile = null;
+    document.getElementById('import_file').value = '';
+    document.getElementById('import_zone_label').textContent = 'Drop your .xlsx file here';
+    document.getElementById('import_submit_btn').disabled = true;
+    showImportStep('upload');
+    openModal('import_assets');
+}
+
+function showImportStep(step) {
+    document.getElementById('import_step_upload').style.display   = step === 'upload'   ? '' : 'none';
+    document.getElementById('import_step_progress').style.display = step === 'progress' ? '' : 'none';
+    document.getElementById('import_step_results').style.display  = step === 'results'  ? '' : 'none';
+
+    const footer = document.getElementById('import_modal_footer');
+    if (step === 'results') {
+        footer.innerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal('import_assets')">Close</button>
+            <button class="btn btn-primary" onclick="openImportModal()">Import Another</button>
+        `;
+    } else if (step === 'upload') {
+        footer.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('import_assets')">Cancel</button>`;
+    } else {
+        footer.innerHTML = '';
+    }
+}
+
+function onImportFileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.xlsx')) {
+        showToast('Only .xlsx files are accepted.', 'error');
+        input.value = '';
+        return;
+    }
+
+    importFile = file;
+    const sizeLabel = file.size > 1048576
+        ? (file.size / 1048576).toFixed(1) + ' MB'
+        : (file.size / 1024).toFixed(0) + ' KB';
+
+    document.getElementById('import_zone_label').textContent = `✓ ${file.name} (${sizeLabel})`;
+    document.getElementById('import_submit_btn').disabled = false;
+}
+
+// Init drag-and-drop on import zone
+document.addEventListener('DOMContentLoaded', () => {
+    const zone  = document.getElementById('import_drop_zone');
+    const input = document.getElementById('import_file');
+    if (!zone || !input) return;
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        onImportFileSelected(input);
+    });
+});
+
+async function submitImport() {
+    if (!importFile) return;
+
+    showImportStep('progress');
+
+    const formData = new FormData();
+    formData.append('import_file', importFile);
+
+    try {
+        const response = await fetch('/src/api/import_export.php?action=import', {
+            method: 'POST',
+            headers: { 'X-CSRF-Token': getCsrfToken() },
+            body: formData,
+        });
+
+        const json = await response.json();
+
+        if (!json.success && !json.data) {
+            throw new Error(json.message ?? 'Import failed.');
+        }
+
+        const r = json.data;
+        renderImportResults(r);
+        showImportStep('results');
+
+        if (r.success > 0) {
+            loadAssets(1);
+        }
+
+    } catch (err) {
+        showImportStep('upload');
+        showToast(err.message ?? 'Import failed.', 'error');
+    }
+}
+
+function renderImportResults(r) {
+    const hasErrors = r.errors && r.errors.length > 0;
+    const allFailed = r.success === 0 && r.failed > 0;
+
+    let html = `
+        <div style="display:flex;gap:12px;margin-bottom:18px">
+            <div style="flex:1;background:var(--green-dim);border:1px solid rgba(34,197,94,0.25);
+                border-radius:var(--radius-sm);padding:14px;text-align:center">
+                <div style="font-size:28px;font-weight:800;color:var(--green)">${r.success}</div>
+                <div style="font-size:11px;color:var(--white-3);margin-top:2px">Imported</div>
+            </div>
+            <div style="flex:1;background:var(--red-dim);border:1px solid rgba(239,68,68,0.25);
+                border-radius:var(--radius-sm);padding:14px;text-align:center">
+                <div style="font-size:28px;font-weight:800;color:var(--red)">${r.failed}</div>
+                <div style="font-size:11px;color:var(--white-3);margin-top:2px">Skipped</div>
+            </div>
+        </div>
+    `;
+
+    if (hasErrors) {
+        html += `
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;
+                letter-spacing:1px;color:var(--white-4);margin-bottom:8px">
+                Skipped Rows
+            </div>
+            <div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+                ${r.errors.map(e => `
+                    <div style="background:var(--navy-2);border:1px solid var(--border);
+                        border-left:3px solid var(--red);border-radius:6px;
+                        padding:7px 10px;font-size:12px;color:var(--white-3)">
+                        ${e}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    if (!hasErrors && r.success > 0) {
+        html += `
+            <div style="text-align:center;padding:8px 0;font-size:13px;color:var(--green)">
+                ✅ All rows imported successfully!
+            </div>
+        `;
+    }
+
+    document.getElementById('import_results_body').innerHTML = html;
 }
