@@ -206,7 +206,6 @@ function editAssetFromView() {
 
 // ===== ADD ASSET =====
 function openAddAsset() {
-    document.getElementById('asset_edit_id').value = '';
     document.getElementById('asset_modal_title').textContent = '📦 Add New Asset';
     document.getElementById('asset_serial').value = '';
     document.getElementById('asset_desc').value = '';

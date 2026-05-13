@@ -2,63 +2,72 @@
 
 function openModal(id) {
     const overlay = document.getElementById(`modal-${id}`);
-    if (!overlay) {
-        console.warn(`openModal: #modal-${id} not found`);
-        return;
-    }
+    if (!overlay) return;
+    
     overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
 }
 
 function closeModal(id) {
     const overlay = document.getElementById(`modal-${id}`);
     if (!overlay) return;
+
     overlay.classList.remove('open');
 
-    if (!document.querySelector('.modal-overlay.open')) {
-        document.body.style.overflow = '';
-    }
+    setTimeout(() => {
+        const form = overlay.querySelector('form');
+        if (form) {
+            form.reset();
+            const hiddenId = form.querySelector('input[type="hidden"]');
+            if (hiddenId) hiddenId.value = '';
+        }
+    }, 300);
 }
 
 function showConfirm(title, desc, onConfirm) {
-    const titleEl  = document.getElementById('confirm_title');
-    const descEl   = document.getElementById('confirm_desc');
-    const btn      = document.getElementById('confirm_action_btn');
+    const titleEl = document.getElementById('confirm_title');
+    const descEl = document.getElementById('confirm_desc');
+    const btn = document.getElementById('confirm_action_btn');
 
-    if (!titleEl || !descEl || !btn) {
-        console.error('showConfirm: confirm modal elements not found. Make sure modal_confirm.php is included in this page.');
-        return;
+    if (titleEl) titleEl.textContent = title;
+    if (descEl) descEl.textContent = desc;
+
+    if (btn) {
+        btn.onclick = () => {
+            closeModal('confirm');
+            onConfirm();
+        };
     }
-
-    titleEl.textContent = title;
-    descEl.textContent  = desc;
-
-    btn.onclick = () => {
-        closeModal('confirm');
-        onConfirm();
-    };
 
     openModal('confirm');
 }
 
-// Close on backdrop click
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', e => {
-            if (e.target !== overlay) return;
-            const id = overlay.id.replace('modal-', '');
-            closeModal(id);
+            if (e.target === overlay) {
+                const id = overlay.id.replace('modal-', '');
+                closeModal(id);
+            }
         });
     });
+l
+    document.body.addEventListener('click', e => {
+        const closeBtn = e.target.closest('.modal-close, [data-close-modal]');
+        if (closeBtn) {
+            const overlay = closeBtn.closest('.modal-overlay');
+            if (overlay) {
+                const id = overlay.id.replace('modal-', '');
+                closeModal(id);
+            }
+        }
+    });
 
-    // Close on Escape
     document.addEventListener('keydown', e => {
-        if (e.key !== 'Escape') return;
-        // Close the topmost open modal
-        const openModals = document.querySelectorAll('.modal-overlay.open');
-        if (openModals.length) {
-            const last = openModals[openModals.length - 1];
-            closeModal(last.id.replace('modal-', ''));
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay.open').forEach(overlay => {
+                const id = overlay.id.replace('modal-', '');
+                closeModal(id);
+            });
         }
     });
 });
