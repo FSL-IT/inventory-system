@@ -10,9 +10,11 @@ function getCsrfToken() {
 
 // ===== API FETCH WRAPPER =====
 async function apiFetch(url, options = {}) {
+    const isFormData = options.body instanceof FormData;
+
     const defaults = {
         headers: {
-            'Content-Type': 'application/json',
+            ...( !isFormData ? { 'Content-Type': 'application/json' } : {} ),
             'X-CSRF-Token': getCsrfToken(),
         },
     };
@@ -23,6 +25,8 @@ async function apiFetch(url, options = {}) {
         headers: { ...defaults.headers, ...(options.headers ?? {}) },
     };
 
+    // If caller already set X-CSRF-Token in their own headers (e.g. backup upload),
+    // honour that and don't duplicate it
     const response = await fetch(url, merged);
     const data = await response.json();
 
@@ -105,11 +109,33 @@ function setActiveNav() {
 function globalSearch(value) {
     const path = window.location.pathname;
 
-    if (path.includes('assets')) {
-        const searchEl = document.getElementById('asset_search');
+    if (path.includes('dashboard')) {
+        if (value.trim()) {
+            window.location.href = '/src/views/assets.php?search=' + encodeURIComponent(value.trim());
+        }
+        return;
+    }
 
-        if (searchEl) {
-            searchEl.value = value;
+    const pageMap = [
+        { match: 'assets',          inputId: 'asset_search',    loadFn: () => typeof loadAssets === 'function' && loadAssets(1) },
+        { match: 'purchase_orders', inputId: 'po_search',       loadFn: () => typeof loadPurchaseOrders === 'function' && loadPurchaseOrders(1) },
+        { match: 'vendors',         inputId: 'vendor_search',   loadFn: () => typeof loadVendors === 'function' && loadVendors(1) },
+        { match: 'locations',       inputId: 'location_search', loadFn: () => typeof loadLocations === 'function' && loadLocations(1) },
+        { match: 'categories',      inputId: 'category_search', loadFn: () => typeof loadCategories === 'function' && loadCategories(1) },
+        { match: 'process_owners',  inputId: 'owner_search',    loadFn: () => typeof loadOwners === 'function' && loadOwners(1) },
+        { match: 'audit_logs',      inputId: 'audit_search',    loadFn: () => typeof loadAuditLogs === 'function' && loadAuditLogs(1) },
+        { match: 'users',           inputId: 'user_search',     loadFn: () => typeof loadUsers === 'function' && loadUsers() },
+    ];
+
+    for (const { match, inputId, loadFn } of pageMap) {
+        if (path.includes(match)) {
+            const searchEl = document.getElementById(inputId);
+            if (searchEl) {
+                searchEl.value = value;
+                searchEl.dispatchEvent(new Event('input', { bubbles: true }));
+                loadFn();
+            }
+            break;
         }
     }
 }
