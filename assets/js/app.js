@@ -106,39 +106,56 @@ function setActiveNav() {
 }
 
 // ===== GLOBAL SEARCH =====
+
 function globalSearch(value) {
     const path = window.location.pathname;
-
-    if (path.includes('dashboard')) {
-        if (value.trim()) {
-            window.location.href = '/src/views/assets.php?search=' + encodeURIComponent(value.trim());
-        }
-        return;
-    }
-
-    const pageMap = [
-        { match: 'assets',          inputId: 'asset_search',    loadFn: () => typeof loadAssets === 'function' && loadAssets(1) },
-        { match: 'purchase_orders', inputId: 'po_search',       loadFn: () => typeof loadPurchaseOrders === 'function' && loadPurchaseOrders(1) },
-        { match: 'vendors',         inputId: 'vendor_search',   loadFn: () => typeof loadVendors === 'function' && loadVendors(1) },
-        { match: 'locations',       inputId: 'location_search', loadFn: () => typeof loadLocations === 'function' && loadLocations(1) },
-        { match: 'categories',      inputId: 'category_search', loadFn: () => typeof loadCategories === 'function' && loadCategories(1) },
-        { match: 'process_owners',  inputId: 'owner_search',    loadFn: () => typeof loadOwners === 'function' && loadOwners(1) },
-        { match: 'audit_logs',      inputId: 'audit_search',    loadFn: () => typeof loadAuditLogs === 'function' && loadAuditLogs(1) },
-        { match: 'users',           inputId: 'user_search',     loadFn: () => typeof loadUsers === 'function' && loadUsers() },
-    ];
-
-    for (const { match, inputId, loadFn } of pageMap) {
-        if (path.includes(match)) {
-            const searchEl = document.getElementById(inputId);
-            if (searchEl) {
-                searchEl.value = value;
-                searchEl.dispatchEvent(new Event('input', { bubbles: true }));
-                loadFn();
+    
+    if (path.includes('assets.php')) {
+        const localSearch = document.getElementById('asset_search');
+        if (localSearch) {
+            localSearch.value = value;
+            
+            if (typeof loadAssets === 'function') {
+                clearTimeout(window.globalSearchTimer);
+                window.globalSearchTimer = setTimeout(() => loadAssets(1), 350);
             }
-            break;
         }
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const topbarSearch = document.getElementById('global_search');
+    
+    if (topbarSearch) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchParam = urlParams.get('search');
+        
+        if (searchParam && window.location.pathname.includes('assets.php')) {
+            topbarSearch.value = searchParam;
+            
+            setTimeout(() => {
+                const localSearch = document.getElementById('asset_search');
+                if (localSearch) {
+                    localSearch.value = searchParam;
+                    if (typeof loadAssets === 'function') loadAssets(1);
+                }
+            }, 100);
+        }
+
+        topbarSearch.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const query = e.target.value.trim();
+                const path = window.location.pathname;
+
+                if (!path.includes('assets.php')) {
+                    const baseDir = path.split('/src/')[0];
+                    window.location.href = `${baseDir}/src/views/assets.php?search=${encodeURIComponent(query)}`;
+                }
+            }
+        });
+    }
+});
 
 // ===== LOGOUT =====
 async function logoutUser() {

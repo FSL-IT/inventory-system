@@ -82,10 +82,12 @@ function fetchAssets(): void {
     $params = [];
 
     if ($search) {
-        $where[] = '(a.serial_number LIKE :search
-                    OR a.description LIKE :search
-                    OR po.po_number LIKE :search)';
-        $params[':search'] = "%{$search}%";
+        $where[] = '(a.serial_number LIKE :search1
+                    OR a.description LIKE :search2
+                    OR po.po_number LIKE :search3)';
+        $params[':search1'] = "%{$search}%";
+        $params[':search2'] = "%{$search}%";
+        $params[':search3'] = "%{$search}%";
     }
 
     if ($status && validateEnum($status, ASSET_STATUSES)) {
