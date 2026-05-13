@@ -1,6 +1,37 @@
 // assets/js/backup.js
 
-document.addEventListener('DOMContentLoaded', loadBackupList);
+document.addEventListener('DOMContentLoaded', () => {
+    loadBackupList();
+    initRestoreDropzone();
+});
+
+function initRestoreDropzone() {
+    const zone = document.getElementById('restore_zone');
+    const input = document.getElementById('restore_file');
+    if (!zone || !input) return;
+
+    zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+
+    zone.addEventListener('dragleave', () => {
+        zone.classList.remove('dragover');
+    });
+
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+
+        // Manually assign to the file input and trigger handler
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        uploadRestore(input);
+    });
+}
 
 async function loadBackupList() {
     try {
@@ -14,11 +45,12 @@ async function loadBackupList() {
 function renderBackupTable(backups) {
     const tbody = document.getElementById('backup_list');
 
-    if (!backups.length) {
+    if (!backups || !backups.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="3">
+                <td colspan="4">
                     <div class="empty-state">
+                        <div class="empty-state__icon">🗄️</div>
                         <div class="empty-state__title">No backups yet.</div>
                         <div class="empty-state__desc">
                             Click "Create Backup Now" to generate the first one.
@@ -34,11 +66,19 @@ function renderBackupTable(backups) {
         <tr>
             <td style="font-size:12px">${b.created}</td>
             <td style="font-size:12px">${formatBytes(b.size)}</td>
+            <td style="font-size:12px;font-family:monospace;color:var(--white-3)">${b.filename}</td>
             <td>
                 <div class="table-actions">
+                    <a
+                        class="btn btn-secondary btn-sm"
+                        href="/src/api/backup.php?action=download&filename=${encodeURIComponent(b.filename)}"
+                        title="Download backup">
+                        <i class="bi bi-download"></i>
+                    </a>
                     <button
                         class="btn btn-danger btn-sm"
-                        onclick="confirmRestore('${b.filename}')">
+                        onclick="confirmRestore('${b.filename}')"
+                        title="Restore this backup">
                         <i class="bi bi-arrow-counterclockwise"></i> Restore
                     </button>
                 </div>
@@ -48,6 +88,9 @@ function renderBackupTable(backups) {
 }
 
 async function createBackup() {
+    const btn = document.querySelector('[onclick="createBackup()"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...'; }
+
     try {
         const data = await apiFetch(
             '/src/api/backup.php?action=backup',
@@ -57,13 +100,15 @@ async function createBackup() {
         loadBackupList();
     } catch (err) {
         showToast(err.message ?? 'Backup failed.', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Create Backup Now'; }
     }
 }
 
 function confirmRestore(filename) {
     showConfirm(
         'Restore Database',
-        `Restore from "${filename}"? This will OVERWRITE the current database. Type to confirm.`,
+        `Restore from "${filename}"? This will OVERWRITE the current database and cannot be undone.`,
         () => executeRestore(filename)
     );
 }
@@ -72,13 +117,15 @@ async function executeRestore(filename) {
     showToast('Restore in progress...', 'warning');
 
     try {
-        const formData = new FormData();
         const response = await fetch(
-            '/src/api/backup.php?action=restore',
+            '/src/api/backup.php?action=restore_server',
             {
                 method: 'POST',
-                headers: { 'X-CSRF-Token': getCsrfToken() },
-                body: formData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCsrfToken(),
+                },
+                body: JSON.stringify({ filename }),
             }
         );
         const json = await response.json();
