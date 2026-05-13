@@ -44,13 +44,6 @@ include __DIR__ . '/shared/sidebar.php';
                     Real-time tracking of all received PO inventory assets
                 </div>
             </div>
-            <div class="page-header__right">
-                <button
-                    class="btn btn-primary"
-                    onclick="openAddAsset()">
-                    <i class="bi bi-plus-lg"></i> Add Asset
-                </button>
-            </div>
         </div>
 
         <!-- Stat Cards Row 1 -->

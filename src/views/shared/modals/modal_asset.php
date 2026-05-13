@@ -14,8 +14,6 @@
             </button>
         </div>
         <div class="modal-body">
-            <input id="asset_edit_id">
-
             <div class="modal-section-title">Asset Information</div>
             <div class="field-grid">
                 <div class="form-field">
