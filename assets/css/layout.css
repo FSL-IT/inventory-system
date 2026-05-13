@@ -131,6 +131,12 @@
     color: var(--white-3);
     transition: background 0.15s, color 0.15s;
     border: 1px solid transparent;
+    text-decoration: none !important; 
+}
+
+.nav-item a {
+    text-decoration: none !important;
+    color: inherit !important;
 }
 
 .nav-item:hover {

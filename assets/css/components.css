@@ -633,3 +633,20 @@
     color: var(--red);
     margin-bottom: 12px;
 }
+
+/* ── Reference Table Toolbar ── */
+.table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 0 4px;
+    flex-wrap: wrap;
+}
