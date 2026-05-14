@@ -1,5 +1,3 @@
-// assets/js/audit_logs.js
-
 let auditCurrentPage = 1;
 
 document.addEventListener('DOMContentLoaded', () => loadAuditLogs(1));
@@ -9,7 +7,6 @@ async function loadAuditLogs(page = auditCurrentPage) {
 
     const action = document.getElementById('filter_action')?.value ?? '';
     const tableName = document.getElementById('filter_table')?.value ?? '';
-
     const params = new URLSearchParams({
         page,
         per_page: 25,
@@ -20,11 +17,7 @@ async function loadAuditLogs(page = auditCurrentPage) {
     try {
         const data = await apiFetch(`/src/api/audit_logs.php?${params}`);
         renderAuditLog(data.data);
-        renderPagination(
-            'audit_pagination',
-            data.pagination,
-            'loadAuditLogs'
-        );
+        renderPagination('audit_pagination', data.pagination, 'loadAuditLogs');
     } catch (err) {
         showToast('Failed to load audit logs.', 'error');
     }
@@ -36,7 +29,6 @@ function renderAuditLog(entries) {
     if (!entries.length) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-state__icon">🕐</div>
                 <div class="empty-state__title">No audit entries found</div>
                 <div class="empty-state__desc">
                     Try adjusting the filters above.
@@ -46,22 +38,24 @@ function renderAuditLog(entries) {
         return;
     }
 
-    container.innerHTML = entries.map(a => {
-        const changes = parseChanges(a.changes);
+    container.innerHTML = entries.map(entry => {
+        const changes = parseChanges(entry.changes);
 
         return `
             <div class="audit-item">
-                <div class="audit-badge audit-${a.action}">${a.action}</div>
+                <div class="audit-badge audit-${escapeHtml(entry.action)}">
+                    ${escapeHtml(entry.action)}
+                </div>
                 <div class="audit-body">
                     <div class="audit-desc">
-                        ${buildAuditDesc(a, changes)}
+                        ${buildAuditDesc(entry, changes)}
                     </div>
                     <div class="audit-meta">
-                        <span>👤 ${a.username ?? 'System'}</span>
-                        <span>📋 ${a.table_name}</span>
-                        <span>🔑 ID: ${a.record_id}</span>
-                        <span>🕐 ${formatDate(a.timestamp)}</span>
-                        <span>🌐 ${a.ip_address ?? '—'}</span>
+                        <span>User: ${escapeHtml(entry.username ?? 'System')}</span>
+                        <span>Table: ${escapeHtml(entry.table_name)}</span>
+                        <span>ID: ${escapeHtml(entry.record_id)}</span>
+                        <span>Date: ${formatDate(entry.timestamp)}</span>
+                        <span>IP: ${escapeHtml(entry.ip_address ?? '-')}</span>
                     </div>
                 </div>
             </div>
@@ -79,29 +73,31 @@ function parseChanges(changesJson) {
             ? JSON.parse(changesJson)
             : changesJson;
     } catch (e) {
+        console.error(e);
         return {};
     }
 }
 
 function buildAuditDesc(entry, changes) {
-    const user = `<b>${entry.username ?? 'System'}</b>`;
-    const table = `<b>${entry.table_name}</b>`;
-    const id = `<b>#${entry.record_id}</b>`;
+    const user = `<b>${escapeHtml(entry.username ?? 'System')}</b>`;
+    const table = `<b>${escapeHtml(entry.table_name)}</b>`;
+    const id = `<b>#${escapeHtml(entry.record_id)}</b>`;
 
     if (entry.action === 'INSERT') {
         return `${user} added a new record to ${table} (${id})`;
     }
 
     if (entry.action === 'DELETE') {
-        const action = changes.after?.action ?? 'deleted';
+        const action = escapeHtml(changes.after?.action ?? 'deleted');
+
         return `${user} ${action} record ${id} from ${table}`;
     }
 
-    // UPDATE
     const afterKeys = Object.keys(changes.after ?? {});
 
     if (afterKeys.length) {
-        const changed = afterKeys.join(', ');
+        const changed = escapeHtml(afterKeys.join(', '));
+
         return `${user} updated ${changed} on ${table} record ${id}`;
     }
 

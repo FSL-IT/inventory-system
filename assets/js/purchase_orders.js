@@ -55,19 +55,19 @@ function renderPoTable(pos) {
     tbody.innerHTML = pos.map(p => `
         <tr>
             <td style="font-family:monospace;font-size:11px;color:var(--accent)">
-                ${p.po_number}
+                ${escapeHtml(p.po_number)}
             </td>
-            <td style="font-size:11px">${p.vendor_name ?? '—'}</td>
+            <td style="font-size:11px">${escapeHtml(p.vendor_name ?? '-')}</td>
             <td style="text-align:center;font-weight:700">
-                ${p.asset_count ?? 0}
+                ${escapeHtml(p.asset_count ?? 0)}
             </td>
             <td style="font-size:11px;color:var(--white-3)">
                 ${formatDate(p.date_received)}
             </td>
             <td>
                 ${p.date_endorsed
-                    ? `<span class="tag tag-active">✓ ${formatDate(p.date_endorsed)}</span>`
-                    : `<span class="tag tag-repair">⏳ Pending</span>`
+                    ? `<span class="tag tag-active">${formatDate(p.date_endorsed)}</span>`
+                    : `<span class="tag tag-repair">Pending</span>`
                 }
             </td>
             <td>
@@ -79,7 +79,7 @@ function renderPoTable(pos) {
                     </button>
                     <button
                         class="btn btn-danger btn-sm"
-                        onclick="deletePO(${p.id}, '${p.po_number}')">
+                        onclick="deletePO(${p.id}, '${escapeJsArg(p.po_number)}')">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>

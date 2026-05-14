@@ -29,8 +29,8 @@ function renderOwnerTable(owners) {
 
     tbody.innerHTML = owners.map(o => `
         <tr>
-            <td style="font-weight:500">${o.name}</td>
-            <td>${o.asset_count ?? 0}</td>
+            <td style="font-weight:500">${escapeHtml(o.name)}</td>
+            <td>${escapeHtml(o.asset_count ?? 0)}</td>
             <td style="font-size:11px;color:var(--white-3)">
                 ${formatDate(o.created_at)}
             </td>
@@ -38,12 +38,12 @@ function renderOwnerTable(owners) {
                 <div class="table-actions">
                     <button
                         class="btn btn-secondary btn-sm"
-                        onclick="openEditOwner(${o.id}, '${o.name}')">
+                        onclick="openEditOwner(${o.id}, '${escapeJsArg(o.name)}')">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button
                         class="btn btn-danger btn-sm"
-                        onclick="deleteOwner(${o.id}, '${o.name}')">
+                        onclick="deleteOwner(${o.id}, '${escapeJsArg(o.name)}')">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>

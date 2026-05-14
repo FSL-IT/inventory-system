@@ -28,21 +28,21 @@ function renderCategoryList(categories) {
             padding:10px 0;border-bottom:1px solid var(--border-2)">
             <div style="flex:1">
                 <div style="font-size:13px;font-weight:600;color:var(--white)">
-                    ${c.name}
+                    ${escapeHtml(c.name)}
                 </div>
                 <div style="font-size:11px;color:var(--white-4)">
-                    ${c.asset_count} assets
+                    ${escapeHtml(c.asset_count)} assets
                 </div>
             </div>
             <div class="table-actions">
                 <button
                     class="btn btn-secondary btn-sm"
-                    onclick="openEditCategory(${c.id}, '${c.name}')">
+                    onclick="openEditCategory(${c.id}, '${escapeJsArg(c.name)}')">
                     <i class="bi bi-pencil"></i>
                 </button>
                 <button
                     class="btn btn-danger btn-sm"
-                    onclick="deleteCategory(${c.id}, '${c.name}')">
+                    onclick="deleteCategory(${c.id}, '${escapeJsArg(c.name)}')">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>

@@ -35,14 +35,14 @@ function renderUserTable(users) {
                         background:linear-gradient(135deg,var(--blue-mid),var(--accent));
                         border-radius:50%;display:flex;align-items:center;
                         justify-content:center;font-size:11px;font-weight:700;color:#fff">
-                        ${u.username[0].toUpperCase()}
+                        ${escapeHtml(u.username[0].toUpperCase())}
                     </div>
-                    <span style="font-weight:500">${u.username}</span>
+                    <span style="font-weight:500">${escapeHtml(u.username)}</span>
                 </div>
             </td>
             <td>
                 <span class="tag ${u.role === 'admin' ? 'tag-admin' : 'tag-user'}">
-                    ${u.role}
+                    ${escapeHtml(u.role)}
                 </span>
             </td>
             <td style="font-size:11px;color:var(--white-3)">
@@ -53,13 +53,13 @@ function renderUserTable(users) {
                 <div class="table-actions">
                     <button
                         class="btn btn-secondary btn-sm"
-                        onclick="openEditUser(${u.id}, '${u.username}', '${u.role}')">
+                        onclick="openEditUser(${u.id}, '${escapeJsArg(u.username)}', '${escapeJsArg(u.role)}')">
                         <i class="bi bi-pencil"></i> Edit
                     </button>
                     ${u.username !== 'admin' ? `
                     <button
                         class="btn btn-danger btn-sm"
-                        onclick="deleteUser(${u.id}, '${u.username}')">
+                        onclick="deleteUser(${u.id}, '${escapeJsArg(u.username)}')">
                         <i class="bi bi-trash"></i>
                     </button>
                     ` : ''}

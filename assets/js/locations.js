@@ -29,8 +29,8 @@ function renderLocationTable(locations) {
 
     tbody.innerHTML = locations.map(l => `
         <tr>
-            <td style="font-weight:500">${l.name}</td>
-            <td>${l.asset_count ?? 0}</td>
+            <td style="font-weight:500">${escapeHtml(l.name)}</td>
+            <td>${escapeHtml(l.asset_count ?? 0)}</td>
             <td style="font-size:11px;color:var(--white-3)">
                 ${formatDate(l.created_at)}
             </td>
@@ -38,12 +38,12 @@ function renderLocationTable(locations) {
                 <div class="table-actions">
                     <button
                         class="btn btn-secondary btn-sm"
-                        onclick="openEditLocation(${l.id}, '${l.name}')">
+                        onclick="openEditLocation(${l.id}, '${escapeJsArg(l.name)}')">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button
                         class="btn btn-danger btn-sm"
-                        onclick="deleteLocation(${l.id}, '${l.name}')">
+                        onclick="deleteLocation(${l.id}, '${escapeJsArg(l.name)}')">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>

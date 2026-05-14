@@ -57,11 +57,11 @@ function renderCategoryBreakdown(categories) {
 
         return `
             <div class="cat-bar-row">
-                <div class="cat-bar-label">${cat.name}</div>
+                <div class="cat-bar-label">${escapeHtml(cat.name)}</div>
                 <div class="cat-bar-track">
                     <div class="cat-bar-fill" style="width:${pct}%"></div>
                 </div>
-                <div class="cat-bar-count">${cat.count}</div>
+                <div class="cat-bar-count">${escapeHtml(cat.count)}</div>
             </div>
         `;
     }).join('');
@@ -90,8 +90,8 @@ function renderStatusBreakdown(byStatus, total) {
         return `
             <div class="status-row">
                 <div class="status-dot" style="background:${color}"></div>
-                <div class="status-name">${capitalize(status)}</div>
-                <div class="status-count">${count}</div>
+                <div class="status-name">${escapeHtml(capitalize(status))}</div>
+                <div class="status-count">${escapeHtml(count)}</div>
                 <div class="status-pct">${pct}%</div>
             </div>
         `;
@@ -187,11 +187,11 @@ function renderRecentActivity(activities) {
 
         return `
             <div class="activity-item">
-                <div class="activity-avatar">${initial}</div>
+                <div class="activity-avatar">${escapeHtml(initial)}</div>
                 <div>
-                    <div class="activity-action">${desc}</div>
+                    <div class="activity-action">${escapeHtml(desc)}</div>
                     <div class="activity-time">
-                        ${a.action} · ${formatDate(a.timestamp)}
+                        ${escapeHtml(a.action)} - ${formatDate(a.timestamp)}
                     </div>
                 </div>
             </div>
@@ -219,12 +219,12 @@ function renderTopOwners(owners) {
         return `
             <div class="cat-bar-row">
                 <div class="cat-bar-label" style="font-size:11px">
-                    ${o.name}
+                    ${escapeHtml(o.name)}
                 </div>
                 <div class="cat-bar-track">
                     <div class="cat-bar-fill" style="width:${pct}%"></div>
                 </div>
-                <div class="cat-bar-count">${o.count}</div>
+                <div class="cat-bar-count">${escapeHtml(o.count)}</div>
             </div>
         `;
     }).join('');
@@ -254,7 +254,7 @@ function capitalize(str) {
 function emptyState(msg) {
     return `
         <div class="empty-state">
-            <div class="empty-state__desc">${msg}</div>
+            <div class="empty-state__desc">${escapeHtml(msg)}</div>
         </div>
     `;
 }

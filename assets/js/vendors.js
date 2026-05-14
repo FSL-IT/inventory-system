@@ -29,8 +29,8 @@ function renderVendorTable(vendors) {
 
     tbody.innerHTML = vendors.map(v => `
         <tr>
-            <td style="font-weight:500">${v.name}</td>
-            <td>${v.po_count ?? 0}</td>
+            <td style="font-weight:500">${escapeHtml(v.name)}</td>
+            <td>${escapeHtml(v.po_count ?? 0)}</td>
             <td style="font-size:11px;color:var(--white-3)">
                 ${formatDate(v.created_at)}
             </td>
@@ -38,12 +38,12 @@ function renderVendorTable(vendors) {
                 <div class="table-actions">
                     <button
                         class="btn btn-secondary btn-sm"
-                        onclick="openEditVendor(${v.id}, '${v.name}')">
+                        onclick="openEditVendor(${v.id}, '${escapeJsArg(v.name)}')">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button
                         class="btn btn-danger btn-sm"
-                        onclick="deleteVendor(${v.id}, '${v.name}')">
+                        onclick="deleteVendor(${v.id}, '${escapeJsArg(v.name)}')">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>

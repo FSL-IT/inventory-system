@@ -64,21 +64,21 @@ function renderAssetTable(assets) {
     tbody.innerHTML = assets.map(a => `
         <tr>
             <td>
-                <span class="serial-chip">${a.serial_number}</span>
+                <span class="serial-chip">${escapeHtml(a.serial_number)}</span>
             </td>
-            <td>${a.description}</td>
+            <td>${escapeHtml(a.description)}</td>
             <td>
                 <span class="tag"
                     style="background:var(--navy-5);color:var(--white-2)">
-                    ${a.category_name ?? '—'}
+                    ${escapeHtml(a.category_name ?? '-')}
                 </span>
             </td>
             <td style="font-size:11px;color:var(--white-3);max-width:160px;
                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                ${a.po_number ?? '—'}
+                ${escapeHtml(a.po_number ?? '-')}
             </td>
-            <td style="font-size:11px">${a.location_name ?? '—'}</td>
-            <td style="font-size:11px">${a.owner_name ?? '—'}</td>
+            <td style="font-size:11px">${escapeHtml(a.location_name ?? '-')}</td>
+            <td style="font-size:11px">${escapeHtml(a.owner_name ?? '-')}</td>
             <td>${statusTag(a.status)}</td>
             <td style="font-size:11px;color:var(--white-3)">
                 ${formatDate(a.date_received)}
@@ -97,7 +97,7 @@ function renderAssetTable(assets) {
                     </button>
                     <button
                         class="btn btn-danger btn-sm"
-                        onclick="deleteAsset(${a.id}, '${a.serial_number}')">
+                        onclick="deleteAsset(${a.id}, '${escapeJsArg(a.serial_number)}')">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
@@ -120,7 +120,7 @@ async function viewAsset(id) {
 }
 
 function renderViewModal(a) {
-    document.getElementById('view_asset_title').textContent = `📦 ${a.description}`;
+    document.getElementById('view_asset_title').textContent = a.description;
 
     document.getElementById('view_asset_body').innerHTML = `
         <div class="modal-section-title">Purchase Order Info</div>
@@ -129,14 +129,14 @@ function renderViewModal(a) {
                 <label>PO Number</label>
                 <div class="info-field">
                     <div class="val" style="font-size:11px;font-family:monospace">
-                        ${a.po_number ?? '—'}
+                        ${escapeHtml(a.po_number ?? '-')}
                     </div>
                 </div>
             </div>
             <div class="form-field">
                 <label>Vendor</label>
                 <div class="info-field">
-                    <div class="val">${a.vendor_name ?? '—'}</div>
+                    <div class="val">${escapeHtml(a.vendor_name ?? '-')}</div>
                 </div>
             </div>
         </div>
@@ -159,13 +159,13 @@ function renderViewModal(a) {
             <div class="form-field">
                 <label>Location</label>
                 <div class="info-field">
-                    <div class="val">${a.location_name ?? '—'}</div>
+                    <div class="val">${escapeHtml(a.location_name ?? '-')}</div>
                 </div>
             </div>
             <div class="form-field">
                 <label>Process Owner</label>
                 <div class="info-field">
-                    <div class="val">${a.owner_name ?? '—'}</div>
+                    <div class="val">${escapeHtml(a.owner_name ?? '-')}</div>
                 </div>
             </div>
         </div>
@@ -173,7 +173,7 @@ function renderViewModal(a) {
             <div class="form-field">
                 <label>Category</label>
                 <div class="info-field">
-                    <div class="val">${a.category_name ?? '—'}</div>
+                    <div class="val">${escapeHtml(a.category_name ?? '-')}</div>
                 </div>
             </div>
             <div class="form-field">
@@ -183,12 +183,12 @@ function renderViewModal(a) {
         </div>
         <div class="modal-section-title">Serial Number</div>
         <div style="margin-bottom:14px">
-            <span class="serial-chip">${a.serial_number}</span>
+            <span class="serial-chip">${escapeHtml(a.serial_number)}</span>
         </div>
         <div class="modal-section-title">Remarks</div>
         <div class="info-field">
             <div class="val" style="color:${a.remarks ? 'var(--white)' : 'var(--white-4)'}">
-                ${a.remarks || 'No remarks'}
+                ${escapeHtml(a.remarks || 'No remarks')}
             </div>
         </div>
     `;
