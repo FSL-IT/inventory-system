@@ -1,5 +1,4 @@
 <?php
-// src/api/assets.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/constants.php';
@@ -155,7 +154,7 @@ function fetchAssets(): void {
 function createAsset(): void {
     requireCsrf();
 
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $required = ['serial_number', 'description', 'category_id'];
     $errors = validateRequired($required, $body);
 
@@ -232,7 +231,7 @@ function updateAsset(int $id): void {
         sendError('Asset not found.', 404);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $serial = sanitizeString($body['serial_number'] ?? $old['serial_number']);
     $desc = sanitizeString($body['description'] ?? $old['description']);
     $categoryId = (int) ($body['category_id'] ?? $old['category_id']);

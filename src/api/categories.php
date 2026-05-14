@@ -1,5 +1,4 @@
 <?php
-// src/api/categories.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../core/auth.php';
@@ -17,12 +16,15 @@ if ($method === 'GET') {
     fetchCategories();
 } elseif ($method === 'POST') {
     requireCsrf();
+    requireRole('admin');
     createCategory();
 } elseif ($method === 'PUT') {
     requireCsrf();
+    requireRole('admin');
     updateCategory($id);
 } elseif ($method === 'DELETE') {
     requireCsrf();
+    requireRole('admin');
     deleteCategory($id);
 } else {
     sendError('Method not allowed.', 405);
@@ -43,7 +45,7 @@ function fetchCategories(): void {
 }
 
 function createCategory(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $name = sanitizeString($body['name'] ?? '');
 
     if (!$name) {
@@ -77,7 +79,7 @@ function updateCategory(int $id): void {
         sendError('Category ID required.', 400);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $name = sanitizeString($body['name'] ?? '');
 
     if (!$name) {

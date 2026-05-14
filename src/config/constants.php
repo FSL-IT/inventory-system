@@ -44,3 +44,6 @@ define('EXCEL_IMPORT_HEADERS', [
     'date_endorsed',
     'remarks',
 ]);
+
+define('MAX_IMPORT_FILE_BYTES', 5 * 1024 * 1024);
+define('MAX_BACKUP_FILE_BYTES', 20 * 1024 * 1024);

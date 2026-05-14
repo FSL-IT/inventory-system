@@ -1,5 +1,4 @@
 <?php
-// src/api/users.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/constants.php';
@@ -41,7 +40,7 @@ function fetchUsers(): void {
 }
 
 function createUser(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $username = sanitizeString($body['username'] ?? '');
     $password = $body['password'] ?? '';
     $confirm = $body['confirm_password'] ?? '';
@@ -57,7 +56,11 @@ function createUser(): void {
     }
 
     if (!validatePassword($password)) {
-        sendError('Password must be at least 8 characters.', 422);
+        sendError(
+            'Password must be at least 12 characters and include uppercase, '
+            . 'lowercase, number, and symbol.',
+            422
+        );
     }
 
     if ($password !== $confirm) {
@@ -100,7 +103,7 @@ function updateUser(int $id): void {
         sendError('User ID required.', 400);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $pdo = getDbConnection();
 
     $old = $pdo->prepare(
@@ -126,7 +129,11 @@ function updateUser(int $id): void {
         $pw = $body['password'];
 
         if (!validatePassword($pw)) {
-            sendError('Password must be at least 8 characters.', 422);
+            sendError(
+                'Password must be at least 12 characters and include uppercase, '
+                . 'lowercase, number, and symbol.',
+                422
+            );
         }
 
         if ($pw !== ($body['confirm_password'] ?? '')) {

@@ -1,5 +1,4 @@
 <?php
-// src/api/import_export.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../core/auth.php';
@@ -78,12 +77,7 @@ function handleImport(): void {
     }
 
     $file = $_FILES['import_file'];
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-
-    if ($ext !== 'xlsx') {
-        header('Content-Type: application/json');
-        sendError('Only .xlsx files are accepted.', 422);
-    }
+    validateUploadedFile($file, ['xlsx'], MAX_IMPORT_FILE_BYTES);
 
     $result = importFromExcel($file['tmp_name'], $_SESSION['user_id']);
 

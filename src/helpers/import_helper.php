@@ -127,7 +127,7 @@ function importFromExcel(string $filePath, int $userId): array {
             $result['success']++;
         } catch (PDOException $e) {
             $result['failed']++;
-            $result['errors'][] = "Row {$line}: DB error — " . $e->getMessage();
+            $result['errors'][] = "Row {$line}: Could not save asset.";
         }
     }
 

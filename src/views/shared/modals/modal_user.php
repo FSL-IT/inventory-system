@@ -42,7 +42,7 @@
                 <input
                     type="password"
                     id="user_password"
-                    placeholder="Minimum 8 characters"
+                    placeholder="12+ chars with number and symbol"
                     autocomplete="new-password">
             </div>
             <div class="form-field">
@@ -60,8 +60,8 @@
                         Password Security
                     </div>
                     <div class="insight-card__desc">
-                        Passwords are hashed using bcrypt before storing.
-                        Never stored in plaintext.
+                        Use at least 12 characters with uppercase,
+                        lowercase, number, and symbol.
                     </div>
                 </div>
             </div>

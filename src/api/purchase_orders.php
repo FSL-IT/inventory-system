@@ -1,5 +1,4 @@
 <?php
-// src/api/purchase_orders.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../core/auth.php';
@@ -17,12 +16,15 @@ if ($method === 'GET') {
     fetchPOs();
 } elseif ($method === 'POST') {
     requireCsrf();
+    requireRole('admin');
     createPO();
 } elseif ($method === 'PUT') {
     requireCsrf();
+    requireRole('admin');
     updatePO($id);
 } elseif ($method === 'DELETE') {
     requireCsrf();
+    requireRole('admin');
     deletePO($id);
 } else {
     sendError('Method not allowed.', 405);
@@ -91,7 +93,7 @@ function fetchPOs(): void {
 }
 
 function createPO(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $poNumber = sanitizeString($body['po_number'] ?? '');
 
     if (!$poNumber) {
@@ -115,6 +117,8 @@ function createPO(): void {
     $dateEndorsed = !empty($body['date_endorsed'])
         ? sanitizeString($body['date_endorsed'])
         : null;
+
+    validatePurchaseOrderDates($dateReceived, $dateEndorsed);
 
     $ins = $pdo->prepare('
         INSERT INTO purchase_orders
@@ -143,7 +147,7 @@ function updatePO(int $id): void {
         sendError('PO ID required.', 400);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $pdo = getDbConnection();
     $old = $pdo->prepare(
         'SELECT * FROM purchase_orders WHERE id = :id LIMIT 1'
@@ -161,6 +165,7 @@ function updatePO(int $id): void {
         : $before['vendor_id'];
     $dateReceived = $body['date_received'] ?? $before['date_received'];
     $dateEndorsed = $body['date_endorsed'] ?? $before['date_endorsed'];
+    validatePurchaseOrderDates($dateReceived, $dateEndorsed);
 
     $upd = $pdo->prepare('
         UPDATE purchase_orders
@@ -211,4 +216,14 @@ function deletePO(int $id): void {
     ]);
 
     sendSuccess([], 'Purchase order deleted.');
+}
+
+function validatePurchaseOrderDates(?string $dateReceived, ?string $dateEndorsed): void {
+    if ($dateReceived && !validateDate($dateReceived)) {
+        sendError('Invalid date received.', 422);
+    }
+
+    if ($dateEndorsed && !validateDate($dateEndorsed)) {
+        sendError('Invalid date endorsed.', 422);
+    }
 }

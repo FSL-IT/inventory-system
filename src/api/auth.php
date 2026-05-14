@@ -1,5 +1,4 @@
 <?php
-// src/api/auth.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../core/auth.php';
@@ -14,13 +13,14 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'POST') {
     handleLogin();
 } elseif ($method === 'DELETE') {
+    requireCsrf();
     handleLogout();
 } else {
     sendError('Method not allowed.', 405);
 }
 
 function handleLogin(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $username = sanitizeString($body['username'] ?? '');
     $password = $body['password'] ?? '';
 
@@ -50,9 +50,10 @@ function handleLogin(): void {
 
     session_regenerate_id(true);
 
-    $_SESSION['user_id']  = $user['id'];
+    $_SESSION['user_id'] = (int) $user['id'];
     $_SESSION['username'] = $user['username'];
-    $_SESSION['role']     = $user['role'];
+    $_SESSION['role'] = $user['role'];
+    $_SESSION['last_activity'] = time();
 
     generateCsrfToken();
 
@@ -80,8 +81,7 @@ function handleLogout(): void {
         );
     }
 
-    $_SESSION = [];
-    session_destroy();
+    destroySession();
 
     sendSuccess([], 'Logged out.');
 }

@@ -1,5 +1,4 @@
 <?php
-// src/api/locations.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../core/auth.php';
@@ -17,12 +16,15 @@ if ($method === 'GET') {
     fetchLocations();
 } elseif ($method === 'POST') {
     requireCsrf();
+    requireRole('admin');
     createLocation();
 } elseif ($method === 'PUT') {
     requireCsrf();
+    requireRole('admin');
     updateLocation($id);
 } elseif ($method === 'DELETE') {
     requireCsrf();
+    requireRole('admin');
     deleteLocation($id);
 } else {
     sendError('Method not allowed.', 405);
@@ -42,7 +44,7 @@ function fetchLocations(): void {
 }
 
 function createLocation(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $name = sanitizeString($body['name'] ?? '');
 
     if (!$name) {
@@ -50,6 +52,13 @@ function createLocation(): void {
     }
 
     $pdo = getDbConnection();
+    $dup = $pdo->prepare('SELECT id FROM locations WHERE name = :name LIMIT 1');
+    $dup->execute([':name' => $name]);
+
+    if ($dup->fetch()) {
+        sendError('Location already exists.', 409);
+    }
+
     $ins = $pdo->prepare('INSERT INTO locations (name) VALUES (:name)');
     $ins->execute([':name' => $name]);
     $newId = (int) $pdo->lastInsertId();
@@ -67,7 +76,7 @@ function updateLocation(int $id): void {
         sendError('Location ID required.', 400);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $name = sanitizeString($body['name'] ?? '');
 
     if (!$name) {

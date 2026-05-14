@@ -1,5 +1,4 @@
 <?php
-// src/config/database.php
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
@@ -31,10 +30,11 @@ function getDbConnection(): PDO {
         $pdo = new PDO($dsn, $user, $pass, $options);
     } catch (PDOException $e) {
         http_response_code(500);
+        header('Content-Type: application/json');
         echo json_encode([
             'success' => false,
             'message' => 'Database connection failed.'
-        ]);
+        ], JSON_THROW_ON_ERROR);
         exit;
     }
 

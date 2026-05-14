@@ -1,5 +1,4 @@
 <?php
-// src/api/process_owners.php
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../core/auth.php';
@@ -17,12 +16,15 @@ if ($method === 'GET') {
     fetchOwners();
 } elseif ($method === 'POST') {
     requireCsrf();
+    requireRole('admin');
     createOwner();
 } elseif ($method === 'PUT') {
     requireCsrf();
+    requireRole('admin');
     updateOwner($id);
 } elseif ($method === 'DELETE') {
     requireCsrf();
+    requireRole('admin');
     deleteOwner($id);
 } else {
     sendError('Method not allowed.', 405);
@@ -42,7 +44,7 @@ function fetchOwners(): void {
 }
 
 function createOwner(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $name = sanitizeString($body['name'] ?? '');
 
     if (!$name) {
@@ -50,6 +52,15 @@ function createOwner(): void {
     }
 
     $pdo = getDbConnection();
+    $dup = $pdo->prepare(
+        'SELECT id FROM process_owners WHERE name = :name LIMIT 1'
+    );
+    $dup->execute([':name' => $name]);
+
+    if ($dup->fetch()) {
+        sendError('Process owner already exists.', 409);
+    }
+
     $ins = $pdo->prepare('INSERT INTO process_owners (name) VALUES (:name)');
     $ins->execute([':name' => $name]);
     $newId = (int) $pdo->lastInsertId();
@@ -67,7 +78,7 @@ function updateOwner(int $id): void {
         sendError('Owner ID required.', 400);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
+    $body = getJsonBody();
     $name = sanitizeString($body['name'] ?? '');
 
     if (!$name) {

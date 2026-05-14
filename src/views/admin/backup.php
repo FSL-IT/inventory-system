@@ -19,7 +19,7 @@ include __DIR__ . '/../shared/sidebar.php';
         <div class="topbar__title">Backup &amp; Restore</div>
         <div class="topbar__search">
             <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="global_search" placeholder="Search...">
+            <input type="text" id="global_search" placeholder="Search..." oninput="globalSearch(this.value)">
         </div>
         <div class="topbar__actions">
             <div class="icon-btn"
@@ -55,6 +55,7 @@ include __DIR__ . '/../shared/sidebar.php';
                             <tr>
                                 <th>Date &amp; Time</th>
                                 <th>Size</th>
+                                <th>Filename</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
