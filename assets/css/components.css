@@ -715,3 +715,13 @@
 .sort-active {
     color: var(--accent);
 }
+
+/* Clickable Row UI Enhancement */
+.clickable-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+    background-color: var(--navy-5, rgba(255, 255, 255, 0.05));
+}
