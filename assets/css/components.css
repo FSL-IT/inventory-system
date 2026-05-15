@@ -650,3 +650,68 @@
     padding: 14px 0 4px;
     flex-wrap: wrap;
 }
+
+.cell-mono {
+    font-family: monospace;
+    font-size: 11px;
+}
+
+.cell-accent {
+    color: var(--accent);
+}
+
+.cell-sm {
+    font-size: 11px;
+}
+
+.cell-date {
+    font-size: 11px;
+    color: var(--white-3);
+}
+
+.cell-truncate {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tag-category {
+    background: var(--navy-5);
+    color: var(--white-2);
+}
+
+/* ── View modal value helpers ── */
+.val-mono {
+    font-size: 11px;
+    font-family: monospace;
+}
+
+.val-empty {
+    color: var(--white-4);
+}
+
+.serial-chip-wrap {
+    margin-bottom: 14px;
+}
+
+/* ── Sortable column headers ── */
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sortable-th:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.sort-icon {
+    font-size: 10px;
+    margin-left: 4px;
+    opacity: 0.35;
+}
+
+.sort-active {
+    color: var(--accent);
+}
