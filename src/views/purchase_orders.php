@@ -30,7 +30,7 @@ include __DIR__ . '/shared/sidebar.php';
             <div class="page-header__left">
                 <div class="page-header__title">PO Tracker</div>
                 <div class="page-header__desc">
-                    All purchase orders with endorsement status and delivery info
+                    All purchase orders with endorsement status and info
                 </div>
             </div>
             <div class="page-header__right">

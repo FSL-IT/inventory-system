@@ -3,6 +3,7 @@
 let poCurrentPage = 1;
 let poSort        = 'po.created_at';
 let poDir         = 'desc';
+let currentViewId = null;
 
 // ─── UTILITIES ──────────────────────────────────────────────────────────────
 const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
@@ -39,6 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ─── EVENT HANDLERS (Stops Event Bubbling) ──────────────────────────────────
+function onViewClick(e, id) {
+    e.stopPropagation();
+    viewPO(id);
+}
+
 function onEditClick(e, id) {
     e.stopPropagation();
     openEditPO(id);
@@ -137,6 +143,7 @@ function renderPoCounter(pg) {
     if (!el || !pg) {
         return;
     }
+    
     if (pg.total === 0) { 
         el.textContent = 'No results'; 
         return; 
@@ -192,7 +199,7 @@ function renderPoTable(pos) {
 
         return `
             <tr class="clickable-row" 
-                    onclick="openEditPO(${p.id})">
+                    onclick="viewPO(${p.id})">
                 <td style="font-family:monospace;font-size:12px;
                            color:var(--accent);font-weight:600">
                     ${safePoNum}
@@ -223,6 +230,78 @@ function renderPoTable(pos) {
                 </td>
             </tr>`;
     }).join('');
+}
+
+// ─── VIEW MODAL ─────────────────────────────────────────────────────────────
+async function viewPO(id) {
+    currentViewId = id;
+
+    try {
+        const data = await apiFetch(`/src/api/purchase_orders.php?id=${id}`);
+        renderViewPoModal(data.data);
+        openModal('view_po');
+    } catch (err) {
+        console.error('viewPO error:', err);
+        showToast('Could not load PO details.', 'error');
+    }
+}
+
+function renderViewPoModal(po) {
+    const titleEl = document.getElementById('view_po_title');
+    const bodyEl  = document.getElementById('view_po_body');
+    
+    // Safety check prevents script crashing if HTML is missing
+    if (!titleEl || !bodyEl) {
+        console.error('View modal HTML elements are missing.');
+        return;
+    }
+    
+    titleEl.textContent = `📋 PO: ${po.po_number}`;
+    
+    const dateEndorsed = po.date_endorsed 
+        ? formatDate(po.date_endorsed) 
+        : '⏳ Pending';
+
+    bodyEl.innerHTML = `
+        <div class="modal-section-title">Purchase Order Details</div>
+        <div class="field-grid">
+            <div class="form-field">
+                <label>PO Number</label>
+                <div class="info-field">
+                    <div class="val val-mono">
+                        ${escapeHtml(po.po_number ?? '—')}
+                    </div>
+                </div>
+            </div>
+            <div class="form-field">
+                <label>Vendor</label>
+                <div class="info-field">
+                    <div class="val">
+                        ${escapeHtml(po.vendor_name ?? '—')}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="field-grid">
+            <div class="form-field">
+                <label>Date Received</label>
+                <div class="info-field">
+                    <div class="val">${formatDate(po.date_received)}</div>
+                </div>
+            </div>
+            <div class="form-field">
+                <label>Date Endorsed</label>
+                <div class="info-field">
+                    <div class="val">${dateEndorsed}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function editPoFromView() {
+    closeModal('view_po');
+    openEditPO(currentViewId);
 }
 
 // ─── ADD / EDIT ─────────────────────────────────────────────────────────────
