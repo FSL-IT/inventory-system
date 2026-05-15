@@ -27,13 +27,6 @@ include __DIR__ . '/shared/sidebar.php';
                 placeholder="Search serial #, PO, description..."
                 oninput="globalSearch(this.value)">
         </div>
-        <div class="topbar__actions">
-            <div class="icon-btn" id="notif_btn"
-                onclick="showToast('No new notifications','info')">
-                <i class="bi bi-bell"></i>
-                <span class="notif-dot"></span>
-            </div>
-        </div>
     </div>
 
     <div class="content">

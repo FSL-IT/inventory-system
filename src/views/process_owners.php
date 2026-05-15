@@ -18,15 +18,6 @@ include __DIR__ . '/shared/sidebar.php';
         <div class="topbar__actions">
             <div class="icon-btn" id="notif_btn" onclick="toggleNotifPanel()" style="position:relative">
                 <i class="bi bi-bell"></i>
-                <div class="notif-panel" id="notif_panel" onclick="event.stopPropagation()">
-                    <div class="notif-panel__header">
-                        <span class="notif-panel__title">🔔 Notifications</span>
-                        <button class="notif-mark-all" onclick="markAllNotifsRead()">Mark all read</button>
-                    </div>
-                    <div class="notif-list" id="notif_list">
-                        <div class="notif-empty"><i class="bi bi-bell-slash"></i><span>No new notifications</span></div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
