@@ -725,3 +725,175 @@
 .clickable-row:hover {
     background-color: var(--navy-5, rgba(255, 255, 255, 0.05));
 }
+
+/* User Avatar UI */
+.user-row-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-avatar {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--blue-mid), var(--accent));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.user-name-text {
+    font-weight: 500;
+}
+
+
+/* Password UX & Security UI */
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.pw-toggle-btn {
+    position: absolute;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--white-4, #9ca3af);
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pw-toggle-btn:hover {
+    color: var(--accent, #3b82f6);
+}
+
+.pw-strength-container {
+    margin-top: 8px;
+}
+
+.pw-bar-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.pw-text-sm {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Utilities replacing old inline CSS */
+.text-red { color: var(--red, #ef4444); }
+.text-yellow { color: #facc15; }
+.text-green { color: var(--green, #22c55e); }
+.text-normal { font-weight: 400; text-transform: none; }
+.mb-3 { margin-bottom: 16px; }
+.mt-3 { margin-top: 16px; }
+
+
+/* Layout & UX States */
+.btn-block {
+    width: 100%;
+    display: block;
+    margin-top: 16px;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+/* Password UX & Security UI */
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.input-wrapper input {
+    width: 100%;
+    padding-right: 40px;
+}
+
+.pw-toggle-btn {
+    position: absolute;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--white-4, #9ca3af);
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pw-toggle-btn:hover {
+    color: var(--accent, #3b82f6);
+}
+
+.pw-strength-container {
+    margin-top: 8px;
+}
+
+.pw-bar-bg {
+    height: 4px;
+    background: var(--navy-2, #1e293b);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.pw-bar-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* Utilities (Replacing inline CSS) */
+.modal-sm { max-width: 480px; width: 100%; }
+.pw-text-sm { font-size: 12px; font-weight: 500; }
+.text-red { color: var(--red, #ef4444); }
+.text-yellow { color: #facc15; }
+.text-green { color: var(--green, #22c55e); }
+.text-blue { color: #60a5fa; }
+.text-normal { font-weight: 400; text-transform: none; }
+.mb-3 { margin-bottom: 16px; }
+.mt-3 { margin-top: 16px; }
+
+/* User Avatar UI */
+.user-row-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-avatar {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--blue-mid), var(--accent));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.user-name-text {
+    font-weight: 500;
+}

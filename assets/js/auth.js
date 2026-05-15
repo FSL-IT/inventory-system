@@ -1,53 +1,91 @@
 // assets/js/auth.js
 
+// ─── INIT & EVENT LISTENERS ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const passInput = document.getElementById('login_password');
+    const userInput = document.getElementById('login_username');
+
+    const handleEnter = (e) => {
+        if (e.key === 'Enter') {
+            submitLogin();
+        }
+    };
+
+    if (passInput) {
+        passInput.addEventListener('keypress', handleEnter);
+    }
+    if (userInput) {
+        userInput.addEventListener('keypress', handleEnter);
+    }
+});
+
+// ─── LOGIN LOGIC ────────────────────────────────────────────────────────────
 async function submitLogin() {
-    const username = document.getElementById('login_username').value.trim();
-    const password = document.getElementById('login_password').value;
-    const errorEl = document.getElementById('login_error');
-    const btn = document.getElementById('login_btn');
+    const userEl = document.getElementById('login_username');
+    const passEl = document.getElementById('login_password');
+    const btn    = document.getElementById('login_btn');
 
-    errorEl.classList.add('hidden');
-
-    if (!username || !password) {
-        errorEl.textContent = 'Username and password are required.';
-        errorEl.classList.remove('hidden');
+    if (!userEl || !passEl) {
         return;
     }
 
-    btn.disabled = true;
-    btn.textContent = 'Signing in...';
+    const username = userEl.value.trim();
+    const password = passEl.value;
+
+    if (!username || !password) {
+        showError('Please enter both username and password.');
+        return;
+    }
+
+    if (btn) {
+        btn.disabled  = true;
+        btn.innerHTML = 'Signing In...';
+    }
 
     try {
-        const data = await fetch('/src/api/auth.php', {
+        const data = await apiFetch('/src/api/auth.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
+            body:   JSON.stringify({ username, password })
         });
-
-        const json = await data.json();
-
-        if (!json.success) {
-            throw new Error(json.message);
-        }
 
         window.location.href = '/src/views/dashboard.php';
     } catch (err) {
-        errorEl.textContent = err.message ?? 'Login failed. Try again.';
-        errorEl.classList.remove('hidden');
-        btn.disabled = false;
-        btn.textContent = 'Sign In →';
+        showError(err.message || 'Login failed.');
+        
+        if (btn) {
+            btn.disabled  = false;
+            btn.innerHTML = 'Sign In →';
+        }
     }
 }
 
-// Allow Enter key to submit
-document.addEventListener('DOMContentLoaded', () => {
-    const inputs = document.querySelectorAll('#login_form input');
+// ─── UTILITIES & UI ─────────────────────────────────────────────────────────
+function showError(msg) {
+    const errorEl = document.getElementById('login_error');
+    
+    if (errorEl) {
+        errorEl.textContent = msg;
+        errorEl.classList.remove('hidden');
+    } else {
+        // Fallback to global toast if error div is missing
+        if (typeof showToast === 'function') {
+            showToast(msg, 'error');
+        }
+    }
+}
 
-    inputs.forEach(input => {
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                submitLogin();
-            }
-        });
-    });
-});
+function togglePwVis(inpId, btnEl) {
+    const inp = document.getElementById(inpId);
+    
+    if (!inp) {
+        return;
+    }
+    
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        btnEl.innerHTML = '<i class="bi bi-eye-slash"></i>';
+    } else {
+        inp.type = 'password';
+        btnEl.innerHTML = '<i class="bi bi-eye"></i>';
+    }
+}

@@ -2,6 +2,61 @@
 
 document.addEventListener('DOMContentLoaded', loadUsers);
 
+// ─── UTILITIES ──────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+    if (!str) {
+        return '';
+    }
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function escapeJsStr(str) {
+    if (!str) {
+        return '';
+    }
+    return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
+const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
+
+const safeSetVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.value = val;
+    }
+};
+
+const safeSetText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.textContent = text;
+    }
+};
+
+const toggleClass = (id, className, force) => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.toggle(className, force);
+    }
+};
+
+// ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
+function onEditClick(e, id, username, role) {
+    e.stopPropagation();
+    openEditUser(id, username, role);
+}
+
+function onDeleteClick(e, id, username) {
+    e.stopPropagation();
+    deleteUser(id, username);
+}
+
+// ─── LOAD & RENDER ──────────────────────────────────────────────────────────
 async function loadUsers() {
     try {
         const data = await apiFetch('/src/api/users.php');
@@ -22,95 +77,119 @@ function renderUserTable(users) {
                         <div class="empty-state__title">No users found.</div>
                     </div>
                 </td>
-            </tr>
-        `;
+            </tr>`;
         return;
     }
 
-    tbody.innerHTML = users.map(u => `
-        <tr>
-            <td>
-                <div style="display:flex;align-items:center;gap:8px">
-                    <div style="width:28px;height:28px;
-                        background:linear-gradient(135deg,var(--blue-mid),var(--accent));
-                        border-radius:50%;display:flex;align-items:center;
-                        justify-content:center;font-size:11px;font-weight:700;color:#fff">
-                        ${u.username[0].toUpperCase()}
+    tbody.innerHTML = users.map(u => {
+        const safeUser  = escapeHtml(u.username);
+        const safeRole  = escapeHtml(u.role);
+        const jsUser    = escapeJsStr(u.username);
+        const jsRole    = escapeJsStr(u.role);
+        const initial   = safeUser.charAt(0).toUpperCase();
+        const roleClass = u.role === 'admin' ? 'tag-admin' : 'tag-user';
+        
+        const deleteBtn = u.username !== 'admin' ? `
+            <button class="btn btn-danger btn-sm"
+                    onclick="onDeleteClick(event, ${u.id}, '${jsUser}')">
+                <i class="bi bi-trash"></i>
+            </button>` : '';
+
+        return `
+            <tr class="clickable-row" 
+                    onclick="openEditUser(${u.id}, '${jsUser}', '${jsRole}')">
+                <td>
+                    <div class="user-row-wrapper">
+                        <div class="user-avatar">${initial}</div>
+                        <span class="user-name-text">${safeUser}</span>
                     </div>
-                    <span style="font-weight:500">${u.username}</span>
-                </div>
-            </td>
-            <td>
-                <span class="tag ${u.role === 'admin' ? 'tag-admin' : 'tag-user'}">
-                    ${u.role}
-                </span>
-            </td>
-            <td style="font-size:11px;color:var(--white-3)">
-                ${formatDate(u.created_at)}
-            </td>
-            <td><span class="tag tag-active">● Active</span></td>
-            <td>
-                <div class="table-actions">
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        onclick="openEditUser(${u.id}, '${u.username}', '${u.role}')">
-                        <i class="bi bi-pencil"></i> Edit
-                    </button>
-                    ${u.username !== 'admin' ? `
-                    <button
-                        class="btn btn-danger btn-sm"
-                        onclick="deleteUser(${u.id}, '${u.username}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                    ` : ''}
-                </div>
-            </td>
-        </tr>
-    `).join('');
+                </td>
+                <td>
+                    <span class="tag ${roleClass}">${safeRole}</span>
+                </td>
+                <td class="cell-date">
+                    ${formatDate(u.created_at)}
+                </td>
+                <td>
+                    <span class="tag tag-active">● Active</span>
+                </td>
+                <td>
+                    <div class="table-actions">
+                        <button class="btn btn-secondary btn-sm"
+                                onclick="onEditClick(
+                                    event, ${u.id}, '${jsUser}', '${jsRole}'
+                                )">
+                            <i class="bi bi-pencil"></i> Edit
+                        </button>
+                        ${deleteBtn}
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
 }
 
+// ─── ADD / EDIT / DELETE ────────────────────────────────────────────────────
 function openEditUser(id, username, role) {
-    document.getElementById('user_edit_id').value = id;
-    document.getElementById('user_modal_title').textContent = '✏️ Edit User';
-    document.getElementById('user_username').value = username;
-    document.getElementById('user_username').setAttribute('readonly', true);
-    document.getElementById('user_role').value = role;
-    document.getElementById('user_password').value = '';
-    document.getElementById('user_confirm_password').value = '';
-    document.getElementById('pw_hint').classList.remove('hidden');
+    const unEl = document.getElementById('user_username');
+    
+    safeSetVal('user_edit_id', id);
+    safeSetText('user_modal_title', '✏️ Edit User');
+    safeSetVal('user_role', role);
+    
+    ['user_password', 'user_confirm_password'].forEach(id => {
+        safeSetVal(id, '');
+    });
+    
+    if (unEl) {
+        unEl.value = username;
+        unEl.setAttribute('readonly', true);
+    }
+    
+    toggleClass('pw_hint', 'hidden', false);
     openModal('add_user');
 }
 
 async function saveUser() {
-    const id = document.getElementById('user_edit_id').value;
-    const username = document.getElementById('user_username').value.trim();
-    const role = document.getElementById('user_role').value;
-    const password = document.getElementById('user_password').value;
-    const confirmPassword = document.getElementById('user_confirm_password').value;
+    const id       = getVal('user_edit_id');
+    const username = getVal('user_username');
+    const role     = getVal('user_role');
+    const password = getVal('user_password');
+    const confirm  = getVal('user_confirm_password');
 
     if (!username) {
         showToast('Username is required.', 'error');
         return;
     }
+    
+    if (password && password !== confirm) {
+        showToast('Passwords do not match.', 'error');
+        return;
+    }
 
-    const payload = { username, role };
+    const payload = { 
+        username: username, 
+        role: role 
+    };
 
     if (!id || password) {
         if (!password) {
             showToast('Password is required for new users.', 'error');
             return;
         }
-
-        payload.password = password;
-        payload.confirm_password = confirmPassword;
+        payload.password         = password;
+        payload.confirm_password = confirm;
     }
 
     const isEdit = !!id;
-    const url = isEdit ? `/src/api/users.php?id=${id}` : '/src/api/users.php';
+    const url    = isEdit ? `/src/api/users.php?id=${id}` : '/src/api/users.php';
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
-        await apiFetch(url, { method, body: JSON.stringify(payload) });
+        await apiFetch(url, { 
+            method: method, 
+            body:   JSON.stringify(payload) 
+        });
+        
         closeModal('add_user');
         resetUserForm();
         showToast(`User ${isEdit ? 'updated' : 'created'}.`, 'success');
@@ -121,30 +200,136 @@ async function saveUser() {
 }
 
 function deleteUser(id, username) {
-    showConfirm(
-        'Deactivate User',
-        `Deactivate account "${username}"? They will no longer be able to log in.`,
-        async () => {
-            try {
-                await apiFetch(`/src/api/users.php?id=${id}`, {
-                    method: 'DELETE',
-                });
-                showToast('User deactivated.', 'success');
-                loadUsers();
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
+    const msg = `Deactivate "${username}"? They won't be able to log in.`;
+    
+    showConfirm('Deactivate User', msg, async () => {
+        try {
+            await apiFetch(`/src/api/users.php?id=${id}`, {
+                method: 'DELETE',
+            });
+            showToast('User deactivated.', 'success');
+            loadUsers();
+        } catch (err) {
+            showToast(err.message, 'error');
         }
-    );
+    });
 }
 
 function resetUserForm() {
-    document.getElementById('user_edit_id').value = '';
-    document.getElementById('user_modal_title').textContent = '👤 Add New User';
-    document.getElementById('user_username').value = '';
-    document.getElementById('user_username').removeAttribute('readonly');
-    document.getElementById('user_role').value = 'user';
-    document.getElementById('user_password').value = '';
-    document.getElementById('user_confirm_password').value = '';
-    document.getElementById('pw_hint').classList.add('hidden');
+    const unEl = document.getElementById('user_username');
+    
+    safeSetVal('user_edit_id', '');
+    safeSetText('user_modal_title', '👤 Add New User');
+    safeSetVal('user_role', 'user');
+    
+    ['user_password', 'user_confirm_password'].forEach(id => {
+        safeSetVal(id, '');
+    });
+    
+    if (unEl) {
+        unEl.value = '';
+        unEl.removeAttribute('readonly');
+    }
+    
+    toggleClass('pw_hint', 'hidden', true);
+    
+    const fillEl = document.getElementById('pw_strength_fill');
+    if (fillEl) {
+        fillEl.style.width = '0%';
+    }
+    
+    safeSetText('pw_strength_text', '');
+    safeSetText('pw_match_msg', '');
+    
+    const p1 = document.getElementById('user_password');
+    const p2 = document.getElementById('user_confirm_password');
+    
+    if (p1) {
+        p1.type = 'password';
+    }
+    if (p2) {
+        p2.type = 'password';
+    }
+    
+    document.querySelectorAll('.pw-toggle-btn').forEach(btn => {
+        btn.innerHTML = '<i class="bi bi-eye"></i>';
+    });
+}
+
+// ─── PASSWORD UX & SECURITY ─────────────────────────────────────────────────
+function togglePwVis(inpId, btnEl) {
+    const inp = document.getElementById(inpId);
+    if (!inp) {
+        return;
+    }
+    
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        btnEl.innerHTML = '<i class="bi bi-eye-slash"></i>';
+    } else {
+        inp.type = 'password';
+        btnEl.innerHTML = '<i class="bi bi-eye"></i>';
+    }
+}
+
+function evalPwStrength() {
+    const val  = getVal('user_password');
+    const fill = document.getElementById('pw_strength_fill');
+    const text = document.getElementById('pw_strength_text');
+    
+    if (!fill || !text) {
+        return;
+    }
+    
+    if (!val) {
+        fill.style.width = '0%';
+        text.textContent = '';
+        return;
+    }
+    
+    let score = 0;
+    if (val.length >= 8) { score++; }
+    if (/[A-Z]/.test(val)) { score++; }
+    if (/[0-9]/.test(val)) { score++; }
+    if (/[^A-Za-z0-9]/.test(val)) { score++; }
+    
+    if (score <= 1) {
+        fill.style.width      = '33%';
+        fill.style.background = 'var(--red, #ef4444)';
+        text.textContent      = 'Strength: Weak';
+        text.className        = 'pw-text-sm text-red';
+    } else if (score === 2 || score === 3) {
+        fill.style.width      = '66%';
+        fill.style.background = '#facc15';
+        text.textContent      = 'Strength: Medium';
+        text.className        = 'pw-text-sm text-yellow';
+    } else {
+        fill.style.width      = '100%';
+        fill.style.background = 'var(--green, #22c55e)';
+        text.textContent      = 'Strength: Strong';
+        text.className        = 'pw-text-sm text-green';
+    }
+}
+
+function checkPwMatch() {
+    const p1  = getVal('user_password');
+    const p2  = getVal('user_confirm_password');
+    const msg = document.getElementById('pw_match_msg');
+    
+    if (!msg) {
+        return;
+    }
+    
+    if (!p2) {
+        msg.textContent = '';
+        return;
+    }
+    
+    if (p1 === p2) {
+        msg.textContent = 'Passwords match';
+        msg.className   = 'pw-text-sm text-green mt-3';
+    } else {
+        msg.textContent = 'Passwords do not match';
+        msg.className   = 'pw-text-sm text-red mt-3';
+    }
 }
