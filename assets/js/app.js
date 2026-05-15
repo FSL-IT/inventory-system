@@ -1,7 +1,7 @@
 // assets/js/app.js
 // Global utilities: CSRF, toast, sidebar, search, logout
 
-let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
 // ===== CSRF =====
 function getCsrfToken() {
@@ -14,7 +14,7 @@ async function apiFetch(url, options = {}) {
 
     const defaults = {
         headers: {
-            ...( !isFormData ? { 'Content-Type': 'application/json' } : {} ),
+            ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
             'X-CSRF-Token': getCsrfToken(),
         },
     };
@@ -25,8 +25,6 @@ async function apiFetch(url, options = {}) {
         headers: { ...defaults.headers, ...(options.headers ?? {}) },
     };
 
-    // If caller already set X-CSRF-Token in their own headers (e.g. backup upload),
-    // honour that and don't duplicate it
     const response = await fetch(url, merged);
     const data = await response.json();
 
@@ -47,12 +45,12 @@ function showToast(msg, type = 'info') {
     };
 
     const container = document.getElementById('toast_container');
-    const toast = document.createElement('div');
+    const toast     = document.createElement('div');
 
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
+    toast.className   = `toast toast-${type}`;
+    toast.innerHTML   = `
         <span>${iconMap[type] ?? 'ℹ️'}</span>
-        <span>${msg}</span>
+        <span>${escapeHtml(msg)}</span>
     `;
 
     container.appendChild(toast);
@@ -63,13 +61,19 @@ function showToast(msg, type = 'info') {
     }, 3500);
 }
 
+// ===== ESCAPE HTML (output sanitization) =====
+function escapeHtml(str) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(str).replace(/[&<>"']/g, ch => map[ch]);
+}
+
 // ===== SIDEBAR TOGGLE =====
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    let overlay = document.querySelector('.sidebar-overlay');
+    let overlay   = document.querySelector('.sidebar-overlay');
 
     if (!overlay) {
-        overlay = document.createElement('div');
+        overlay         = document.createElement('div');
         overlay.className = 'sidebar-overlay';
         overlay.onclick = closeSidebar;
         document.body.appendChild(overlay);
@@ -92,11 +96,12 @@ function closeSidebar() {
 
 // ===== ACTIVE NAV HIGHLIGHT =====
 function setActiveNav() {
-    const path = window.location.pathname;
+    const path     = window.location.pathname;
     const navItems = document.querySelectorAll('.nav-item');
 
     navItems.forEach(item => {
         item.classList.remove('active');
+
         const href = item.getAttribute('href') ?? '';
 
         if (path.includes(href) && href.length > 1) {
@@ -106,63 +111,49 @@ function setActiveNav() {
 }
 
 // ===== GLOBAL SEARCH =====
-
 function globalSearch(value) {
-    const path = window.location.pathname;
-    
-    if (path.includes('assets.php')) {
-        const localSearch = document.getElementById('asset_search');
-        if (localSearch) {
-            localSearch.value = value;
-            
-            if (typeof loadAssets === 'function') {
-                clearTimeout(window.globalSearchTimer);
-                window.globalSearchTimer = setTimeout(() => loadAssets(1), 350);
-            }
+    const path    = window.location.pathname;
+
+    // Dashboard: no asset table — navigate to Inventory Search
+    if (path.includes('dashboard') && value.trim()) {
+        window.location.href = '/src/views/assets.php?search=' + encodeURIComponent(value.trim());
+        return;
+    }
+
+    const pageMap = [
+        { match: 'assets',          inputId: 'asset_search',    loadFn: () => typeof loadAssets === 'function' && loadAssets(1) },
+        { match: 'purchase_orders', inputId: 'po_search',       loadFn: () => typeof loadPOs === 'function' && loadPOs(1) },
+        { match: 'vendors',         inputId: 'vendor_search',   loadFn: () => typeof loadVendors === 'function' && loadVendors(1) },
+        { match: 'locations',       inputId: 'location_search', loadFn: () => typeof loadLocations === 'function' && loadLocations(1) },
+        { match: 'categories',      inputId: 'category_search', loadFn: () => typeof loadCategories === 'function' && loadCategories(1) },
+        { match: 'process_owners',  inputId: 'owner_search',    loadFn: () => typeof loadOwners === 'function' && loadOwners(1) },
+        { match: 'audit_logs',      inputId: 'audit_search',    loadFn: () => typeof loadAuditLogs === 'function' && loadAuditLogs(1) },
+        { match: 'users',           inputId: 'user_search',     loadFn: () => typeof loadUsers === 'function' && loadUsers() },
+    ];
+
+    for (const { match, inputId, loadFn } of pageMap) {
+        if (!path.includes(match)) {
+            continue;
         }
+
+        const searchEl = document.getElementById(inputId);
+
+        if (searchEl) {
+            searchEl.value = value;
+            searchEl.dispatchEvent(new Event('input', { bubbles: true }));
+            loadFn();
+        }
+
+        break;
     }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    const topbarSearch = document.getElementById('global_search');
-    
-    if (topbarSearch) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const searchParam = urlParams.get('search');
-        
-        if (searchParam && window.location.pathname.includes('assets.php')) {
-            topbarSearch.value = searchParam;
-            
-            setTimeout(() => {
-                const localSearch = document.getElementById('asset_search');
-                if (localSearch) {
-                    localSearch.value = searchParam;
-                    if (typeof loadAssets === 'function') loadAssets(1);
-                }
-            }, 100);
-        }
-
-        topbarSearch.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const query = e.target.value.trim();
-                const path = window.location.pathname;
-
-                if (!path.includes('assets.php')) {
-                    const baseDir = path.split('/src/')[0];
-                    window.location.href = `${baseDir}/src/views/assets.php?search=${encodeURIComponent(query)}`;
-                }
-            }
-        });
-    }
-});
 
 // ===== LOGOUT =====
 async function logoutUser() {
     try {
         await apiFetch('/src/api/auth.php', { method: 'DELETE' });
-    } catch (e) {
-        // Always redirect on logout attempt
+    } catch {
+        // Always redirect regardless of error
     }
 
     window.location.href = '/src/views/auth/login.php';
@@ -188,7 +179,7 @@ function renderPagination(containerId, pagination, loadFn) {
 
     const { page, pages, total, per_page } = pagination;
     const start = (page - 1) * per_page + 1;
-    const end = Math.min(page * per_page, total);
+    const end   = Math.min(page * per_page, total);
 
     let html = `<span>${start}–${end} of ${total}</span>`;
 
@@ -202,7 +193,7 @@ function renderPagination(containerId, pagination, loadFn) {
     `;
 
     const startPage = Math.max(1, page - 2);
-    const endPage = Math.min(pages, page + 2);
+    const endPage   = Math.min(pages, page + 2);
 
     for (let i = startPage; i <= endPage; i++) {
         html += `
@@ -247,7 +238,7 @@ function statusTag(status) {
     };
 
     const cls = classMap[status] ?? '';
-    const lbl = labelMap[status] ?? status;
+    const lbl = labelMap[status] ?? escapeHtml(status);
 
     return `<span class="tag ${cls}">${lbl}</span>`;
 }

@@ -103,10 +103,10 @@ function renderPoTable(pos) {
 
     tbody.innerHTML = pos.map(p => `
         <tr>
-            <td style="font-family:monospace;font-size:12px;color:var(--accent);font-weight:600">
-                ${p.po_number}
+            <td class="cell-mono cell-accent">
+                ${escapeHtml(p.po_number)}
             </td>
-            <td style="font-size:12px">${p.vendor_name ?? '—'}</td>
+            <td class="cell-sm">${escapeHtml(p.vendor_name ?? '—')}</td>
             <td style="text-align:center">
                 <span class="tag" style="background:var(--blue-dim);color:var(--blue-tag)">
                     ${p.asset_count ?? 0}
@@ -144,20 +144,22 @@ function openAddPO() {
 
 async function openEditPO(id) {
     try {
+        // FIX: use direct id fetch instead of pagination hack
         const data = await apiFetch(`/src/api/purchase_orders.php?id=${id}`);
         const po   = data.data;
-        document.getElementById('po_edit_id').value           = id;
+
+        document.getElementById('po_edit_id').value       = id;
         document.getElementById('po_modal_title').textContent = '✏️ Edit Purchase Order';
-        document.getElementById('po_number').value            = po.po_number;
-        document.getElementById('po_vendor').value            = po.vendor_id      ?? '';
-        document.getElementById('po_date_received').value     = po.date_received  ?? '';
-        document.getElementById('po_date_endorsed').value     = po.date_endorsed  ?? '';
+        document.getElementById('po_number').value        = po.po_number;
+        document.getElementById('po_vendor').value        = po.vendor_id      ?? '';
+        document.getElementById('po_date_received').value = po.date_received  ?? '';
+        document.getElementById('po_date_endorsed').value = po.date_endorsed  ?? '';
         openModal('add_po');
     } catch (err) {
+        console.error('openEditPO error:', err);
         showToast('Could not load PO for editing.', 'error');
     }
 }
-
 async function savePO() {
     const id           = document.getElementById('po_edit_id').value;
     const poNumber     = document.getElementById('po_number').value.trim();

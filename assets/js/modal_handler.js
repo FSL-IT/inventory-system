@@ -25,11 +25,11 @@ function closeModal(id) {
 
 function showConfirm(title, desc, onConfirm) {
     const titleEl = document.getElementById('confirm_title');
-    const descEl = document.getElementById('confirm_desc');
-    const btn = document.getElementById('confirm_action_btn');
+    const descEl  = document.getElementById('confirm_desc');
+    const btn     = document.getElementById('confirm_action_btn');
 
     if (titleEl) titleEl.textContent = title;
-    if (descEl) descEl.textContent = desc;
+    if (descEl)  descEl.textContent  = desc;
 
     if (btn) {
         btn.onclick = () => {
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-l
+
     document.body.addEventListener('click', e => {
         const closeBtn = e.target.closest('.modal-close, [data-close-modal]');
         if (closeBtn) {
@@ -64,7 +64,8 @@ l
 
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-            document.querySelectorAll('.modal-overlay.open').forEach(overlay => {
+            const modals = document.querySelectorAll('.modal-overlay.open');
+            modals.forEach(overlay => {
                 const id = overlay.id.replace('modal-', '');
                 closeModal(id);
             });
