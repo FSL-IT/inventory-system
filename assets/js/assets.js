@@ -8,13 +8,17 @@ let currentViewId = null;
 // ─── UTILITIES ──────────────────────────────────────────────────────────────
 const safeSetVal = (id, val) => {
     const el = document.getElementById(id);
-    if (el) el.value = val;
+    if (el) {
+        el.value = val;
+    }
 };
 
 const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
 
 function escapeHtml(str) {
-    if (!str) return '';
+    if (!str) {
+        return '';
+    }
     return String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -35,12 +39,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (urlSearch) {
         const searchEl = document.getElementById('asset_search');
-        if (searchEl) searchEl.value = urlSearch;
+        if (searchEl) {
+            searchEl.value = urlSearch;
+        }
     }
 
     loadAssets(1);
     populateAssetFormDropdowns();
 });
+
+// ─── EVENT HANDLERS (Stops Event Bubbling) ──────────────────────────────────
+function onViewClick(e, id) {
+    e.stopPropagation();
+    viewAsset(id);
+}
+
+function onEditClick(e, id) {
+    e.stopPropagation();
+    openEditAsset(id);
+}
+
+function onDeleteClick(e, id, serial) {
+    e.stopPropagation();
+    deleteAsset(id, serial);
+}
 
 // ─── SORT & FILTERS ─────────────────────────────────────────────────────────
 function sortAssets(col) {
@@ -106,9 +128,11 @@ async function loadAssets(page = currentPage) {
     tbody.innerHTML = `
         <tr>
             <td colspan="9" 
-                style="text-align:center;padding:30px;color:var(--white-4)">
+                    style="text-align:center;padding:30px;
+                           color:var(--white-4)">
                 <i class="bi bi-arrow-repeat" 
-                   style="animation:spin 1s linear infinite"></i> Loading...
+                        style="animation:spin 1s linear infinite"></i> 
+                Loading...
             </td>
         </tr>`;
 
@@ -125,7 +149,9 @@ async function loadAssets(page = currentPage) {
 
 function renderCounter(pg) {
     const el = document.getElementById('asset_counter');
-    if (!el || !pg) return;
+    if (!el || !pg) {
+        return;
+    }
     
     if (pg.total === 0) { 
         el.textContent = 'No results'; 
@@ -146,7 +172,9 @@ function renderAssetTable(assets) {
                 <td colspan="9">
                     <div class="empty-state">
                         <div class="empty-state__icon">📦</div>
-                        <div class="empty-state__title">No assets found</div>
+                        <div class="empty-state__title">
+                            No assets found
+                        </div>
                         <div class="empty-state__desc">
                             Try adjusting your search or filters.
                         </div>
@@ -159,18 +187,21 @@ function renderAssetTable(assets) {
     const isAdminUser = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
 
     tbody.innerHTML = assets.map(a => {
+        const safeSn = escapeHtml(a.serial_number);
+        
         const adminBtn = isAdminUser ? `
             <button class="btn btn-danger btn-sm" 
-                    onclick="deleteAsset(${a.id}, 
-                    '${escapeHtml(a.serial_number)}')" title="Delete">
+                    onclick="onDeleteClick(event, ${a.id}, '${safeSn}')" 
+                    title="Delete">
                 <i class="bi bi-trash"></i>
             </button>` : '';
 
         return `
-            <tr>
+            <tr class="clickable-row" 
+                    onclick="viewAsset(${a.id})">
                 <td>
                     <span class="serial-chip">
-                        ${escapeHtml(a.serial_number)}
+                        ${safeSn}
                     </span>
                 </td>
                 <td>${escapeHtml(a.description)}</td>
@@ -193,11 +224,13 @@ function renderAssetTable(assets) {
                 <td>
                     <div class="table-actions">
                         <button class="btn btn-secondary btn-sm"
-                                onclick="viewAsset(${a.id})">
+                                onclick="onViewClick(event, ${a.id})"
+                                title="View Details">
                             <i class="bi bi-eye"></i>
                         </button>
                         <button class="btn btn-secondary btn-sm"
-                                onclick="openEditAsset(${a.id})">
+                                onclick="onEditClick(event, ${a.id})"
+                                title="Edit Asset">
                             <i class="bi bi-pencil"></i>
                         </button>
                         ${adminBtn}
@@ -319,7 +352,9 @@ function openAddAsset() {
     safeSetVal('asset_status', 'active');
     
     const serialEl = document.getElementById('asset_serial');
-    if (serialEl) serialEl.removeAttribute('readonly');
+    if (serialEl) {
+        serialEl.removeAttribute('readonly');
+    }
     
     openModal('add_asset');
 }
@@ -344,7 +379,9 @@ async function openEditAsset(id) {
         safeSetVal('asset_remarks',  a.remarks     ?? '');
 
         const serialEl = document.getElementById('asset_serial');
-        if (serialEl) serialEl.setAttribute('readonly', true);
+        if (serialEl) {
+            serialEl.setAttribute('readonly', true);
+        }
         
         openModal('add_asset');
     } catch (err) {
@@ -381,7 +418,8 @@ async function saveAsset() {
     };
 
     const isEdit = !!id;
-    const url    = isEdit ? `/src/api/assets.php?id=${id}` : '/src/api/assets.php';
+    const url    = isEdit ? `/src/api/assets.php?id=${id}` 
+                          : '/src/api/assets.php';
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
@@ -435,7 +473,9 @@ async function populateAssetFormDropdowns() {
 
 async function populateSelect(selId, url, valKey, lblKey, extraKey = null) {
     const el = document.getElementById(selId);
-    if (!el) return;
+    if (!el) {
+        return;
+    }
 
     try {
         const data  = await apiFetch(`${url}?per_page=500`);
@@ -486,10 +526,14 @@ function openImportModal() {
     safeSetVal('import_file', '');
     
     const zoneLabel = document.getElementById('import_zone_label');
-    if (zoneLabel) zoneLabel.textContent = 'Drop your .xlsx file here';
+    if (zoneLabel) {
+        zoneLabel.textContent = 'Drop your .xlsx file here';
+    }
     
     const submitBtn = document.getElementById('import_submit_btn');
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+    }
     
     showImportStep('upload');
     openModal('import_assets');
@@ -498,23 +542,33 @@ function openImportModal() {
 function showImportStep(step) {
     ['upload','progress','results'].forEach(s => {
         const el = document.getElementById(`import_step_${s}`);
-        if (el) el.style.display = s === step ? '' : 'none';
+        if (el) {
+            el.style.display = s === step ? '' : 'none';
+        }
     });
         
     const footer = document.getElementById('import_modal_footer');
-    if (!footer) return;
+    if (!footer) {
+        return;
+    }
     
     if (step === 'results') {
         footer.innerHTML = `
             <button class="btn btn-secondary" 
-                    onclick="closeModal('import_assets')">Close</button>
+                    onclick="closeModal('import_assets')">
+                Close
+            </button>
             <button class="btn btn-primary" 
-                    onclick="openImportModal()">Import Another</button>
+                    onclick="openImportModal()">
+                Import Another
+            </button>
         `;
     } else if (step === 'upload') {
         footer.innerHTML = `
             <button class="btn btn-secondary" 
-                    onclick="closeModal('import_assets')">Cancel</button>
+                    onclick="closeModal('import_assets')">
+                Cancel
+            </button>
         `;
     } else {
         footer.innerHTML = '';
@@ -523,7 +577,9 @@ function showImportStep(step) {
 
 function onImportFileSelected(input) {
     const file = input.files[0];
-    if (!file) return;
+    if (!file) {
+        return;
+    }
     
     if (!file.name.endsWith('.xlsx')) { 
         showToast('Only .xlsx files are accepted.', 'error'); 
@@ -544,14 +600,18 @@ function onImportFileSelected(input) {
     }
     
     const submitBtn = document.getElementById('import_submit_btn');
-    if (submitBtn) submitBtn.disabled = false;
+    if (submitBtn) {
+        submitBtn.disabled = false;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const zone = document.getElementById('import_drop_zone');
     const inp  = document.getElementById('import_file');
     
-    if (!zone || !inp) return;
+    if (!zone || !inp) {
+        return;
+    }
     
     zone.addEventListener('dragover', e => { 
         e.preventDefault(); 
@@ -567,7 +627,9 @@ document.addEventListener('DOMContentLoaded', () => {
         zone.classList.remove('dragover');
         
         const f = e.dataTransfer.files[0]; 
-        if (!f) return;
+        if (!f) {
+            return;
+        }
         
         const dt = new DataTransfer(); 
         dt.items.add(f); 
@@ -578,7 +640,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function submitImport() {
-    if (!importFile) return;
+    if (!importFile) {
+        return;
+    }
     showImportStep('progress');
     
     const fd = new FormData();
@@ -600,7 +664,9 @@ async function submitImport() {
         renderImportResults(json.data);
         showImportStep('results');
         
-        if (json.data.success > 0) loadAssets(1);
+        if (json.data.success > 0) {
+            loadAssets(1);
+        }
     } catch (err) {
         showImportStep('upload');
         showToast(err.message ?? 'Import failed.', 'error');
