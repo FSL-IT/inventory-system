@@ -14,37 +14,35 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'POST') {
     handleLogin();
 } elseif ($method === 'DELETE') {
+    // Require CSRF token to prevent cross-site logout attacks
+    requireCsrf();
     handleLogout();
 } else {
     sendError('Method not allowed.', 405);
 }
 
-function handleLogin(): void
+function handleLogin(): void 
 {
-    $ip   = getClientIp();
-    checkLoginRateLimit($ip);
-
     $body     = json_decode(file_get_contents('php://input'), true);
     $username = sanitizeString($body['username'] ?? '');
     $password = $body['password'] ?? '';
 
-    $errors = validateRequired(
-        ['username', 'password'],
-        ['username' => $username, 'password' => $password]
-    );
+    $errors = validateRequired(['username', 'password'], [
+        'username' => $username,
+        'password' => $password,
+    ]);
 
     if ($errors) {
         sendError(implode(' ', $errors), 422);
     }
 
     $pdo  = getDbConnection();
-    $stmt = $pdo->prepare(
-        'SELECT id, username, password_hash, role
-         FROM users
-         WHERE username = :username
-           AND deleted_at IS NULL
-         LIMIT 1'
-    );
+    $stmt = $pdo->prepare('
+        SELECT id, username, password_hash, role
+        FROM users
+        WHERE username = :username AND deleted_at IS NULL
+        LIMIT 1
+    ');
     $stmt->execute([':username' => $username]);
     $user = $stmt->fetch();
 
@@ -52,7 +50,6 @@ function handleLogin(): void
         sendError('Invalid username or password.', 401);
     }
 
-    clearLoginRateLimit($ip);
     session_regenerate_id(true);
 
     $_SESSION['user_id']  = $user['id'];
@@ -68,26 +65,33 @@ function handleLogin(): void
 
     sendSuccess([
         'user_id'    => $user['id'],
-        'username'   => htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8'),
+        'username'   => $user['username'],
         'role'       => $user['role'],
         'csrf_token' => $_SESSION['csrf_token'],
     ], 'Login successful.');
 }
 
-function handleLogout(): void
+function handleLogout(): void 
 {
     if (isLoggedIn()) {
         logAudit(
-            $_SESSION['user_id'],
-            'DELETE',
-            'users',
-            $_SESSION['user_id'],
+            $_SESSION['user_id'], 'DELETE', 'users', $_SESSION['user_id'],
             ['before' => [], 'after' => ['event' => 'logout']]
         );
     }
 
+    // Deep session destruction: clear data and force cookie expiration
     $_SESSION = [];
+    
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(), '', time() - 42000,
+            $params["path"], $params["domain"], 
+            $params["secure"], $params["httponly"]
+        );
+    }
+    
     session_destroy();
-
     sendSuccess([], 'Logged out.');
 }
