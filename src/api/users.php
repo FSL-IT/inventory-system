@@ -12,7 +12,7 @@ requireRole('admin');
 header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
-$id = getQueryInt('id');
+$id     = getQueryInt('id');
 
 if ($method === 'GET') {
     fetchUsers();
@@ -29,7 +29,8 @@ if ($method === 'GET') {
     sendError('Method not allowed.', 405);
 }
 
-function fetchUsers(): void {
+function fetchUsers(): void 
+{
     $pdo = getDbConnection();
     $sql = '
         SELECT id, username, role, created_at, updated_at
@@ -40,12 +41,14 @@ function fetchUsers(): void {
     sendSuccess($pdo->query($sql)->fetchAll());
 }
 
-function createUser(): void {
+function createUser(): void 
+{
     $body = json_decode(file_get_contents('php://input'), true);
-    $username = sanitizeString($body['username'] ?? '');
-    $password = $body['password'] ?? '';
-    $confirm = $body['confirm_password'] ?? '';
-    $role = sanitizeString($body['role'] ?? 'user');
+    
+    $username         = sanitizeString($body['username'] ?? '');
+    $password         = $body['password'] ?? '';
+    $confirm_password = $body['confirm_password'] ?? ''; 
+    $role             = sanitizeString($body['role'] ?? 'user');
 
     $errors = validateRequired(
         ['username', 'password', 'confirm_password'],
@@ -60,7 +63,7 @@ function createUser(): void {
         sendError('Password must be at least 8 characters.', 422);
     }
 
-    if ($password !== $confirm) {
+    if ($password !== $confirm_password) {
         sendError('Passwords do not match.', 422);
     }
 
@@ -81,10 +84,16 @@ function createUser(): void {
     $cost = (int) ($_ENV['BCRYPT_COST'] ?? 12);
     $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => $cost]);
 
-    $ins = $pdo->prepare(
-        'INSERT INTO users (username, password_hash, role) VALUES (:u, :h, :r)'
-    );
-    $ins->execute([':u' => $username, ':h' => $hash, ':r' => $role]);
+    $ins = $pdo->prepare('
+        INSERT INTO users (username, password_hash, role) 
+        VALUES (:u, :h, :r)
+    ');
+    $ins->execute([
+        ':u' => $username, 
+        ':h' => $hash, 
+        ':r' => $role
+    ]);
+    
     $newId = (int) $pdo->lastInsertId();
 
     logAudit($_SESSION['user_id'], 'INSERT', 'users', $newId, [
@@ -95,13 +104,14 @@ function createUser(): void {
     sendSuccess(['id' => $newId], 'User created.');
 }
 
-function updateUser(int $id): void {
+function updateUser(int $id): void 
+{
     if (!$id) {
         sendError('User ID required.', 400);
     }
 
     $body = json_decode(file_get_contents('php://input'), true);
-    $pdo = getDbConnection();
+    $pdo  = getDbConnection();
 
     $old = $pdo->prepare(
         'SELECT * FROM users WHERE id = :id AND deleted_at IS NULL LIMIT 1'
@@ -118,8 +128,12 @@ function updateUser(int $id): void {
     if (!validateEnum($role, USER_ROLES)) {
         sendError('Invalid role.', 422);
     }
+    
+    if ($id === $_SESSION['user_id'] && $role !== 'admin') {
+        sendError('You cannot demote your own admin account.', 403);
+    }
 
-    $sets = ['role = :role'];
+    $sets   = ['role = :role'];
     $params = [':role' => $role, ':id' => $id];
 
     if (!empty($body['password'])) {
@@ -135,7 +149,10 @@ function updateUser(int $id): void {
 
         $cost = (int) ($_ENV['BCRYPT_COST'] ?? 12);
         $sets[] = 'password_hash = :hash';
-        $params[':hash'] = password_hash($pw, PASSWORD_BCRYPT, ['cost' => $cost]);
+        
+        $params[':hash'] = password_hash(
+            $pw, PASSWORD_BCRYPT, ['cost' => $cost]
+        );
     }
 
     $sql = 'UPDATE users SET ' . implode(', ', $sets) . ' WHERE id = :id';
@@ -150,7 +167,8 @@ function updateUser(int $id): void {
     sendSuccess([], 'User updated.');
 }
 
-function softDeleteUser(int $id): void {
+function softDeleteUser(int $id): void 
+{
     if (!$id) {
         sendError('User ID required.', 400);
     }
@@ -170,9 +188,7 @@ function softDeleteUser(int $id): void {
         sendError('User not found.', 404);
     }
 
-    $del = $pdo->prepare(
-        'UPDATE users SET deleted_at = NOW() WHERE id = :id'
-    );
+    $del = $pdo->prepare('UPDATE users SET deleted_at = NOW() WHERE id = :id');
     $del->execute([':id' => $id]);
 
     logAudit($_SESSION['user_id'], 'DELETE', 'users', $id, [
