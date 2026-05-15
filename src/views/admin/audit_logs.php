@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../../src/core/auth.php';
 requireRole('admin');
 
 $pageTitle = 'Activity History';
-$pageJs = 'audit_logs.js';
+$pageJs    = 'audit_logs.js';
 
 include __DIR__ . '/../shared/header.php';
 include __DIR__ . '/../shared/sidebar.php';
@@ -19,11 +19,13 @@ include __DIR__ . '/../shared/sidebar.php';
         <div class="topbar__title">Activity History</div>
         <div class="topbar__search">
             <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="global_search" placeholder="Search..." oninput="globalSearch(this.value)">
+            <input type="text" id="global_search" 
+                    placeholder="Search..." 
+                    oninput="globalSearch(this.value)">
         </div>
         <div class="topbar__actions">
             <div class="icon-btn"
-                onclick="showToast('No notifications','info')">
+                    onclick="showToast('No notifications','info')">
                 <i class="bi bi-bell"></i>
             </div>
         </div>
@@ -38,19 +40,15 @@ include __DIR__ . '/../shared/sidebar.php';
                 </div>
             </div>
             <div class="page-header__right">
-                <select
-                    class="filter-select"
-                    id="filter_action"
-                    onchange="loadAuditLogs()">
+                <select class="filter-select" id="filter_action"
+                        onchange="loadAuditLogs()">
                     <option value="">All Actions</option>
                     <option value="INSERT">INSERT</option>
                     <option value="UPDATE">UPDATE</option>
                     <option value="DELETE">DELETE</option>
                 </select>
-                <select
-                    class="filter-select"
-                    id="filter_table"
-                    onchange="loadAuditLogs()">
+                <select class="filter-select" id="filter_table"
+                        onchange="loadAuditLogs()">
                     <option value="">All Tables</option>
                     <option value="assets">assets</option>
                     <option value="users">users</option>
@@ -64,11 +62,33 @@ include __DIR__ . '/../shared/sidebar.php';
 
         <div class="table-wrapper">
             <div class="table-scroll">
-                <div id="audit_log_list" style="padding:8px 0">
+                <div id="audit_log_list" class="audit-container">
                     <p class="text-center py-4">Loading audit logs...</p>
                 </div>
             </div>
             <div class="table-pagination" id="audit_pagination"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-audit_detail">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <div class="modal-title" id="audit_modal_title">
+                Activity Details
+            </div>
+            <button class="modal-close"
+                    onclick="closeModal('audit_detail')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="audit_modal_body">
+            </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary"
+                    onclick="closeModal('audit_detail')">
+                Close
+            </button>
         </div>
     </div>
 </div>
