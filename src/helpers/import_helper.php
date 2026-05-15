@@ -19,24 +19,23 @@ function importFromExcel(string $filePath, int $userId): array
     $result = ['success' => 0, 'failed' => 0, 'errors' => []];
 
     try {
-        // Use chunk reading to avoid loading entire file into memory
         $reader = new XlsxReader();
         $reader->setReadDataOnly(true);
-
-        // Read just the first row to validate headers, then stream the rest
-        $reader->setLoadSheetsOnly(null); // all sheets
+        $reader->setLoadSheetsOnly(null); 
         $spreadsheet = $reader->load($filePath);
     } catch (Throwable $e) {
-        return array_merge($result, ['errors' => ['Could not read file: ' . $e->getMessage()]]);
+        $result['errors'][] = 'Could not read file: ' . $e->getMessage();
+        return $result;
     }
 
     $sheet = $spreadsheet->getActiveSheet();
 
-    // Get header row
+    // Converts "Serial Number" to "serial_number" to match expected template
     $headerRow = [];
     foreach ($sheet->getRowIterator(1, 1) as $row) {
         foreach ($row->getCellIterator() as $cell) {
-            $headerRow[] = strtolower(trim((string) $cell->getValue()));
+            $rawVal = strtolower(trim((string) $cell->getValue()));
+            $headerRow[] = str_replace(' ', '_', $rawVal);
         }
     }
 
@@ -44,24 +43,21 @@ function importFromExcel(string $filePath, int $userId): array
     $missing  = array_diff($required, $headerRow);
 
     if (!empty($missing)) {
-        return array_merge($result, [
-            'errors' => ['Missing required columns: ' . implode(', ', $missing)]
-        ]);
+        $result['errors'][] = 'Missing columns: ' . implode(', ', $missing);
+        return $result;
     }
 
     // Build column index map (0-based)
     $colMap = array_flip($headerRow);
-
-    $pdo = getDbConnection();
-
-    // Stream rows — avoids toArray() which loads everything
+    $pdo    = getDbConnection();
+    
     $highestRow = $sheet->getHighestDataRow();
 
     for ($rowNum = 2; $rowNum <= $highestRow; $rowNum++) {
         $rowData = [];
         foreach ($colMap as $colName => $colIdx) {
             // PhpSpreadsheet uses 1-based column index
-            $cell      = $sheet->getCellByColumnAndRow($colIdx + 1, $rowNum);
+            $cell = $sheet->getCellByColumnAndRow($colIdx + 1, $rowNum);
             $rowData[$colName] = trim((string) $cell->getValue());
         }
 
@@ -70,30 +66,44 @@ function importFromExcel(string $filePath, int $userId): array
         $catName = sanitizeString($rowData['category']      ?? '');
 
         // Skip fully empty rows
-        if ($serial === '' && $desc === '' && $catName === '') continue;
+        if ($serial === '' && $desc === '' && $catName === '') {
+            continue;
+        }
 
         if (!$serial || !$desc || !$catName) {
             $result['failed']++;
-            $result['errors'][] = "Row {$rowNum}: serial_number, description, and category are required.";
+            $result['errors'][] = "Row {$rowNum}: serial, desc, and cat req.";
             continue;
         }
 
         $status = sanitizeString($rowData['status'] ?? 'active');
-        if (!validateEnum($status, ASSET_STATUSES)) $status = 'active';
+        if (!validateEnum($status, ASSET_STATUSES)) {
+            $status = 'active';
+        }
 
+        // Clean string extractions to abide by 80-char limits
+        $vendorStr = sanitizeString($rowData['vendor']        ?? '');
+        $locStr    = sanitizeString($rowData['location']      ?? '');
+        $ownerStr  = sanitizeString($rowData['process_owner'] ?? '');
+        $poStr     = sanitizeString($rowData['po_number']     ?? '');
+        $remarks   = sanitizeString($rowData['remarks']       ?? '');
+
+        // Resolve relational IDs
         $categoryId = getOrCreateCategory($pdo, $catName, $userId);
-        $vendorId   = resolveVendor($pdo, sanitizeString($rowData['vendor']         ?? ''));
-        $locationId = resolveLocation($pdo, sanitizeString($rowData['location']      ?? ''));
-        $ownerId    = resolveOwner($pdo, sanitizeString($rowData['process_owner']    ?? ''));
-        $poId       = resolvePo($pdo, sanitizeString($rowData['po_number']           ?? ''), $vendorId);
-        $remarks    = sanitizeString($rowData['remarks'] ?? '');
+        $vendorId   = resolveVendor($pdo, $vendorStr);
+        $locationId = resolveLocation($pdo, $locStr);
+        $ownerId    = resolveOwner($pdo, $ownerStr);
+        $poId       = resolvePo($pdo, $poStr, $vendorId);
 
         // Check duplicate
-        $chk = $pdo->prepare('SELECT id FROM assets WHERE serial_number = :sn LIMIT 1');
+        $chk = $pdo->prepare(
+            'SELECT id FROM assets WHERE serial_number = :sn LIMIT 1'
+        );
         $chk->execute([':sn' => $serial]);
+        
         if ($chk->fetch()) {
             $result['failed']++;
-            $result['errors'][] = "Row {$rowNum}: Serial '{$serial}' already exists — skipped.";
+            $result['errors'][] = "Row {$rowNum}: SN '{$serial}' exists.";
             continue;
         }
 
@@ -109,7 +119,7 @@ function importFromExcel(string $filePath, int $userId): array
             $ins->execute([
                 ':sn'       => $serial,
                 ':desc'     => $desc,
-                ':po_id'    => $poId    ?: null,
+                ':po_id'    => $poId       ?: null,
                 ':cat_id'   => $categoryId,
                 ':loc_id'   => $locationId ?: null,
                 ':owner_id' => $ownerId    ?: null,
@@ -122,14 +132,14 @@ function importFromExcel(string $filePath, int $userId): array
                 'before' => [],
                 'after'  => compact('serial', 'desc', 'status', 'categoryId'),
             ]);
+            
             $result['success']++;
         } catch (PDOException $e) {
             $result['failed']++;
-            $result['errors'][] = "Row {$rowNum}: DB error — " . $e->getMessage();
+            $result['errors'][] = "Row {$rowNum}: DB err - " . $e->getMessage();
         }
     }
 
-    // Free memory
     $spreadsheet->disconnectWorksheets();
     unset($spreadsheet);
 
@@ -138,23 +148,29 @@ function importFromExcel(string $filePath, int $userId): array
 
 function getOrCreateCategory(PDO $pdo, string $name, int $userId): int
 {
-    $stmt = $pdo->prepare('SELECT id FROM categories WHERE name = :name LIMIT 1');
-    $stmt->execute([':name' => $name]);
+    $stmt = $pdo->prepare('SELECT id FROM categories WHERE name = :n LIMIT 1');
+    $stmt->execute([':n' => $name]);
     $row = $stmt->fetch();
+    
     if ($row) return (int) $row['id'];
 
-    $ins = $pdo->prepare('INSERT INTO categories (name) VALUES (:name)');
-    $ins->execute([':name' => $name]);
+    $ins = $pdo->prepare('INSERT INTO categories (name) VALUES (:n)');
+    $ins->execute([':n' => $name]);
     $newId = (int) $pdo->lastInsertId();
-    logAudit($userId, 'INSERT', 'categories', $newId, ['before' => [], 'after' => ['name' => $name]]);
+    
+    logAudit($userId, 'INSERT', 'categories', $newId, [
+        'before' => [], 
+        'after'  => ['name' => $name]
+    ]);
+    
     return $newId;
 }
 
 function resolveVendor(PDO $pdo, string $name): ?int
 {
     if (!$name) return null;
-    $stmt = $pdo->prepare('SELECT id FROM vendors WHERE name = :name LIMIT 1');
-    $stmt->execute([':name' => $name]);
+    $stmt = $pdo->prepare('SELECT id FROM vendors WHERE name = :n LIMIT 1');
+    $stmt->execute([':n' => $name]);
     $row = $stmt->fetch();
     return $row ? (int) $row['id'] : null;
 }
@@ -162,8 +178,8 @@ function resolveVendor(PDO $pdo, string $name): ?int
 function resolveLocation(PDO $pdo, string $name): ?int
 {
     if (!$name) return null;
-    $stmt = $pdo->prepare('SELECT id FROM locations WHERE name = :name LIMIT 1');
-    $stmt->execute([':name' => $name]);
+    $stmt = $pdo->prepare('SELECT id FROM locations WHERE name = :n LIMIT 1');
+    $stmt->execute([':n' => $name]);
     $row = $stmt->fetch();
     return $row ? (int) $row['id'] : null;
 }
@@ -171,8 +187,10 @@ function resolveLocation(PDO $pdo, string $name): ?int
 function resolveOwner(PDO $pdo, string $name): ?int
 {
     if (!$name) return null;
-    $stmt = $pdo->prepare('SELECT id FROM process_owners WHERE name = :name LIMIT 1');
-    $stmt->execute([':name' => $name]);
+    $stmt = $pdo->prepare('
+        SELECT id FROM process_owners WHERE name = :n LIMIT 1
+    ');
+    $stmt->execute([':n' => $name]);
     $row = $stmt->fetch();
     return $row ? (int) $row['id'] : null;
 }
@@ -180,12 +198,18 @@ function resolveOwner(PDO $pdo, string $name): ?int
 function resolvePo(PDO $pdo, string $poNumber, ?int $vendorId): ?int
 {
     if (!$poNumber) return null;
-    $stmt = $pdo->prepare('SELECT id FROM purchase_orders WHERE po_number = :po LIMIT 1');
+    $stmt = $pdo->prepare('
+        SELECT id FROM purchase_orders WHERE po_number = :po LIMIT 1
+    ');
     $stmt->execute([':po' => $poNumber]);
     $row = $stmt->fetch();
+    
     if ($row) return (int) $row['id'];
 
-    $ins = $pdo->prepare('INSERT INTO purchase_orders (vendor_id, po_number) VALUES (:vid, :po)');
+    $ins = $pdo->prepare('
+        INSERT INTO purchase_orders (vendor_id, po_number) 
+        VALUES (:vid, :po)
+    ');
     $ins->execute([':vid' => $vendorId, ':po' => $poNumber]);
     return (int) $pdo->lastInsertId();
 }

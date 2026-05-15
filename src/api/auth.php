@@ -19,21 +19,25 @@ if ($method === 'POST') {
     sendError('Method not allowed.', 405);
 }
 
-function handleLogin(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+function handleLogin(): void
+{
+    $ip   = getClientIp();
+    checkLoginRateLimit($ip);
+
+    $body     = json_decode(file_get_contents('php://input'), true);
     $username = sanitizeString($body['username'] ?? '');
     $password = $body['password'] ?? '';
 
-    $errors = validateRequired(['username', 'password'], [
-        'username' => $username,
-        'password' => $password,
-    ]);
+    $errors = validateRequired(
+        ['username', 'password'],
+        ['username' => $username, 'password' => $password]
+    );
 
     if ($errors) {
         sendError(implode(' ', $errors), 422);
     }
 
-    $pdo = getDbConnection();
+    $pdo  = getDbConnection();
     $stmt = $pdo->prepare(
         'SELECT id, username, password_hash, role
          FROM users
@@ -48,6 +52,7 @@ function handleLogin(): void {
         sendError('Invalid username or password.', 401);
     }
 
+    clearLoginRateLimit($ip);
     session_regenerate_id(true);
 
     $_SESSION['user_id']  = $user['id'];
@@ -63,13 +68,14 @@ function handleLogin(): void {
 
     sendSuccess([
         'user_id'    => $user['id'],
-        'username'   => $user['username'],
+        'username'   => htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8'),
         'role'       => $user['role'],
         'csrf_token' => $_SESSION['csrf_token'],
     ], 'Login successful.');
 }
 
-function handleLogout(): void {
+function handleLogout(): void
+{
     if (isLoggedIn()) {
         logAudit(
             $_SESSION['user_id'],

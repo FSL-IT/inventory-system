@@ -12,13 +12,14 @@ requireLogin();
 header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
-$id = getQueryInt('id');
+$id     = getQueryInt('id');
 
 if ($method === 'GET' && $id) {
     fetchSingleAsset($id);
 } elseif ($method === 'GET') {
     fetchAssets();
 } elseif ($method === 'POST') {
+    requireCsrf();   // FIX: was missing
     createAsset();
 } elseif ($method === 'PUT') {
     requireCsrf();
@@ -30,9 +31,10 @@ if ($method === 'GET' && $id) {
     sendError('Method not allowed.', 405);
 }
 
-function fetchSingleAsset(int $id): void {
-    $pdo = getDbConnection();
-    $sql = "
+function fetchSingleAsset(int $id): void
+{
+    $pdo  = getDbConnection();
+    $sql  = '
         SELECT
             a.id, a.serial_number, a.description, a.status, a.remarks,
             a.created_at, a.updated_at,
@@ -43,19 +45,19 @@ function fetchSingleAsset(int $id): void {
             o.id   AS owner_id,
             o.name AS owner_name,
             po.id        AS po_id,
-            po.po_number AS po_number,
+            po.po_number,
             po.date_received, po.date_endorsed,
             v.id   AS vendor_id,
             v.name AS vendor_name
         FROM assets a
-        LEFT JOIN categories     c  ON a.category_id = c.id
-        LEFT JOIN locations      l  ON a.location_id  = l.id
-        LEFT JOIN process_owners o  ON a.owner_id     = o.id
-        LEFT JOIN purchase_orders po ON a.po_id       = po.id
-        LEFT JOIN vendors         v  ON po.vendor_id  = v.id
+        LEFT JOIN categories      c  ON a.category_id = c.id
+        LEFT JOIN locations       l  ON a.location_id  = l.id
+        LEFT JOIN process_owners  o  ON a.owner_id     = o.id
+        LEFT JOIN purchase_orders po ON a.po_id        = po.id
+        LEFT JOIN vendors         v  ON po.vendor_id   = v.id
         WHERE a.id = :id AND a.deleted_at IS NULL
         LIMIT 1
-    ";
+    ';
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':id' => $id]);
     $row = $stmt->fetch();
@@ -67,69 +69,66 @@ function fetchSingleAsset(int $id): void {
     sendSuccess($row);
 }
 
-function fetchAssets(): void {
-    $pdo = getDbConnection();
-
+function fetchAssets(): void
+{
+    $pdo        = getDbConnection();
     $search     = getQueryString('search');
     $status     = getQueryString('status');
     $categoryId = getQueryInt('category_id');
     $locationId = getQueryInt('location_id');
-    $ownerId    = getQueryInt('owner_id');
-
-    $allowedSorts = ['a.serial_number','a.description','a.status','a.created_at',
-                     'c.name','l.name','o.name','po.date_received'];
-    $sortRaw = getQueryString('sort') ?: 'a.created_at';
-    $sort    = in_array($sortRaw, $allowedSorts) ? $sortRaw : 'a.created_at';
-    $dir     = getQueryString('dir') === 'asc' ? 'ASC' : 'DESC';
-
-    $page    = max(1, getQueryInt('page', 1));
-    $perPage = min(100, max(5, getQueryInt('per_page', 25)));
-    $offset  = ($page - 1) * $perPage;
+    $page       = max(1, getQueryInt('page', 1));
+    $perPage    = min(100, max(10, getQueryInt('per_page', 25)));
+    $offset     = ($page - 1) * $perPage;
 
     $where  = ['a.deleted_at IS NULL'];
     $params = [];
 
     if ($search) {
-        $where[] = '(a.serial_number LIKE :s1 OR a.description LIKE :s2 OR po.po_number LIKE :s3 OR v.name LIKE :s4)';
-        $params[':s1'] = $params[':s2'] = $params[':s3'] = $params[':s4'] = "%{$search}%";
+        $where[]           = '(a.serial_number LIKE :search
+                               OR a.description LIKE :search
+                               OR po.po_number LIKE :search)';
+        $params[':search'] = "%{$search}%";
     }
+
     if ($status && validateEnum($status, ASSET_STATUSES)) {
-        $where[] = 'a.status = :status';
+        $where[]           = 'a.status = :status';
         $params[':status'] = $status;
     }
+
     if ($categoryId) {
-        $where[] = 'a.category_id = :cat_id';
-        $params[':cat_id'] = $categoryId;
+        $where[]            = 'a.category_id = :cat_id';
+        $params[':cat_id']  = $categoryId;
     }
+
     if ($locationId) {
-        $where[] = 'a.location_id = :loc_id';
-        $params[':loc_id'] = $locationId;
-    }
-    if ($ownerId) {
-        $where[] = 'a.owner_id = :owner_id';
-        $params[':owner_id'] = $ownerId;
+        $where[]            = 'a.location_id = :loc_id';
+        $params[':loc_id']  = $locationId;
     }
 
     $whereClause = 'WHERE ' . implode(' AND ', $where);
 
-    $countSql = "SELECT COUNT(*) FROM assets a
-                 LEFT JOIN purchase_orders po ON a.po_id = po.id
-                 LEFT JOIN vendors v ON po.vendor_id = v.id
-                 {$whereClause}";
+    $countSql  = "SELECT COUNT(*) FROM assets a
+                  LEFT JOIN purchase_orders po ON a.po_id = po.id
+                  {$whereClause}";
     $countStmt = $pdo->prepare($countSql);
     $countStmt->execute($params);
-    $total = (int) $countStmt->fetchColumn();
+    $total     = (int) $countStmt->fetchColumn();
 
     $sql = "
         SELECT
             a.id, a.serial_number, a.description, a.status, a.remarks,
             a.created_at, a.updated_at,
-            c.id   AS category_id,   c.name AS category_name,
-            l.id   AS location_id,   l.name AS location_name,
-            o.id   AS owner_id,      o.name AS owner_name,
-            po.id  AS po_id,         po.po_number,
-            po.date_received,        po.date_endorsed,
-            v.id   AS vendor_id,     v.name AS vendor_name
+            c.id   AS category_id,
+            c.name AS category_name,
+            l.id   AS location_id,
+            l.name AS location_name,
+            o.id   AS owner_id,
+            o.name AS owner_name,
+            po.id        AS po_id,
+            po.po_number,
+            po.date_received, po.date_endorsed,
+            v.id   AS vendor_id,
+            v.name AS vendor_name
         FROM assets a
         LEFT JOIN categories      c  ON a.category_id = c.id
         LEFT JOIN locations       l  ON a.location_id  = l.id
@@ -137,12 +136,16 @@ function fetchAssets(): void {
         LEFT JOIN purchase_orders po ON a.po_id        = po.id
         LEFT JOIN vendors         v  ON po.vendor_id   = v.id
         {$whereClause}
-        ORDER BY {$sort} {$dir}
+        ORDER BY a.created_at DESC
         LIMIT :limit OFFSET :offset
     ";
 
     $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $v2) $stmt->bindValue($k, $v2);
+
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
+
     $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
     $stmt->execute();
@@ -150,31 +153,30 @@ function fetchAssets(): void {
     sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
 }
 
-function createAsset(): void {
-    requireCsrf();
-
-    $body = json_decode(file_get_contents('php://input'), true);
+function createAsset(): void
+{
+    $body     = json_decode(file_get_contents('php://input'), true);
     $required = ['serial_number', 'description', 'category_id'];
-    $errors = validateRequired($required, $body);
+    $errors   = validateRequired($required, $body);
 
     if ($errors) {
         sendError(implode(' ', $errors), 422);
     }
 
-    $serial = sanitizeString($body['serial_number']);
-    $desc = sanitizeString($body['description']);
+    $serial     = sanitizeString($body['serial_number']);
+    $desc       = sanitizeString($body['description']);
     $categoryId = (int) $body['category_id'];
-    $status = sanitizeString($body['status'] ?? 'active');
+    $status     = sanitizeString($body['status'] ?? 'active');
     $locationId = !empty($body['location_id']) ? (int) $body['location_id'] : null;
-    $ownerId = !empty($body['owner_id']) ? (int) $body['owner_id'] : null;
-    $poId = !empty($body['po_id']) ? (int) $body['po_id'] : null;
-    $remarks = sanitizeString($body['remarks'] ?? '');
+    $ownerId    = !empty($body['owner_id'])    ? (int) $body['owner_id']    : null;
+    $poId       = !empty($body['po_id'])       ? (int) $body['po_id']       : null;
+    $remarks    = sanitizeString($body['remarks'] ?? '');
 
     if (!validateEnum($status, ASSET_STATUSES)) {
         sendError('Invalid status value.', 422);
     }
 
-    $pdo = getDbConnection();
+    $pdo      = getDbConnection();
     $dupCheck = $pdo->prepare(
         'SELECT id FROM assets WHERE serial_number = :sn LIMIT 1'
     );
@@ -184,16 +186,14 @@ function createAsset(): void {
         sendError('Serial number already exists.', 409);
     }
 
-    $sql = '
+    $stmt = $pdo->prepare('
         INSERT INTO assets
             (serial_number, description, po_id, category_id,
              location_id, owner_id, remarks, status)
         VALUES
             (:sn, :desc, :po_id, :cat_id,
              :loc_id, :owner_id, :remarks, :status)
-    ';
-
-    $stmt = $pdo->prepare($sql);
+    ');
     $stmt->execute([
         ':sn'       => $serial,
         ':desc'     => $desc,
@@ -214,12 +214,13 @@ function createAsset(): void {
     sendSuccess(['id' => $newId], 'Asset created successfully.');
 }
 
-function updateAsset(int $id): void {
+function updateAsset(int $id): void
+{
     if (!$id) {
         sendError('Asset ID is required.', 400);
     }
 
-    $pdo = getDbConnection();
+    $pdo     = getDbConnection();
     $oldStmt = $pdo->prepare(
         'SELECT * FROM assets WHERE id = :id AND deleted_at IS NULL LIMIT 1'
     );
@@ -230,27 +231,27 @@ function updateAsset(int $id): void {
         sendError('Asset not found.', 404);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
-    $serial = sanitizeString($body['serial_number'] ?? $old['serial_number']);
-    $desc = sanitizeString($body['description'] ?? $old['description']);
-    $categoryId = (int) ($body['category_id'] ?? $old['category_id']);
-    $status = sanitizeString($body['status'] ?? $old['status']);
+    $body       = json_decode(file_get_contents('php://input'), true);
+    $serial     = sanitizeString($body['serial_number'] ?? $old['serial_number']);
+    $desc       = sanitizeString($body['description']   ?? $old['description']);
+    $categoryId = (int) ($body['category_id']           ?? $old['category_id']);
+    $status     = sanitizeString($body['status']        ?? $old['status']);
     $locationId = isset($body['location_id'])
         ? ((int) $body['location_id'] ?: null)
         : $old['location_id'];
-    $ownerId = isset($body['owner_id'])
+    $ownerId    = isset($body['owner_id'])
         ? ((int) $body['owner_id'] ?: null)
         : $old['owner_id'];
-    $poId = isset($body['po_id'])
+    $poId       = isset($body['po_id'])
         ? ((int) $body['po_id'] ?: null)
         : $old['po_id'];
-    $remarks = sanitizeString($body['remarks'] ?? $old['remarks']);
+    $remarks    = sanitizeString($body['remarks'] ?? $old['remarks']);
 
     if (!validateEnum($status, ASSET_STATUSES)) {
         sendError('Invalid status value.', 422);
     }
 
-    $sql = '
+    $stmt = $pdo->prepare('
         UPDATE assets SET
             serial_number = :sn,
             description   = :desc,
@@ -261,9 +262,7 @@ function updateAsset(int $id): void {
             remarks       = :remarks,
             status        = :status
         WHERE id = :id
-    ';
-
-    $stmt = $pdo->prepare($sql);
+    ');
     $stmt->execute([
         ':sn'       => $serial,
         ':desc'     => $desc,
@@ -284,12 +283,13 @@ function updateAsset(int $id): void {
     sendSuccess([], 'Asset updated successfully.');
 }
 
-function deleteAsset(int $id): void {
+function deleteAsset(int $id): void
+{
     if (!$id) {
         sendError('Asset ID is required.', 400);
     }
 
-    $pdo = getDbConnection();
+    $pdo  = getDbConnection();
     $stmt = $pdo->prepare(
         'SELECT * FROM assets WHERE id = :id AND deleted_at IS NULL LIMIT 1'
     );
@@ -306,9 +306,7 @@ function deleteAsset(int $id): void {
         $action = 'DELETE (hard)';
     } else {
         $del = $pdo->prepare(
-            "UPDATE assets
-             SET deleted_at = NOW(), status = 'retired'
-             WHERE id = :id"
+            "UPDATE assets SET deleted_at = NOW(), status = 'retired' WHERE id = :id"
         );
         $del->execute([':id' => $id]);
         $action = 'DELETE (soft)';

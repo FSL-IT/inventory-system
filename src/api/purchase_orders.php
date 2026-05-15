@@ -30,17 +30,23 @@ if ($method === 'GET' && $id) {
     sendError('Method not allowed.', 405);
 }
 
-function fetchSinglePO(int $id): void {
+function fetchSinglePO(int $id): void
+{
     $pdo  = getDbConnection();
-    $stmt = $pdo->prepare("
+    $stmt = $pdo->prepare('
         SELECT po.*, v.id AS vendor_id, v.name AS vendor_name
         FROM purchase_orders po
         LEFT JOIN vendors v ON po.vendor_id = v.id
-        WHERE po.id = :id LIMIT 1
-    ");
+        WHERE po.id = :id
+        LIMIT 1
+    ');
     $stmt->execute([':id' => $id]);
     $row = $stmt->fetch();
-    if (!$row) sendError('PO not found.', 404);
+
+    if (!$row) {
+        sendError('Purchase order not found.', 404);
+    }
+
     sendSuccess($row);
 }
 
