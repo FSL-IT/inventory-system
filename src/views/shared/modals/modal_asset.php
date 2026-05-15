@@ -1,6 +1,3 @@
-<?php // src/views/shared/modals/modal_asset.php ?>
-
-<!-- Add / Edit Asset Modal -->
 <div class="modal-overlay" id="modal-add_asset">
     <div class="modal" style="max-width:720px">
         <div class="modal-header">
@@ -14,17 +11,23 @@
             </button>
         </div>
         <div class="modal-body">
+            <input type="hidden" id="asset_edit_id" value="">
+
             <div class="modal-section-title">Asset Information</div>
             <div class="field-grid">
                 <div class="form-field">
-                    <label for="asset_serial">Serial Number *</label>
+                    <label for="asset_serial">
+                        Serial Number <span style="color:var(--red)">*</span>
+                    </label>
                     <input
                         type="text"
                         id="asset_serial"
                         placeholder="e.g. 5CD432D87V">
                 </div>
                 <div class="form-field">
-                    <label for="asset_desc">Description *</label>
+                    <label for="asset_desc">
+                        Description <span style="color:var(--red)">*</span>
+                    </label>
                     <input
                         type="text"
                         id="asset_desc"
@@ -33,7 +36,9 @@
             </div>
             <div class="field-grid">
                 <div class="form-field">
-                    <label for="asset_category">Category *</label>
+                    <label for="asset_category">
+                        Category <span style="color:var(--red)">*</span>
+                    </label>
                     <select id="asset_category">
                         <option value="">— Select Category —</option>
                     </select>
@@ -108,7 +113,6 @@
     </div>
 </div>
 
-<!-- View Asset Modal -->
 <div class="modal-overlay" id="modal-view_asset">
     <div class="modal" style="max-width:680px">
         <div class="modal-header">
