@@ -224,11 +224,6 @@ function renderAssetTable(assets) {
                 <td>
                     <div class="table-actions">
                         <button class="btn btn-secondary btn-sm"
-                                onclick="onViewClick(event, ${a.id})"
-                                title="View Details">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                        <button class="btn btn-secondary btn-sm"
                                 onclick="onEditClick(event, ${a.id})"
                                 title="Edit Asset">
                             <i class="bi bi-pencil"></i>
