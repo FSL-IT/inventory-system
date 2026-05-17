@@ -19,7 +19,7 @@ if ($method === 'GET' && $id) {
 } elseif ($method === 'GET') {
     fetchAssets();
 } elseif ($method === 'POST') {
-    requireCsrf();   // FIX: was missing
+    requireCsrf();
     createAsset();
 } elseif ($method === 'PUT') {
     requireCsrf();
@@ -71,47 +71,14 @@ function fetchSingleAsset(int $id): void
 
 function fetchAssets(): void
 {
-    $pdo        = getDbConnection();
-    $search     = getQueryString('search');
-    $status     = getQueryString('status');
-    $categoryId = getQueryInt('category_id');
-    $locationId = getQueryInt('location_id');
-    $page       = max(1, getQueryInt('page', 1));
-    $perPage    = min(100, max(10, getQueryInt('per_page', 25)));
-    $offset     = ($page - 1) * $perPage;
+    $pdo     = getDbConnection();
+    // Allow large limits for client-side filtering arrays
+    $perPage = getQueryInt('per_page', 10000); 
+    
+    $whereClause = 'WHERE a.deleted_at IS NULL';
 
-    $where  = ['a.deleted_at IS NULL'];
-    $params = [];
-
-    if ($search) {
-        $where[]           = '(a.serial_number LIKE :search
-                               OR a.description LIKE :search
-                               OR po.po_number LIKE :search)';
-        $params[':search'] = "%{$search}%";
-    }
-
-    if ($status && validateEnum($status, ASSET_STATUSES)) {
-        $where[]           = 'a.status = :status';
-        $params[':status'] = $status;
-    }
-
-    if ($categoryId) {
-        $where[]            = 'a.category_id = :cat_id';
-        $params[':cat_id']  = $categoryId;
-    }
-
-    if ($locationId) {
-        $where[]            = 'a.location_id = :loc_id';
-        $params[':loc_id']  = $locationId;
-    }
-
-    $whereClause = 'WHERE ' . implode(' AND ', $where);
-
-    $countSql  = "SELECT COUNT(*) FROM assets a
-                  LEFT JOIN purchase_orders po ON a.po_id = po.id
-                  {$whereClause}";
-    $countStmt = $pdo->prepare($countSql);
-    $countStmt->execute($params);
+    $countSql  = "SELECT COUNT(*) FROM assets a {$whereClause}";
+    $countStmt = $pdo->query($countSql);
     $total     = (int) $countStmt->fetchColumn();
 
     $sql = "
@@ -137,20 +104,15 @@ function fetchAssets(): void
         LEFT JOIN vendors         v  ON po.vendor_id   = v.id
         {$whereClause}
         ORDER BY a.created_at DESC
-        LIMIT :limit OFFSET :offset
+        LIMIT :limit
     ";
 
     $stmt = $pdo->prepare($sql);
-
-    foreach ($params as $key => $val) {
-        $stmt->bindValue($key, $val);
-    }
-
-    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
+    $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $stmt->execute();
 
-    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
+    // Since we do client-side pagination, pass back total pages as 1 to avoid confusion
+    sendPaginated($stmt->fetchAll(), $total, 1, $perPage);
 }
 
 function createAsset(): void

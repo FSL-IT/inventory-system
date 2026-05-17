@@ -1,4 +1,6 @@
 <?php
+// src/views/assets.php
+
 require_once __DIR__ . '/../../src/core/auth.php';
 requireLogin();
 $pageTitle = 'Inventory';
@@ -35,14 +37,17 @@ include __DIR__ . '/shared/sidebar.php';
             </div>
             <div class="page-header__right" id="inventory_admin_actions">
                 <?php if (isAdmin()): ?>
-                <button class="btn btn-secondary" onclick="exportAssets()">
-                    <i class="bi bi-download"></i> Export
+                <button class="btn btn-secondary" 
+                        onclick="exportToExcel()">
+                    <i class="bi bi-file-earmark-excel"></i> Export Excel
                 </button>
-                <button class="btn btn-secondary" onclick="openImportModal()">
+                <button class="btn btn-secondary" 
+                        onclick="openImportModal()">
                     <i class="bi bi-file-earmark-arrow-up"></i> Import Excel
                 </button>
                 <?php endif; ?>
-                <button class="btn btn-primary" onclick="openAddAsset()">
+                <button class="btn btn-primary" 
+                        onclick="openAddAsset()">
                     <i class="bi bi-plus-lg"></i> Add Asset
                 </button>
             </div>
@@ -53,10 +58,10 @@ include __DIR__ . '/shared/sidebar.php';
                 <i class="bi bi-search"></i>
                 <input type="text" id="asset_search"
                         placeholder="Serial #, PO, desc, vendor..."
-                        oninput="debounceSearch(this.value)">
+                        oninput="debouncedLoadAssets()">
             </div>
             <select class="filter-select" id="filter_status" 
-                    onchange="loadAssets(1)">
+                    onchange="debouncedLoadAssets()">
                 <option value="">All Statuses</option>
                 <option value="active">Active</option>
                 <option value="deployed">Deployed</option>
@@ -66,15 +71,15 @@ include __DIR__ . '/shared/sidebar.php';
                 <option value="lost">Lost</option>
             </select>
             <select class="filter-select" id="filter_category" 
-                    onchange="loadAssets(1)">
+                    onchange="debouncedLoadAssets()">
                 <option value="">All Categories</option>
             </select>
             <select class="filter-select" id="filter_location" 
-                    onchange="loadAssets(1)">
+                    onchange="debouncedLoadAssets()">
                 <option value="">All Locations</option>
             </select>
             <select class="filter-select" id="filter_owner" 
-                    onchange="loadAssets(1)">
+                    onchange="debouncedLoadAssets()">
                 <option value="">All Owners</option>
             </select>
             <div style="display:flex;align-items:center;gap:8px;

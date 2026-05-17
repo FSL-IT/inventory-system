@@ -1,9 +1,12 @@
 // assets/js/assets.js
 
-let currentPage   = 1;
-let currentSort   = 'a.created_at';
-let currentDir    = 'desc';
-let currentViewId = null;
+let allAssets      = [];
+let filteredAssets = [];
+let currentPage    = 1;
+let itemsPerPage   = 25;
+let currentSort    = 'a.created_at';
+let currentDir     = 'desc';
+let currentViewId  = null;
 
 // ─── UTILITIES ──────────────────────────────────────────────────────────────
 const safeSetVal = (id, val) => {
@@ -27,11 +30,6 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-const debounceSearch = debounce(() => {
-    currentPage = 1;
-    loadAssets(1);
-}, 350);
-
 // ─── INIT ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -44,7 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    loadAssets(1);
+    // Fetch EVERYTHING once
+    fetchInitialAssets();
     populateAssetFormDropdowns();
 });
 
@@ -64,7 +63,56 @@ function onDeleteClick(e, id, serial) {
     deleteAsset(id, serial);
 }
 
-// ─── SORT & FILTERS ─────────────────────────────────────────────────────────
+// ─── CLIENT-SIDE DATA FETCHING ──────────────────────────────────────────────
+async function fetchInitialAssets() {
+    const tbody = document.getElementById('assets_body');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="9" 
+                    style="text-align:center;padding:30px;color:var(--white-4)">
+                <i class="bi bi-arrow-repeat" 
+                        style="animation:spin 1s linear infinite"></i> 
+                Loading database...
+            </td>
+        </tr>`;
+
+    try {
+        // Fetch a large limit to grab the whole inventory into memory
+        const data = await apiFetch(`/src/api/assets.php?per_page=10000`);
+        allAssets  = data.data || [];
+        
+        applyClientFilters(); // Process filters immediately
+    } catch (err) {
+        console.error('Fetch initial assets error:', err);
+        showToast('Failed to load assets from server.', 'error');
+    }
+}
+
+// ─── CLIENT-SIDE FILTERING & SORTING ────────────────────────────────────────
+
+// Triggered by the HTML inputs (oninput / onchange)
+function debouncedLoadAssets() {
+    currentPage = 1;
+    applyClientFilters();
+}
+
+function clearAssetFilters() {
+    ['asset_search', 'filter_status', 'filter_category', 
+     'filter_location', 'filter_owner'].forEach(id => safeSetVal(id, ''));
+     
+    currentSort = 'a.created_at';
+    currentDir  = 'desc';
+    
+    updateSortIcons();
+    debouncedLoadAssets();
+}
+
+function onPerPageChange() { 
+    itemsPerPage = parseInt(getVal('asset_per_page')) || 25;
+    currentPage  = 1; 
+    applyClientFilters(); 
+}
+
 function sortAssets(col) {
     if (currentSort === col) {
         currentDir = currentDir === 'asc' ? 'desc' : 'asc';
@@ -74,7 +122,7 @@ function sortAssets(col) {
     }
     currentPage = 1;
     updateSortIcons();
-    loadAssets(1);
+    applyClientFilters();
 }
 
 function updateSortIcons() {
@@ -92,59 +140,90 @@ function updateSortIcons() {
     }
 }
 
-function clearAssetFilters() {
-    ['asset_search', 'filter_status', 'filter_category', 
-     'filter_location', 'filter_owner'].forEach(id => safeSetVal(id, ''));
-     
-    currentSort = 'a.created_at';
-    currentDir  = 'desc';
-    
-    updateSortIcons();
-    loadAssets(1);
-}
+function applyClientFilters() {
+    const search = getVal('asset_search').toLowerCase();
+    const status = getVal('filter_status');
+    const catId  = getVal('filter_category');
+    const locId  = getVal('filter_location');
+    const ownId  = getVal('filter_owner');
 
-function onPerPageChange() { 
-    currentPage = 1; 
-    loadAssets(1); 
-}
+    // 1. Filter the array in memory (ZERO API CALLS!)
+    filteredAssets = allAssets.filter(a => {
+        const matchSearch = !search || 
+            (a.serial_number && a.serial_number.toLowerCase().includes(search)) ||
+            (a.description && a.description.toLowerCase().includes(search)) ||
+            (a.po_number && a.po_number.toLowerCase().includes(search)) ||
+            (a.vendor_name && a.vendor_name.toLowerCase().includes(search));
 
-// ─── LOAD & RENDER ──────────────────────────────────────────────────────────
-async function loadAssets(page = currentPage) {
-    currentPage = page;
+        const matchStatus = !status || String(a.status) === status;
+        const matchCat    = !catId  || String(a.category_id) === catId;
+        const matchLoc    = !locId  || String(a.location_id) === locId;
+        const matchOwn    = !ownId  || String(a.owner_id) === ownId;
 
-    const params = new URLSearchParams({
-        page:        page,
-        per_page:    getVal('asset_per_page') || 25,
-        search:      getVal('asset_search'),
-        status:      getVal('filter_status'),
-        category_id: getVal('filter_category'),
-        location_id: getVal('filter_location'),
-        owner_id:    getVal('filter_owner'),
-        sort:        currentSort,
-        dir:         currentDir,
+        return matchSearch && matchStatus && matchCat && matchLoc && matchOwn;
     });
 
-    const tbody = document.getElementById('assets_body');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="9" 
-                    style="text-align:center;padding:30px;
-                           color:var(--white-4)">
-                <i class="bi bi-arrow-repeat" 
-                        style="animation:spin 1s linear infinite"></i> 
-                Loading...
-            </td>
-        </tr>`;
+    // 2. Sort the filtered array
+    const sortMap = {
+        'a.serial_number': 'serial_number',
+        'a.description':   'description',
+        'c.name':          'category_name',
+        'l.name':          'location_name',
+        'o.name':          'owner_name',
+        'a.status':        'status',
+        'po.date_received':'date_received',
+        'a.created_at':    'created_at'
+    };
 
-    try {
-        const data = await apiFetch(`/src/api/assets.php?${params}`);
-        renderAssetTable(data.data);
-        renderPagination('assets_pagination', data.pagination, 'loadAssets');
-        renderCounter(data.pagination);
-    } catch (err) {
-        console.error('loadAssets error:', err);
-        showToast('Failed to load assets.', 'error');
+    const jsSortKey = sortMap[currentSort] || 'created_at';
+
+    filteredAssets.sort((a, b) => {
+        let valA = a[jsSortKey] || '';
+        let valB = b[jsSortKey] || '';
+
+        if (typeof valA === 'string') { valA = valA.toLowerCase(); }
+        if (typeof valB === 'string') { valB = valB.toLowerCase(); }
+
+        if (valA < valB) { return currentDir === 'asc' ? -1 : 1; }
+        if (valA > valB) { return currentDir === 'asc' ? 1 : -1; }
+        return 0;
+    });
+
+    // 3. Render the specific page view
+    renderCurrentPage();
+}
+
+// ─── RENDERING & PAGINATION ─────────────────────────────────────────────────
+window.changeClientPage = function(page) {
+    currentPage = page;
+    renderCurrentPage();
+};
+
+function renderCurrentPage() {
+    const totalItems = filteredAssets.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    
+    // Safety check if current page exceeds bounds
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
     }
+
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx   = startIdx + itemsPerPage;
+    const pageData = filteredAssets.slice(startIdx, endIdx);
+
+    renderAssetTable(pageData);
+    
+    // Mock the pagination object to trick the global renderPagination function
+    const mockPg = {
+        page:        currentPage,
+        per_page:    itemsPerPage,
+        total:       totalItems,
+        total_pages: totalPages
+    };
+
+    renderPagination('assets_pagination', mockPg, 'changeClientPage');
+    renderCounter(mockPg);
 }
 
 function renderCounter(pg) {
@@ -239,13 +318,14 @@ function renderAssetTable(assets) {
 async function viewAsset(id) {
     currentViewId = id;
 
-    try {
-        const data = await apiFetch(`/src/api/assets.php?id=${id}`);
-        renderViewModal(data.data);
+    // Use local array instead of fetching again! (Saves API Call)
+    const asset = allAssets.find(x => x.id === id);
+    
+    if (asset) {
+        renderViewModal(asset);
         openModal('view_asset');
-    } catch (err) {
-        console.error('viewAsset error:', err);
-        showToast('Could not load asset details.', 'error');
+    } else {
+        showToast('Could not find asset in memory.', 'error');
     }
 }
 
@@ -354,35 +434,34 @@ function openAddAsset() {
     openModal('add_asset');
 }
 
-async function openEditAsset(id) {
-    try {
-        const data = await apiFetch(`/src/api/assets.php?id=${id}`);
-        const a    = data.data;
-
-        document.getElementById('asset_modal_title').textContent = 
-            '✏️ Edit Asset';
-            
-        safeSetVal('asset_edit_id',  id);
-        safeSetVal('asset_serial',   a.serial_number);
-        safeSetVal('asset_desc',     a.description);
-        safeSetVal('asset_category', a.category_id ?? '');
-        safeSetVal('asset_status',   a.status);
-        safeSetVal('asset_po',       a.po_id       ?? '');
-        safeSetVal('asset_vendor',   a.vendor_name ?? '');
-        safeSetVal('asset_location', a.location_id ?? '');
-        safeSetVal('asset_owner',    a.owner_id    ?? '');
-        safeSetVal('asset_remarks',  a.remarks     ?? '');
-
-        const serialEl = document.getElementById('asset_serial');
-        if (serialEl) {
-            serialEl.setAttribute('readonly', true);
-        }
-        
-        openModal('add_asset');
-    } catch (err) {
-        console.error('openEditAsset error:', err);
+function openEditAsset(id) {
+    // Read directly from memory array instead of API
+    const a = allAssets.find(x => x.id === id);
+    if (!a) {
         showToast('Could not load asset for editing.', 'error');
+        return;
     }
+
+    document.getElementById('asset_modal_title').textContent = 
+        '✏️ Edit Asset';
+        
+    safeSetVal('asset_edit_id',  id);
+    safeSetVal('asset_serial',   a.serial_number);
+    safeSetVal('asset_desc',     a.description);
+    safeSetVal('asset_category', a.category_id ?? '');
+    safeSetVal('asset_status',   a.status);
+    safeSetVal('asset_po',       a.po_id       ?? '');
+    safeSetVal('asset_vendor',   a.vendor_name ?? '');
+    safeSetVal('asset_location', a.location_id ?? '');
+    safeSetVal('asset_owner',    a.owner_id    ?? '');
+    safeSetVal('asset_remarks',  a.remarks     ?? '');
+
+    const serialEl = document.getElementById('asset_serial');
+    if (serialEl) {
+        serialEl.setAttribute('readonly', true);
+    }
+    
+    openModal('add_asset');
 }
 
 async function saveAsset() {
@@ -424,7 +503,8 @@ async function saveAsset() {
             `Asset ${isEdit ? 'updated' : 'created'} successfully.`, 
             'success'
         );
-        loadAssets(currentPage);
+        // Refresh master dataset after saving
+        fetchInitialAssets();
     } catch (err) {
         console.error('saveAsset error:', err);
         showToast(err.message, 'error');
@@ -439,7 +519,8 @@ function deleteAsset(id, serial) {
                 method: 'DELETE' 
             });
             showToast('Asset deleted.', 'success');
-            loadAssets(currentPage);
+            // Refresh master dataset
+            fetchInitialAssets();
         } catch (err) { 
             showToast(err.message, 'error'); 
         }
@@ -497,18 +578,22 @@ function onPoChange(selectEl) {
 }
 
 // ─── EXPORT & IMPORT ────────────────────────────────────────────────────────
-async function exportAssets() {
-    const status = getVal('filter_status');
-    const catId  = getVal('filter_category');
-    const locId  = getVal('filter_location');
-    const search = getVal('asset_search');
+async function exportToExcel() {
+    const status  = getVal('filter_status');
+    const catId   = getVal('filter_category');
+    const locId   = getVal('filter_location');
+    const ownerId = getVal('filter_owner');
+    const search  = getVal('asset_search');
 
     const params = new URLSearchParams({ 
         action:      'export', 
         status:      status, 
         category_id: catId,
         location_id: locId,
-        search:      search
+        owner_id:    ownerId,
+        search:      search,
+        sort:        currentSort,
+        dir:         currentDir
     });
     
     window.location.href = `/src/api/import_export.php?${params}`;
@@ -660,7 +745,7 @@ async function submitImport() {
         showImportStep('results');
         
         if (json.data.success > 0) {
-            loadAssets(1);
+            fetchInitialAssets();
         }
     } catch (err) {
         showImportStep('upload');
