@@ -40,15 +40,19 @@ include __DIR__ . '/../shared/sidebar.php';
                 </div>
             </div>
             <div class="page-header__right">
+                <button class="btn btn-secondary" 
+                        onclick="exportAuditToExcel()">
+                    <i class="bi bi-file-earmark-excel"></i> Export Excel
+                </button>
                 <select class="filter-select" id="filter_action"
-                        onchange="loadAuditLogs()">
+                        onchange="debouncedLoadAuditLogs()">
                     <option value="">All Actions</option>
                     <option value="INSERT">INSERT</option>
                     <option value="UPDATE">UPDATE</option>
                     <option value="DELETE">DELETE</option>
                 </select>
                 <select class="filter-select" id="filter_table"
-                        onchange="loadAuditLogs()">
+                        onchange="debouncedLoadAuditLogs()">
                     <option value="">All Tables</option>
                     <option value="assets">assets</option>
                     <option value="users">users</option>

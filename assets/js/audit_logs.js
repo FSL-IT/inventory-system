@@ -1,7 +1,9 @@
 // assets/js/audit_logs.js
 
-let auditCurrentPage = 1;
-let currentAuditLogs = []; 
+let allAuditLogs      = [];
+let filteredAuditLogs = [];
+let auditCurrentPage  = 1;
+let auditItemsPerPage = 25;
 
 // Reference dictionary for human-readable IDs
 const refDict = {
@@ -12,9 +14,16 @@ const refDict = {
     purchase_orders: {}
 };
 
+// Unified debounce handler triggering purely client-side filtering
+const debouncedLoadAuditLogs = debounce(() => {
+    auditCurrentPage = 1;
+    applyClientAuditFilters();
+}, 350);
+
 document.addEventListener('DOMContentLoaded', async () => {
     await loadRefData();
-    loadAuditLogs(1);
+    // Fetch EVERYTHING once into memory
+    fetchInitialAuditLogs();
 });
 
 // ─── UTILITIES ──────────────────────────────────────────────────────────────
@@ -71,67 +80,76 @@ async function loadRefData() {
     }
 }
 
-// ─── ROUTING HANDLER ────────────────────────────────────────────────────────
-function onAuditClick(action, table, rawId) {
-    if (action === 'DELETE') {
-        return;
-    }
+// ─── CLIENT-SIDE DATA FETCHING ──────────────────────────────────────────────
+async function fetchInitialAuditLogs() {
+    const container = document.getElementById('audit_log_list');
+    container.innerHTML = `
+        <p class="text-center py-4" style="color:var(--white-4)">
+            <i class="bi bi-arrow-repeat" 
+                    style="animation:spin 1s linear infinite"></i>
+            Loading audit history...
+        </p>`;
 
-    const routeMap = {
-        'users':           '/src/views/admin/users.php',
-        'assets':          '/src/views/assets.php',
-        'purchase_orders': '/src/views/purchase_orders.php',
-        'categories':      '/src/views/categories.php',
-        'locations':       '/src/views/locations.php',
-        'vendors':         '/src/views/vendors.php'
-    };
-
-    const targetUrl = routeMap[table];
-
-    if (!targetUrl) {
-        showToast('Module link not available.', 'info');
-        return;
-    }
-
-    const dest = rawId 
-        ? `${targetUrl}?search=${encodeURIComponent(rawId)}` 
-        : targetUrl;
+    try {
+        // Fetch up to 5000 logs into memory
+        const data = await apiFetch(`/src/api/audit_logs.php?per_page=5000`);
+        allAuditLogs = data.data ?? []; 
         
-    window.location.href = dest;
+        applyClientAuditFilters();
+    } catch (err) {
+        showToast('Failed to load audit logs from server.', 'error');
+    }
 }
 
-// ─── LOAD & RENDER ──────────────────────────────────────────────────────────
-async function loadAuditLogs(page = auditCurrentPage) {
-    auditCurrentPage = page;
-
+// ─── CLIENT-SIDE FILTERING ──────────────────────────────────────────────────
+function applyClientAuditFilters() {
     const actionEl = document.getElementById('filter_action');
     const tableEl  = document.getElementById('filter_table');
 
     const action    = actionEl?.value ?? '';
     const tableName = tableEl?.value ?? '';
 
-    const params = new URLSearchParams({
-        page:       page,
-        per_page:   25,
-        action:     action,
-        table_name: tableName,
+    // 1. Filter the array in memory
+    filteredAuditLogs = allAuditLogs.filter(log => {
+        const matchAction = !action    || log.action === action;
+        const matchTable  = !tableName || log.table_name === tableName;
+        return matchAction && matchTable;
     });
 
-    try {
-        const data = await apiFetch(`/src/api/audit_logs.php?${params}`);
-        currentAuditLogs = data.data ?? []; 
-        
-        renderAuditLog(currentAuditLogs);
-        renderPagination(
-            'audit_pagination',
-            data.pagination,
-            'loadAuditLogs'
-        );
-    } catch (err) {
-        showToast('Failed to load audit logs.', 'error');
-    }
+    // 2. Render the specific page view
+    renderCurrentAuditPage();
 }
 
+window.changeAuditClientPage = function(page) {
+    auditCurrentPage = page;
+    renderCurrentAuditPage();
+};
+
+function renderCurrentAuditPage() {
+    const totalItems = filteredAuditLogs.length;
+    const totalPages = Math.ceil(totalItems / auditItemsPerPage) || 1;
+    
+    if (auditCurrentPage > totalPages) {
+        auditCurrentPage = totalPages;
+    }
+
+    const startIdx = (auditCurrentPage - 1) * auditItemsPerPage;
+    const endIdx   = startIdx + auditItemsPerPage;
+    const pageData = filteredAuditLogs.slice(startIdx, endIdx);
+
+    renderAuditLog(pageData);
+
+    const mockPg = {
+        page:        auditCurrentPage,
+        per_page:    auditItemsPerPage,
+        total:       totalItems,
+        total_pages: totalPages
+    };
+
+    renderPagination('audit_pagination', mockPg, 'changeAuditClientPage');
+}
+
+// ─── RENDER ENGINE ──────────────────────────────────────────────────────────
 function renderAuditLog(entries) {
     const container = document.getElementById('audit_log_list');
 
@@ -197,7 +215,8 @@ function renderAuditLog(entries) {
 
 // ─── DIFF VIEWER (INSPECTOR MODAL) ──────────────────────────────────────────
 function inspectAudit(id) {
-    const log = currentAuditLogs.find(a => a.id === id);
+    // Pull from memory array instead of hitting API
+    const log = allAuditLogs.find(a => a.id === id);
     
     if (!log) {
         showToast('Log details not found in memory.', 'error');
@@ -329,7 +348,6 @@ function buildDiffHtml(action, changes) {
             const newRaw    = after[k] !== undefined ? after[k] : oldRaw;
             const isChanged = String(oldRaw) !== String(newRaw);
             
-            // Assign specific row-highlight class if the value changed
             const valClass = isChanged ? 'diff-val text-red' : 'diff-val';
             const rowClass = isChanged 
                 ? 'diff-row diff-row--old-changed' 
@@ -350,7 +368,6 @@ function buildDiffHtml(action, changes) {
             const newRaw    = after[k] !== undefined ? after[k] : oldRaw;
             const isChanged = String(oldRaw) !== String(newRaw);
             
-            // Assign specific row-highlight class if the value changed
             const valClass = isChanged ? 'diff-val text-green' : 'diff-val';
             const rowClass = isChanged 
                 ? 'diff-row diff-row--new-changed' 
@@ -505,4 +522,21 @@ function buildAuditDesc(entry, changes) {
     }
 
     return `${user} updated ${table} ${idStr}`;
+}
+
+// ─── EXPORT TO EXCEL ────────────────────────────────────────────────────────
+function exportAuditToExcel() {
+    const actionEl = document.getElementById('filter_action');
+    const tableEl  = document.getElementById('filter_table');
+
+    const action    = actionEl?.value ?? '';
+    const tableName = tableEl?.value ?? '';
+
+    const params = new URLSearchParams({
+        action:     action,
+        table_name: tableName,
+        export:     true
+    });
+
+    window.location.href = `/src/api/audit_logs.php?${params}`;
 }
