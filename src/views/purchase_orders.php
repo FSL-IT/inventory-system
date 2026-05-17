@@ -47,14 +47,14 @@ include __DIR__ . '/shared/sidebar.php';
                 <i class="bi bi-search"></i>
                 <input type="text" id="po_search"
                         placeholder="PO number, vendor..."
-                        oninput="debouncePoSearch()">
+                        oninput="debouncedApplyPoFilters()">
             </div>
             <select class="filter-select" id="filter_vendor" 
-                    onchange="loadPOs(1)">
+                    onchange="debouncedApplyPoFilters()">
                 <option value="">All Vendors</option>
             </select>
             <select class="filter-select" id="filter_endorsed" 
-                    onchange="loadPOs(1)">
+                    onchange="debouncedApplyPoFilters()">
                 <option value="">All Statuses</option>
                 <option value="no">⏳ Pending Endorsement</option>
                 <option value="yes">✓ Endorsed</option>
@@ -66,7 +66,7 @@ include __DIR__ . '/shared/sidebar.php';
                         style="font-size:12px;color:var(--white-4);
                                white-space:nowrap"></span>
                 <select class="filter-select" id="po_per_page" 
-                        onchange="loadPOs(1)">
+                        onchange="onPoPerPageChange()">
                     <option value="25">25 / page</option>
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>

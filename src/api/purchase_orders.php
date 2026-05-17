@@ -11,7 +11,7 @@ requireLogin();
 header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
-$id = getQueryInt('id');
+$id     = getQueryInt('id');
 
 if ($method === 'GET' && $id) {
     fetchSinglePO($id);
@@ -50,52 +50,17 @@ function fetchSinglePO(int $id): void
     sendSuccess($row);
 }
 
-function fetchPOs(): void {
-    $pdo = getDbConnection();
+function fetchPOs(): void 
+{
+    $pdo     = getDbConnection();
+    // Allow large limits to load all into client memory for the frontend filtering
+    $perPage = getQueryInt('per_page', 5000); 
 
-    $search     = getQueryString('search');
-    $vendorId   = getQueryInt('vendor_id');
-    $endorsed   = getQueryString('endorsed'); // 'yes' | 'no' | ''
+    $whereClause = 'WHERE 1=1';
 
-    $allowedSorts = ['po.po_number','po.date_received','po.date_endorsed','po.created_at','v.name','asset_count'];
-    $sortRaw = getQueryString('sort') ?: 'po.created_at';
-    $sort    = in_array($sortRaw, $allowedSorts) ? $sortRaw : 'po.created_at';
-    $dir     = getQueryString('dir') === 'asc' ? 'ASC' : 'DESC';
-
-    $page    = max(1, getQueryInt('page', 1));
-    $perPage = min(100, max(5, getQueryInt('per_page', 25)));
-    $offset  = ($page - 1) * $perPage;
-
-    $where  = ['1=1'];
-    $params = [];
-
-    if ($search) {
-        $where[] = '(po.po_number LIKE :search OR v.name LIKE :search)';
-        $params[':search'] = "%{$search}%";
-    }
-    if ($vendorId) {
-        $where[] = 'po.vendor_id = :vendor_id';
-        $params[':vendor_id'] = $vendorId;
-    }
-    if ($endorsed === 'yes') {
-        $where[] = 'po.date_endorsed IS NOT NULL';
-    } elseif ($endorsed === 'no') {
-        $where[] = 'po.date_endorsed IS NULL';
-    }
-
-    $whereClause = 'WHERE ' . implode(' AND ', $where);
-
-    $countSql = "SELECT COUNT(*) FROM purchase_orders po
-                 LEFT JOIN vendors v ON po.vendor_id = v.id
-                 {$whereClause}";
-    $countStmt = $pdo->prepare($countSql);
-    $countStmt->execute($params);
-    $total = (int) $countStmt->fetchColumn();
-
-    // asset_count in ORDER BY needs HAVING or subquery — use subquery for portability
-    $orderClause = $sort === 'asset_count'
-        ? "ORDER BY asset_count {$dir}"
-        : "ORDER BY {$sort} {$dir}";
+    $countSql  = "SELECT COUNT(*) FROM purchase_orders po {$whereClause}";
+    $countStmt = $pdo->query($countSql);
+    $total     = (int) $countStmt->fetchColumn();
 
     $sql = "
         SELECT
@@ -108,21 +73,21 @@ function fetchPOs(): void {
         {$whereClause}
         GROUP BY po.id, po.po_number, po.date_received,
                  po.date_endorsed, po.created_at, v.id, v.name
-        {$orderClause}
-        LIMIT :limit OFFSET :offset
+        ORDER BY po.created_at DESC
+        LIMIT :limit
     ";
 
     $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $val) $stmt->bindValue($k, $val);
-    $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
+    $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $stmt->execute();
 
-    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
+    // Client-side pagination expects page info, but we bypass server math
+    sendPaginated($stmt->fetchAll(), $total, 1, $perPage);
 }
 
-function createPO(): void {
-    $body = json_decode(file_get_contents('php://input'), true);
+function createPO(): void 
+{
+    $body     = json_decode(file_get_contents('php://input'), true);
     $poNumber = sanitizeString($body['po_number'] ?? '');
 
     if (!$poNumber) {
@@ -169,14 +134,15 @@ function createPO(): void {
     sendSuccess(['id' => $newId], 'Purchase order created.');
 }
 
-function updatePO(int $id): void {
+function updatePO(int $id): void 
+{
     if (!$id) {
         sendError('PO ID required.', 400);
     }
 
     $body = json_decode(file_get_contents('php://input'), true);
-    $pdo = getDbConnection();
-    $old = $pdo->prepare(
+    $pdo  = getDbConnection();
+    $old  = $pdo->prepare(
         'SELECT * FROM purchase_orders WHERE id = :id LIMIT 1'
     );
     $old->execute([':id' => $id]);
@@ -217,7 +183,8 @@ function updatePO(int $id): void {
     sendSuccess([], 'Purchase order updated.');
 }
 
-function deletePO(int $id): void {
+function deletePO(int $id): void 
+{
     if (!$id) {
         sendError('PO ID required.', 400);
     }

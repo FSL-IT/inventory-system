@@ -75,7 +75,7 @@ function toggleSidebar() {
     if (!overlay) {
         overlay         = document.createElement('div');
         overlay.className = 'sidebar-overlay';
-        overlay.onclick = closeSidebar;
+        overlay.onclick   = closeSidebar;
         document.body.appendChild(overlay);
     }
 
@@ -112,7 +112,7 @@ function setActiveNav() {
 
 // ===== GLOBAL SEARCH =====
 function globalSearch(value) {
-    const path    = window.location.pathname;
+    const path = window.location.pathname;
 
     // Dashboard: no asset table — navigate to Inventory Search
     if (path.includes('dashboard') && value.trim()) {
@@ -121,13 +121,13 @@ function globalSearch(value) {
     }
 
     const pageMap = [
-        { match: 'assets',          inputId: 'asset_search',    loadFn: () => typeof loadAssets === 'function' && loadAssets(1) },
-        { match: 'purchase_orders', inputId: 'po_search',       loadFn: () => typeof loadPOs === 'function' && loadPOs(1) },
+        { match: 'assets',          inputId: 'asset_search',    loadFn: () => typeof debouncedLoadAssets === 'function' && debouncedLoadAssets() },
+        { match: 'purchase_orders', inputId: 'po_search',       loadFn: () => typeof debouncedApplyPoFilters === 'function' && debouncedApplyPoFilters() },
         { match: 'vendors',         inputId: 'vendor_search',   loadFn: () => typeof loadVendors === 'function' && loadVendors(1) },
         { match: 'locations',       inputId: 'location_search', loadFn: () => typeof loadLocations === 'function' && loadLocations(1) },
         { match: 'categories',      inputId: 'category_search', loadFn: () => typeof loadCategories === 'function' && loadCategories(1) },
         { match: 'process_owners',  inputId: 'owner_search',    loadFn: () => typeof loadOwners === 'function' && loadOwners(1) },
-        { match: 'audit_logs',      inputId: 'audit_search',    loadFn: () => typeof loadAuditLogs === 'function' && loadAuditLogs(1) },
+        { match: 'audit_logs',      inputId: 'audit_search',    loadFn: () => typeof debouncedLoadAuditLogs === 'function' && debouncedLoadAuditLogs() },
         { match: 'users',           inputId: 'user_search',     loadFn: () => typeof loadUsers === 'function' && loadUsers() },
     ];
 
@@ -159,7 +159,7 @@ async function logoutUser() {
     window.location.href = '/src/views/auth/login.php';
 }
 
-// ===== DEBOUNCE =====
+// ===== GLOBAL DEBOUNCE =====
 function debounce(fn, delay = 350) {
     let timer;
 
@@ -177,39 +177,47 @@ function renderPagination(containerId, pagination, loadFn) {
         return;
     }
 
-    const { page, pages, total, per_page } = pagination;
+    // Support both 'pages' and 'total_pages' depending on if it's mocked or from API
+    const { page, total, per_page } = pagination;
+    const totalPages = pagination.pages || pagination.total_pages || 1; 
+
+    if (total === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
     const start = (page - 1) * per_page + 1;
     const end   = Math.min(page * per_page, total);
 
     let html = `<span>${start}–${end} of ${total}</span>`;
 
     html += `
-        <button
-            class="pagination-btn"
-            onclick="${loadFn}(${page - 1})"
-            ${page <= 1 ? 'disabled' : ''}>
+        <button type="button"
+                class="pagination-btn"
+                onclick="${loadFn}(${page - 1})"
+                ${page <= 1 ? 'disabled' : ''}>
             ‹ Prev
         </button>
     `;
 
     const startPage = Math.max(1, page - 2);
-    const endPage   = Math.min(pages, page + 2);
+    const endPage   = Math.min(totalPages, page + 2);
 
     for (let i = startPage; i <= endPage; i++) {
         html += `
-            <button
-                class="pagination-btn ${i === page ? 'active' : ''}"
-                onclick="${loadFn}(${i})">
+            <button type="button"
+                    class="pagination-btn ${i === page ? 'active' : ''}"
+                    onclick="${loadFn}(${i})">
                 ${i}
             </button>
         `;
     }
 
     html += `
-        <button
-            class="pagination-btn"
-            onclick="${loadFn}(${page + 1})"
-            ${page >= pages ? 'disabled' : ''}>
+        <button type="button"
+                class="pagination-btn"
+                onclick="${loadFn}(${page + 1})"
+                ${page >= totalPages ? 'disabled' : ''}>
             Next ›
         </button>
     `;

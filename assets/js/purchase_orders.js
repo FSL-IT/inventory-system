@@ -1,9 +1,12 @@
 // assets/js/purchase_orders.js
 
-let poCurrentPage = 1;
-let poSort        = 'po.created_at';
-let poDir         = 'desc';
-let currentViewId = null;
+let allPOs         = [];
+let filteredPOs    = [];
+let poCurrentPage  = 1;
+let poItemsPerPage = 25;
+let poSort         = 'po.created_at';
+let poDir          = 'desc';
+let currentViewId  = null;
 
 // ─── UTILITIES ──────────────────────────────────────────────────────────────
 const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
@@ -27,19 +30,20 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-const debouncePoSearch = debounce(() => { 
+// Rely on global debounce from app.js instead of re-declaring it
+const debouncedApplyPoFilters = debounce(() => { 
     poCurrentPage = 1; 
-    loadPOs(1); 
+    applyClientPoFilters(); 
 }, 350);
 
 // ─── INIT ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     populatePoVendorDropdown();
     populatePoFormVendors();
-    loadPOs(1);
+    fetchInitialPOs();
 });
 
-// ─── EVENT HANDLERS (Stops Event Bubbling) ──────────────────────────────────
+// ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
 function onViewClick(e, id) {
     e.stopPropagation();
     viewPO(id);
@@ -55,7 +59,46 @@ function onDeleteClick(e, id, poNumber) {
     deletePO(id, poNumber);
 }
 
-// ─── SORT & FILTERS ─────────────────────────────────────────────────────────
+// ─── CLIENT-SIDE DATA FETCHING ──────────────────────────────────────────────
+async function fetchInitialPOs() {
+    const tbody = document.getElementById('po_body');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" 
+                    style="text-align:center;padding:30px;color:var(--white-4)">
+                <i class="bi bi-arrow-repeat" 
+                        style="animation:spin 1s linear infinite"></i> 
+                Loading POs...
+            </td>
+        </tr>`;
+
+    try {
+        const data = await apiFetch(`/src/api/purchase_orders.php?per_page=5000`);
+        allPOs     = data.data || [];
+        applyClientPoFilters();
+    } catch (err) {
+        console.error('Fetch initial POs error:', err);
+        showToast('Failed to load purchase orders.', 'error');
+    }
+}
+
+// ─── CLIENT-SIDE FILTERING & SORTING ────────────────────────────────────────
+function clearPoFilters() {
+    ['po_search', 'filter_vendor', 'filter_endorsed'].forEach(id => {
+        safeSetVal(id, '');
+    });
+    poSort = 'po.created_at'; 
+    poDir  = 'desc';
+    updatePoSortIcons();
+    debouncedApplyPoFilters();
+}
+
+function onPoPerPageChange() { 
+    poItemsPerPage = parseInt(getVal('po_per_page')) || 25;
+    poCurrentPage  = 1; 
+    applyClientPoFilters(); 
+}
+
 function sortPOs(col) {
     if (poSort === col) {
         poDir = poDir === 'asc' ? 'desc' : 'asc';
@@ -65,7 +108,7 @@ function sortPOs(col) {
     }
     poCurrentPage = 1;
     updatePoSortIcons();
-    loadPOs(1);
+    applyClientPoFilters();
 }
 
 function updatePoSortIcons() {
@@ -84,58 +127,87 @@ function updatePoSortIcons() {
     }
 }
 
-function clearPoFilters() {
-    ['po_search', 'filter_vendor', 'filter_endorsed'].forEach(id => {
-        safeSetVal(id, '');
+function applyClientPoFilters() {
+    const search   = getVal('po_search').toLowerCase();
+    const vendorId = getVal('filter_vendor');
+    const endorsed = getVal('filter_endorsed');
+
+    filteredPOs = allPOs.filter(p => {
+        const matchSearch = !search || 
+            (p.po_number && p.po_number.toLowerCase().includes(search)) ||
+            (p.vendor_name && p.vendor_name.toLowerCase().includes(search));
+
+        const matchVendor = !vendorId || String(p.vendor_id) === vendorId;
+        
+        let matchEndorsed = true;
+        if (endorsed === 'yes') {
+            matchEndorsed = p.date_endorsed !== null;
+        } else if (endorsed === 'no') {
+            matchEndorsed = p.date_endorsed === null;
+        }
+
+        return matchSearch && matchVendor && matchEndorsed;
     });
-    poSort = 'po.created_at'; 
-    poDir  = 'desc';
-    updatePoSortIcons();
-    loadPOs(1);
+
+    const sortMap = {
+        'po.po_number':     'po_number',
+        'v.name':           'vendor_name',
+        'asset_count':      'asset_count',
+        'po.date_received': 'date_received',
+        'po.date_endorsed': 'date_endorsed',
+        'po.created_at':    'created_at'
+    };
+
+    const jsSortKey = sortMap[poSort] || 'created_at';
+
+    filteredPOs.sort((a, b) => {
+        let valA = a[jsSortKey] ?? '';
+        let valB = b[jsSortKey] ?? '';
+
+        if (jsSortKey === 'asset_count') {
+            valA = parseInt(valA) || 0;
+            valB = parseInt(valB) || 0;
+        } else {
+            if (typeof valA === 'string') { valA = valA.toLowerCase(); }
+            if (typeof valB === 'string') { valB = valB.toLowerCase(); }
+        }
+
+        if (valA < valB) { return poDir === 'asc' ? -1 : 1; }
+        if (valA > valB) { return poDir === 'asc' ? 1 : -1; }
+        return 0;
+    });
+
+    renderCurrentPoPage();
 }
 
-// ─── LOAD ───────────────────────────────────────────────────────────────────
-async function loadPOs(page = poCurrentPage) {
+window.changePoClientPage = function(page) {
     poCurrentPage = page;
+    renderCurrentPoPage();
+};
 
-    const params = new URLSearchParams({
-        page:      page, 
-        per_page:  getVal('po_per_page') || 25,
-        search:    getVal('po_search'), 
-        vendor_id: getVal('filter_vendor'), 
-        endorsed:  getVal('filter_endorsed'),
-        sort:      poSort, 
-        dir:       poDir,
-    });
-
-    const tbody = document.getElementById('po_body');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="6" 
-                    style="text-align:center;padding:30px;
-                           color:var(--white-4)">
-                <i class="bi bi-arrow-repeat" 
-                        style="animation:spin 1s linear infinite"></i> 
-                Loading...
-            </td>
-        </tr>`;
-
-    try {
-        const data = await apiFetch(`/src/api/purchase_orders.php?${params}`);
-        renderPoTable(data.data);
-        renderPagination('po_pagination', data.pagination, 'loadPOs');
-        renderPoCounter(data.pagination);
-    } catch (err) {
-        console.error('loadPOs error:', err);
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" 
-                        style="text-align:center;padding:30px;color:var(--red)">
-                    Failed to load.
-                </td>
-            </tr>`;
-        showToast('Failed to load purchase orders.', 'error');
+function renderCurrentPoPage() {
+    const totalItems = filteredPOs.length;
+    const totalPages = Math.ceil(totalItems / poItemsPerPage) || 1;
+    
+    if (poCurrentPage > totalPages) {
+        poCurrentPage = totalPages;
     }
+
+    const startIdx = (poCurrentPage - 1) * poItemsPerPage;
+    const endIdx   = startIdx + poItemsPerPage;
+    const pageData = filteredPOs.slice(startIdx, endIdx);
+
+    renderPoTable(pageData);
+    
+    const mockPg = {
+        page:        poCurrentPage,
+        per_page:    poItemsPerPage,
+        total:       totalItems,
+        total_pages: totalPages
+    };
+
+    renderPagination('po_pagination', mockPg, 'changePoClientPage');
+    renderPoCounter(mockPg);
 }
 
 function renderPoCounter(pg) {
@@ -235,14 +307,13 @@ function renderPoTable(pos) {
 // ─── VIEW MODAL ─────────────────────────────────────────────────────────────
 async function viewPO(id) {
     currentViewId = id;
-
-    try {
-        const data = await apiFetch(`/src/api/purchase_orders.php?id=${id}`);
-        renderViewPoModal(data.data);
+    
+    const po = allPOs.find(x => x.id === id);
+    if (po) {
+        renderViewPoModal(po);
         openModal('view_po');
-    } catch (err) {
-        console.error('viewPO error:', err);
-        showToast('Could not load PO details.', 'error');
+    } else {
+        showToast('Could not find PO in memory.', 'error');
     }
 }
 
@@ -250,9 +321,7 @@ function renderViewPoModal(po) {
     const titleEl = document.getElementById('view_po_title');
     const bodyEl  = document.getElementById('view_po_body');
     
-    // Safety check prevents script crashing if HTML is missing
     if (!titleEl || !bodyEl) {
-        console.error('View modal HTML elements are missing.');
         return;
     }
     
@@ -317,25 +386,23 @@ function openAddPO() {
     openModal('add_po');
 }
 
-async function openEditPO(id) {
-    try {
-        const data = await apiFetch(`/src/api/purchase_orders.php?id=${id}`);
-        const po   = data.data;
-        
-        safeSetVal('po_edit_id', id);
-        document.getElementById('po_modal_title').textContent = 
-            '✏️ Edit Purchase Order';
-            
-        safeSetVal('po_number',        po.po_number);
-        safeSetVal('po_vendor',        po.vendor_id     ?? '');
-        safeSetVal('po_date_received', po.date_received ?? '');
-        safeSetVal('po_date_endorsed', po.date_endorsed ?? '');
-        
-        openModal('add_po');
-    } catch (err) {
-        console.error('openEditPO error:', err);
+function openEditPO(id) {
+    const po = allPOs.find(x => x.id === id);
+    if (!po) {
         showToast('Could not load PO for editing.', 'error');
+        return;
     }
+        
+    safeSetVal('po_edit_id', id);
+    document.getElementById('po_modal_title').textContent = 
+        '✏️ Edit Purchase Order';
+        
+    safeSetVal('po_number',        po.po_number);
+    safeSetVal('po_vendor',        po.vendor_id     ?? '');
+    safeSetVal('po_date_received', po.date_received ?? '');
+    safeSetVal('po_date_endorsed', po.date_endorsed ?? '');
+    
+    openModal('add_po');
 }
 
 async function savePO() {
@@ -373,7 +440,7 @@ async function savePO() {
             `PO ${isEdit ? 'updated' : 'created'} successfully.`, 
             'success'
         );
-        loadPOs(poCurrentPage);
+        fetchInitialPOs();
     } catch (err) {
         console.error('savePO error:', err);
         showToast(err.message, 'error');
@@ -388,7 +455,7 @@ function deletePO(id, poNumber) {
                 method: 'DELETE' 
             });
             showToast('PO deleted.', 'success');
-            loadPOs(poCurrentPage);
+            fetchInitialPOs();
         } catch (err) { 
             console.error('deletePO error:', err);
             showToast(err.message, 'error'); 
