@@ -8,7 +8,9 @@ let poSort         = 'po.created_at';
 let poDir          = 'desc';
 let currentViewId  = null;
 
-// ─── UTILITIES ──────────────────────────────────────────────────────────────
+const MAX_CAT_CHIPS = 3;
+
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
 const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
 
 const safeSetVal = (id, val) => {
@@ -30,20 +32,22 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-// Rely on global debounce from app.js instead of re-declaring it
-const debouncedApplyPoFilters = debounce(() => { 
-    poCurrentPage = 1; 
-    applyClientPoFilters(); 
+// Uses global debounce from app.js
+const debouncedApplyPoFilters = debounce(() => {
+    poCurrentPage = 1;
+    applyClientPoFilters();
 }, 350);
 
-// ─── INIT ───────────────────────────────────────────────────────────────────
+// ─── INIT ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     populatePoVendorDropdown();
     populatePoFormVendors();
+    populatePoCategoryFilter();
+    populatePoOwnerFilter();
     fetchInitialPOs();
 });
 
-// ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
+// ─── EVENT HANDLERS ──────────────────────────────────────────────────────────
 function onViewClick(e, id) {
     e.stopPropagation();
     viewPO(id);
@@ -59,44 +63,47 @@ function onDeleteClick(e, id, poNumber) {
     deletePO(id, poNumber);
 }
 
-// ─── CLIENT-SIDE DATA FETCHING ──────────────────────────────────────────────
+// ─── DATA FETCHING ────────────────────────────────────────────────────────────
 async function fetchInitialPOs() {
     const tbody = document.getElementById('po_body');
     tbody.innerHTML = `
         <tr>
-            <td colspan="6" 
-                    style="text-align:center;padding:30px;color:var(--white-4)">
-                <i class="bi bi-arrow-repeat" 
-                        style="animation:spin 1s linear infinite"></i> 
+            <td colspan="7" class="cell-date"
+                    style="text-align:center;padding:30px">
+                <i class="bi bi-arrow-repeat spin"></i>
                 Loading POs...
             </td>
         </tr>`;
 
     try {
-        const data = await apiFetch(`/src/api/purchase_orders.php?per_page=5000`);
-        allPOs     = data.data || [];
+        const data = await apiFetch(
+            `/src/api/purchase_orders.php?per_page=5000`
+        );
+        allPOs = data.data || [];
         applyClientPoFilters();
     } catch (err) {
-        console.error('Fetch initial POs error:', err);
+        console.error('fetchInitialPOs error:', err);
         showToast('Failed to load purchase orders.', 'error');
     }
 }
 
-// ─── CLIENT-SIDE FILTERING & SORTING ────────────────────────────────────────
+// ─── FILTERING & SORTING ──────────────────────────────────────────────────────
 function clearPoFilters() {
-    ['po_search', 'filter_vendor', 'filter_endorsed'].forEach(id => {
-        safeSetVal(id, '');
-    });
-    poSort = 'po.created_at'; 
+    [
+        'po_search', 'filter_vendor', 'filter_endorsed',
+        'filter_category', 'filter_owner',
+    ].forEach(id => safeSetVal(id, ''));
+
+    poSort = 'po.created_at';
     poDir  = 'desc';
     updatePoSortIcons();
     debouncedApplyPoFilters();
 }
 
-function onPoPerPageChange() { 
+function onPoPerPageChange() {
     poItemsPerPage = parseInt(getVal('po_per_page')) || 25;
-    poCurrentPage  = 1; 
-    applyClientPoFilters(); 
+    poCurrentPage  = 1;
+    applyClientPoFilters();
 }
 
 function sortPOs(col) {
@@ -114,31 +121,34 @@ function sortPOs(col) {
 function updatePoSortIcons() {
     document.querySelectorAll('[id^="posort_"]').forEach(el => {
         el.className = 'bi bi-arrow-down-up sort-icon';
-        el.style.opacity = '0.35';
-        el.style.color = '';
     });
-    
+
     const active = document.getElementById(`posort_${poSort}`);
     if (active) {
-        const dirClass = poDir === 'asc' ? 'bi-sort-up' : 'bi-sort-down';
-        active.className = `bi ${dirClass} sort-icon`;
-        active.style.opacity = '1';
-        active.style.color   = 'var(--accent)';
+        const dirClass = poDir === 'asc'
+            ? 'bi-sort-up'
+            : 'bi-sort-down';
+        active.className = `bi ${dirClass} sort-icon sort-active`;
     }
 }
 
 function applyClientPoFilters() {
-    const search   = getVal('po_search').toLowerCase();
-    const vendorId = getVal('filter_vendor');
-    const endorsed = getVal('filter_endorsed');
+    const search    = getVal('po_search').toLowerCase();
+    const vendorId  = getVal('filter_vendor');
+    const endorsed  = getVal('filter_endorsed');
+    const catFilter = getVal('filter_category').toLowerCase();
+    const ownFilter = getVal('filter_owner').toLowerCase();
 
     filteredPOs = allPOs.filter(p => {
-        const matchSearch = !search || 
-            (p.po_number && p.po_number.toLowerCase().includes(search)) ||
-            (p.vendor_name && p.vendor_name.toLowerCase().includes(search));
+        const matchSearch = !search ||
+            (p.po_number &&
+             p.po_number.toLowerCase().includes(search)) ||
+            (p.vendor_name &&
+             p.vendor_name.toLowerCase().includes(search));
 
-        const matchVendor = !vendorId || String(p.vendor_id) === vendorId;
-        
+        const matchVendor = !vendorId ||
+            String(p.vendor_id) === vendorId;
+
         let matchEndorsed = true;
         if (endorsed === 'yes') {
             matchEndorsed = p.date_endorsed !== null;
@@ -146,19 +156,28 @@ function applyClientPoFilters() {
             matchEndorsed = p.date_endorsed === null;
         }
 
-        return matchSearch && matchVendor && matchEndorsed;
+        const matchCat = !catFilter ||
+            (p.categories &&
+             p.categories.toLowerCase().includes(catFilter));
+
+        const matchOwner = !ownFilter ||
+            (p.owners &&
+             p.owners.toLowerCase().includes(ownFilter));
+
+        return matchSearch && matchVendor &&
+               matchEndorsed && matchCat && matchOwner;
     });
 
-    const sortMap = {
+    const SORT_MAP = {
         'po.po_number':     'po_number',
         'v.name':           'vendor_name',
         'asset_count':      'asset_count',
         'po.date_received': 'date_received',
         'po.date_endorsed': 'date_endorsed',
-        'po.created_at':    'created_at'
+        'po.created_at':    'created_at',
     };
 
-    const jsSortKey = sortMap[poSort] || 'created_at';
+    const jsSortKey = SORT_MAP[poSort] || 'created_at';
 
     filteredPOs.sort((a, b) => {
         let valA = a[jsSortKey] ?? '';
@@ -168,8 +187,12 @@ function applyClientPoFilters() {
             valA = parseInt(valA) || 0;
             valB = parseInt(valB) || 0;
         } else {
-            if (typeof valA === 'string') { valA = valA.toLowerCase(); }
-            if (typeof valB === 'string') { valB = valB.toLowerCase(); }
+            if (typeof valA === 'string') {
+                valA = valA.toLowerCase();
+            }
+            if (typeof valB === 'string') {
+                valB = valB.toLowerCase();
+            }
         }
 
         if (valA < valB) { return poDir === 'asc' ? -1 : 1; }
@@ -180,7 +203,7 @@ function applyClientPoFilters() {
     renderCurrentPoPage();
 }
 
-window.changePoClientPage = function(page) {
+window.changePoClientPage = function (page) {
     poCurrentPage = page;
     renderCurrentPoPage();
 };
@@ -188,22 +211,23 @@ window.changePoClientPage = function(page) {
 function renderCurrentPoPage() {
     const totalItems = filteredPOs.length;
     const totalPages = Math.ceil(totalItems / poItemsPerPage) || 1;
-    
+
     if (poCurrentPage > totalPages) {
         poCurrentPage = totalPages;
     }
 
     const startIdx = (poCurrentPage - 1) * poItemsPerPage;
-    const endIdx   = startIdx + poItemsPerPage;
-    const pageData = filteredPOs.slice(startIdx, endIdx);
+    const pageData = filteredPOs.slice(
+        startIdx, startIdx + poItemsPerPage
+    );
 
     renderPoTable(pageData);
-    
+
     const mockPg = {
         page:        poCurrentPage,
         per_page:    poItemsPerPage,
         total:       totalItems,
-        total_pages: totalPages
+        total_pages: totalPages,
     };
 
     renderPagination('po_pagination', mockPg, 'changePoClientPage');
@@ -215,29 +239,49 @@ function renderPoCounter(pg) {
     if (!el || !pg) {
         return;
     }
-    
-    if (pg.total === 0) { 
-        el.textContent = 'No results'; 
-        return; 
+
+    if (!pg.total) {
+        el.textContent = 'No results';
+        return;
     }
-    
+
     const start = (pg.page - 1) * pg.per_page + 1;
     const end   = Math.min(pg.page * pg.per_page, pg.total);
     el.textContent = `${start}–${end} of ${pg.total}`;
 }
 
-// ─── RENDER ─────────────────────────────────────────────────────────────────
+// ─── TABLE RENDER ─────────────────────────────────────────────────────────────
+function buildCatChips(categoriesStr) {
+    if (!categoriesStr || categoriesStr === '—') {
+        return '<span class="cell-date">—</span>';
+    }
+
+    const cats  = categoriesStr.split(', ');
+    const shown = cats
+        .slice(0, MAX_CAT_CHIPS)
+        .map(c =>
+            `<span class="tag tag-category">${escapeHtml(c)}</span>`
+        )
+        .join('');
+
+    const more = cats.length > MAX_CAT_CHIPS
+        ? `<span class="tag">+${cats.length - MAX_CAT_CHIPS}</span>`
+        : '';
+
+    return shown + more;
+}
+
 function renderPoTable(pos) {
-    const tbody = document.getElementById('po_body');
+    const tbody      = document.getElementById('po_body');
+    const isAdminUsr = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
 
     if (!pos.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6">
+                <td colspan="7">
                     <div class="empty-state">
-                        <i class="bi bi-file-earmark-x" 
-                                style="font-size:36px;display:block;
-                                       margin-bottom:8px"></i>
+                        <i class="bi bi-file-earmark-x
+                                  empty-state__icon"></i>
                         <div class="empty-state__title">
                             No purchase orders found
                         </div>
@@ -247,53 +291,56 @@ function renderPoTable(pos) {
         return;
     }
 
-    const isAdminUser = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
-
     tbody.innerHTML = pos.map(p => {
         const safePoNum = escapeHtml(p.po_number);
-        
+
         const endorsedTag = p.date_endorsed
             ? `<span class="tag tag-active">
-                   <i class="bi bi-check-circle" style="margin-right:4px"></i>
+                   <i class="bi bi-check-circle"></i>
                    ${formatDate(p.date_endorsed)}
                </span>`
             : `<span class="tag tag-repair">
-                   <i class="bi bi-clock" style="margin-right:4px"></i>
+                   <i class="bi bi-clock"></i>
                    Pending
                </span>`;
 
-        const adminBtn = isAdminUser ? `
-            <button class="btn btn-danger btn-sm" 
-                    onclick="onDeleteClick(event, ${p.id}, '${safePoNum}')" 
-                    title="Delete">
-                <i class="bi bi-trash"></i>
-            </button>` : '';
+        const adminBtn = isAdminUsr
+            ? `<button class="btn btn-danger btn-sm"
+                       onclick="onDeleteClick(
+                           event, ${p.id}, '${safePoNum}'
+                       )"
+                       title="Delete">
+                   <i class="bi bi-trash"></i>
+               </button>`
+            : '';
 
         return `
-            <tr class="clickable-row" 
+            <tr class="clickable-row"
                     onclick="viewPO(${p.id})">
-                <td style="font-family:monospace;font-size:12px;
-                           color:var(--accent);font-weight:600">
+                <td class="cell-accent val-mono">
                     ${safePoNum}
                 </td>
-                <td style="font-size:12px">
+                <td class="cell-sm">
                     ${escapeHtml(p.vendor_name ?? '—')}
                 </td>
+                <td>
+                    <div class="table-actions">
+                        ${buildCatChips(p.categories)}
+                    </div>
+                </td>
                 <td style="text-align:center">
-                    <span class="tag" 
-                            style="background:var(--blue-dim);
-                                   color:var(--blue-tag)">
+                    <span class="tag tag-deployed">
                         ${escapeHtml(p.asset_count ?? 0)}
                     </span>
                 </td>
-                <td style="font-size:12px;color:var(--white-3)">
+                <td class="cell-date">
                     ${formatDate(p.date_received)}
                 </td>
                 <td>${endorsedTag}</td>
                 <td>
                     <div class="table-actions">
-                        <button class="btn btn-secondary btn-sm" 
-                                onclick="onEditClick(event, ${p.id})" 
+                        <button class="btn btn-secondary btn-sm"
+                                onclick="onEditClick(event, ${p.id})"
                                 title="Edit">
                             <i class="bi bi-pencil"></i>
                         </button>
@@ -304,35 +351,61 @@ function renderPoTable(pos) {
     }).join('');
 }
 
-// ─── VIEW MODAL ─────────────────────────────────────────────────────────────
+// ─── VIEW MODAL ───────────────────────────────────────────────────────────────
 async function viewPO(id) {
     currentViewId = id;
-    
+
     const po = allPOs.find(x => x.id === id);
-    if (po) {
-        renderViewPoModal(po);
-        openModal('view_po');
-    } else {
-        showToast('Could not find PO in memory.', 'error');
+    if (!po) {
+        showToast('Could not find PO.', 'error');
+        return;
+    }
+
+    renderViewPoSummary(po);
+    openModal('view_po');
+
+    const assetBody = document.getElementById('view_po_asset_body');
+    assetBody.innerHTML = `
+        <tr>
+            <td colspan="6" class="cell-date"
+                    style="text-align:center;padding:16px">
+                <i class="bi bi-arrow-repeat spin"></i>
+                Loading items…
+            </td>
+        </tr>`;
+
+    try {
+        const data = await apiFetch(
+            `/src/api/purchase_orders.php?id=${id}&action=assets`
+        );
+        renderViewPoAssets(data.data || []);
+    } catch (err) {
+        console.error('viewPO assets error:', err);
+        assetBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-red"
+                        style="text-align:center;padding:16px">
+                    Failed to load items.
+                </td>
+            </tr>`;
     }
 }
 
-function renderViewPoModal(po) {
+function renderViewPoSummary(po) {
     const titleEl = document.getElementById('view_po_title');
-    const bodyEl  = document.getElementById('view_po_body');
-    
+    const bodyEl  = document.getElementById('view_po_summary');
+
     if (!titleEl || !bodyEl) {
         return;
     }
-    
+
     titleEl.textContent = `📋 PO: ${po.po_number}`;
-    
-    const dateEndorsed = po.date_endorsed 
-        ? formatDate(po.date_endorsed) 
+
+    const dateEndorsed = po.date_endorsed
+        ? formatDate(po.date_endorsed)
         : '⏳ Pending';
 
     bodyEl.innerHTML = `
-        <div class="modal-section-title">Purchase Order Details</div>
         <div class="field-grid">
             <div class="form-field">
                 <label>PO Number</label>
@@ -355,17 +428,66 @@ function renderViewPoModal(po) {
             <div class="form-field">
                 <label>Date Received</label>
                 <div class="info-field">
-                    <div class="val">${formatDate(po.date_received)}</div>
+                    <div class="val">
+                        ${formatDate(po.date_received)}
+                    </div>
                 </div>
             </div>
             <div class="form-field">
-                <label>Date Endorsed</label>
+                <label>Date Endorsed by Admin</label>
                 <div class="info-field">
                     <div class="val">${dateEndorsed}</div>
                 </div>
             </div>
-        </div>
-    `;
+        </div>`;
+}
+
+/**
+ * Renders the Excel-matching breakdown per PO:
+ * Category | Description | Qty | Center Location | Process Owner | Remarks
+ */
+function renderViewPoAssets(rows) {
+    const tbody = document.getElementById('view_po_asset_body');
+    if (!tbody) {
+        return;
+    }
+
+    if (!rows.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="cell-date"
+                        style="text-align:center;padding:16px">
+                    No assets linked to this PO yet.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td>
+                <span class="tag tag-category">
+                    ${escapeHtml(r.category ?? '—')}
+                </span>
+            </td>
+            <td class="cell-sm">
+                ${escapeHtml(r.description ?? '—')}
+            </td>
+            <td style="text-align:center">
+                <span class="tag tag-deployed">
+                    ${escapeHtml(r.quantity ?? 0)}
+                </span>
+            </td>
+            <td class="cell-sm">
+                ${escapeHtml(r.location ?? '—')}
+            </td>
+            <td class="cell-sm">
+                ${escapeHtml(r.owner ?? '—')}
+            </td>
+            <td class="cell-date">
+                ${escapeHtml(r.remarks || 'NA')}
+            </td>
+        </tr>`).join('');
 }
 
 function editPoFromView() {
@@ -373,16 +495,16 @@ function editPoFromView() {
     openEditPO(currentViewId);
 }
 
-// ─── ADD / EDIT ─────────────────────────────────────────────────────────────
+// ─── ADD / EDIT ───────────────────────────────────────────────────────────────
 function openAddPO() {
     safeSetVal('po_edit_id', '');
-    document.getElementById('po_modal_title').textContent = 
+    document.getElementById('po_modal_title').textContent =
         '📋 New Purchase Order';
-        
-    ['po_number','po_date_received','po_date_endorsed','po_vendor'].forEach(
-        id => safeSetVal(id, '')
-    );
-    
+
+    ['po_number', 'po_date_received',
+     'po_date_endorsed', 'po_vendor']
+        .forEach(id => safeSetVal(id, ''));
+
     openModal('add_po');
 }
 
@@ -392,16 +514,16 @@ function openEditPO(id) {
         showToast('Could not load PO for editing.', 'error');
         return;
     }
-        
+
     safeSetVal('po_edit_id', id);
-    document.getElementById('po_modal_title').textContent = 
+    document.getElementById('po_modal_title').textContent =
         '✏️ Edit Purchase Order';
-        
+
     safeSetVal('po_number',        po.po_number);
     safeSetVal('po_vendor',        po.vendor_id     ?? '');
     safeSetVal('po_date_received', po.date_received ?? '');
     safeSetVal('po_date_endorsed', po.date_endorsed ?? '');
-    
+
     openModal('add_po');
 }
 
@@ -412,9 +534,9 @@ async function savePO() {
     const dateReceived = getVal('po_date_received');
     const dateEndorsed = getVal('po_date_endorsed');
 
-    if (!poNumber) { 
-        showToast('PO number is required.', 'error'); 
-        return; 
+    if (!poNumber) {
+        showToast('PO number is required.', 'error');
+        return;
     }
 
     const payload = {
@@ -425,19 +547,16 @@ async function savePO() {
     };
 
     const isEdit = !!id;
-    const url    = isEdit ? `/src/api/purchase_orders.php?id=${id}` 
-                          : '/src/api/purchase_orders.php';
+    const url    = isEdit
+        ? `/src/api/purchase_orders.php?id=${id}`
+        : '/src/api/purchase_orders.php';
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
-        await apiFetch(url, {
-            method: method,
-            body:   JSON.stringify(payload),
-        });
-        
+        await apiFetch(url, { method, body: JSON.stringify(payload) });
         closeModal('add_po');
         showToast(
-            `PO ${isEdit ? 'updated' : 'created'} successfully.`, 
+            `PO ${isEdit ? 'updated' : 'created'} successfully.`,
             'success'
         );
         fetchInitialPOs();
@@ -448,56 +567,88 @@ async function savePO() {
 }
 
 function deletePO(id, poNumber) {
-    const msg = `Delete PO: ${poNumber}? All linked assets will be unlinked.`;
+    const msg = `Delete PO: ${poNumber}?`
+        + ' All linked assets will be unlinked.';
+
     showConfirm('Delete Purchase Order', msg, async () => {
         try {
-            await apiFetch(`/src/api/purchase_orders.php?id=${id}`, { 
-                method: 'DELETE' 
-            });
+            await apiFetch(
+                `/src/api/purchase_orders.php?id=${id}`,
+                { method: 'DELETE' }
+            );
             showToast('PO deleted.', 'success');
             fetchInitialPOs();
-        } catch (err) { 
+        } catch (err) {
             console.error('deletePO error:', err);
-            showToast(err.message, 'error'); 
+            showToast(err.message, 'error');
         }
     });
 }
 
-// ─── DROPDOWNS ──────────────────────────────────────────────────────────────
-async function populatePoVendorDropdown() {
-    const el = document.getElementById('filter_vendor');
+// ─── DROPDOWN HELPERS ─────────────────────────────────────────────────────────
+function appendOptions(selectId, items, valKey, labelKey) {
+    const el = document.getElementById(selectId);
     if (!el) {
         return;
     }
-    
+    items.forEach(item => {
+        const opt       = document.createElement('option');
+        opt.value       = item[valKey];
+        opt.textContent = item[labelKey];
+        el.appendChild(opt);
+    });
+}
+
+async function populatePoVendorDropdown() {
     try {
-        const data = await apiFetch('/src/api/vendors.php?per_page=500');
-        (data.data ?? []).forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.id; 
-            opt.textContent = v.name; 
-            el.appendChild(opt);
-        });
+        const data = await apiFetch(
+            '/src/api/vendors.php?per_page=500'
+        );
+        appendOptions('filter_vendor', data.data ?? [], 'id', 'name');
     } catch (err) {
         console.error('populatePoVendorDropdown error:', err);
     }
 }
 
 async function populatePoFormVendors() {
-    const el = document.getElementById('po_vendor');
-    if (!el) {
-        return;
-    }
-    
     try {
-        const data = await apiFetch('/src/api/vendors.php?per_page=500');
-        (data.data ?? []).forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.id; 
-            opt.textContent = v.name; 
-            el.appendChild(opt);
-        });
+        const data = await apiFetch(
+            '/src/api/vendors.php?per_page=500'
+        );
+        appendOptions('po_vendor', data.data ?? [], 'id', 'name');
     } catch (err) {
         console.error('populatePoFormVendors error:', err);
     }
+}
+
+async function populatePoCategoryFilter() {
+    try {
+        const data = await apiFetch(
+            '/src/api/categories.php?per_page=200'
+        );
+        appendOptions(
+            'filter_category', data.data ?? [], 'name', 'name'
+        );
+    } catch (err) {
+        console.error('populatePoCategoryFilter error:', err);
+    }
+}
+
+async function populatePoOwnerFilter() {
+    try {
+        const data = await apiFetch(
+            '/src/api/process_owners.php?per_page=500'
+        );
+        appendOptions(
+            'filter_owner', data.data ?? [], 'name', 'name'
+        );
+    } catch (err) {
+        console.error('populatePoOwnerFilter error:', err);
+    }
+}
+
+// ─── GLOBAL SEARCH (topbar) ───────────────────────────────────────────────────
+function globalSearch(term) {
+    safeSetVal('po_search', term);
+    debouncedApplyPoFilters();
 }
