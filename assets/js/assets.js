@@ -7,8 +7,9 @@ let itemsPerPage   = 25;
 let currentSort    = 'a.created_at';
 let currentDir     = 'desc';
 let currentViewId  = null;
+let assetMode      = 'single'; // 'single' | 'bulk'
 
-// ─── UTILITIES ──────────────────────────────────────────────────────────────
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
 const safeSetVal = (id, val) => {
     const el = document.getElementById(id);
     if (el) {
@@ -16,7 +17,8 @@ const safeSetVal = (id, val) => {
     }
 };
 
-const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
+const getVal = (id) =>
+    document.getElementById(id)?.value.trim() ?? '';
 
 function escapeHtml(str) {
     if (!str) {
@@ -30,24 +32,24 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-// ─── INIT ───────────────────────────────────────────────────────────────────
+// ─── INIT ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get('search');
 
     if (urlSearch) {
-        const searchEl = document.getElementById('asset_search');
-        if (searchEl) {
-            searchEl.value = urlSearch;
+        const el = document.getElementById('asset_search');
+        if (el) {
+            el.value = urlSearch;
         }
     }
 
-    // Fetch EVERYTHING once
     fetchInitialAssets();
     populateAssetFormDropdowns();
+    setupImportDropZone();
 });
 
-// ─── EVENT HANDLERS (Stops Event Bubbling) ──────────────────────────────────
+// ─── EVENT HANDLERS ──────────────────────────────────────────────────────────
 function onViewClick(e, id) {
     e.stopPropagation();
     viewAsset(id);
@@ -63,54 +65,52 @@ function onDeleteClick(e, id, serial) {
     deleteAsset(id, serial);
 }
 
-// ─── CLIENT-SIDE DATA FETCHING ──────────────────────────────────────────────
+// ─── DATA FETCHING ────────────────────────────────────────────────────────────
 async function fetchInitialAssets() {
     const tbody = document.getElementById('assets_body');
     tbody.innerHTML = `
         <tr>
-            <td colspan="9" 
-                    style="text-align:center;padding:30px;color:var(--white-4)">
-                <i class="bi bi-arrow-repeat" 
-                        style="animation:spin 1s linear infinite"></i> 
+            <td colspan="9" class="cell-date"
+                    style="text-align:center;padding:30px">
+                <i class="bi bi-arrow-repeat spin"></i>
                 Loading database...
             </td>
         </tr>`;
 
     try {
-        // Fetch a large limit to grab the whole inventory into memory
-        const data = await apiFetch(`/src/api/assets.php?per_page=10000`);
-        allAssets  = data.data || [];
-        
-        applyClientFilters(); // Process filters immediately
+        const data = await apiFetch(
+            `/src/api/assets.php?per_page=10000`
+        );
+        allAssets = data.data || [];
+        applyClientFilters();
     } catch (err) {
-        console.error('Fetch initial assets error:', err);
+        console.error('fetchInitialAssets error:', err);
         showToast('Failed to load assets from server.', 'error');
     }
 }
 
-// ─── CLIENT-SIDE FILTERING & SORTING ────────────────────────────────────────
-
-// Triggered by the HTML inputs (oninput / onchange)
+// ─── FILTERING & SORTING ──────────────────────────────────────────────────────
 function debouncedLoadAssets() {
     currentPage = 1;
     applyClientFilters();
 }
 
 function clearAssetFilters() {
-    ['asset_search', 'filter_status', 'filter_category', 
-     'filter_location', 'filter_owner'].forEach(id => safeSetVal(id, ''));
-     
+    [
+        'asset_search', 'filter_status', 'filter_category',
+        'filter_location', 'filter_owner',
+    ].forEach(id => safeSetVal(id, ''));
+
     currentSort = 'a.created_at';
     currentDir  = 'desc';
-    
     updateSortIcons();
     debouncedLoadAssets();
 }
 
-function onPerPageChange() { 
+function onPerPageChange() {
     itemsPerPage = parseInt(getVal('asset_per_page')) || 25;
-    currentPage  = 1; 
-    applyClientFilters(); 
+    currentPage  = 1;
+    applyClientFilters();
 }
 
 function sortAssets(col) {
@@ -128,15 +128,14 @@ function sortAssets(col) {
 function updateSortIcons() {
     document.querySelectorAll('.sort-icon').forEach(el => {
         el.className = 'bi bi-arrow-down-up sort-icon';
-        el.style.opacity = '0.35';
     });
-    
+
     const active = document.getElementById(`sort_${currentSort}`);
     if (active) {
-        const dirClass = currentDir === 'asc' ? 'bi-sort-up' : 'bi-sort-down';
-        active.className = `bi ${dirClass} sort-icon`;
-        active.style.opacity = '1';
-        active.style.color   = 'var(--accent)';
+        const dirClass = currentDir === 'asc'
+            ? 'bi-sort-up'
+            : 'bi-sort-down';
+        active.className = `bi ${dirClass} sort-icon sort-active`;
     }
 }
 
@@ -147,35 +146,38 @@ function applyClientFilters() {
     const locId  = getVal('filter_location');
     const ownId  = getVal('filter_owner');
 
-    // 1. Filter the array in memory (ZERO API CALLS!)
     filteredAssets = allAssets.filter(a => {
-        const matchSearch = !search || 
-            (a.serial_number && a.serial_number.toLowerCase().includes(search)) ||
-            (a.description && a.description.toLowerCase().includes(search)) ||
-            (a.po_number && a.po_number.toLowerCase().includes(search)) ||
-            (a.vendor_name && a.vendor_name.toLowerCase().includes(search));
+        const matchSearch = !search ||
+            (a.serial_number &&
+             a.serial_number.toLowerCase().includes(search)) ||
+            (a.description &&
+             a.description.toLowerCase().includes(search)) ||
+            (a.po_number &&
+             a.po_number.toLowerCase().includes(search)) ||
+            (a.vendor_name &&
+             a.vendor_name.toLowerCase().includes(search));
 
         const matchStatus = !status || String(a.status) === status;
         const matchCat    = !catId  || String(a.category_id) === catId;
         const matchLoc    = !locId  || String(a.location_id) === locId;
         const matchOwn    = !ownId  || String(a.owner_id) === ownId;
 
-        return matchSearch && matchStatus && matchCat && matchLoc && matchOwn;
+        return matchSearch && matchStatus &&
+               matchCat && matchLoc && matchOwn;
     });
 
-    // 2. Sort the filtered array
-    const sortMap = {
-        'a.serial_number': 'serial_number',
-        'a.description':   'description',
-        'c.name':          'category_name',
-        'l.name':          'location_name',
-        'o.name':          'owner_name',
-        'a.status':        'status',
-        'po.date_received':'date_received',
-        'a.created_at':    'created_at'
+    const SORT_MAP = {
+        'a.serial_number':  'serial_number',
+        'a.description':    'description',
+        'c.name':           'category_name',
+        'l.name':           'location_name',
+        'o.name':           'owner_name',
+        'a.status':         'status',
+        'po.date_received': 'date_received',
+        'a.created_at':     'created_at',
     };
 
-    const jsSortKey = sortMap[currentSort] || 'created_at';
+    const jsSortKey = SORT_MAP[currentSort] || 'created_at';
 
     filteredAssets.sort((a, b) => {
         let valA = a[jsSortKey] || '';
@@ -189,12 +191,11 @@ function applyClientFilters() {
         return 0;
     });
 
-    // 3. Render the specific page view
     renderCurrentPage();
 }
 
-// ─── RENDERING & PAGINATION ─────────────────────────────────────────────────
-window.changeClientPage = function(page) {
+// ─── RENDERING & PAGINATION ───────────────────────────────────────────────────
+window.changeClientPage = function (page) {
     currentPage = page;
     renderCurrentPage();
 };
@@ -202,24 +203,23 @@ window.changeClientPage = function(page) {
 function renderCurrentPage() {
     const totalItems = filteredAssets.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-    
-    // Safety check if current page exceeds bounds
+
     if (currentPage > totalPages) {
         currentPage = totalPages;
     }
 
     const startIdx = (currentPage - 1) * itemsPerPage;
-    const endIdx   = startIdx + itemsPerPage;
-    const pageData = filteredAssets.slice(startIdx, endIdx);
+    const pageData = filteredAssets.slice(
+        startIdx, startIdx + itemsPerPage
+    );
 
     renderAssetTable(pageData);
-    
-    // Mock the pagination object to trick the global renderPagination function
+
     const mockPg = {
         page:        currentPage,
         per_page:    itemsPerPage,
         total:       totalItems,
-        total_pages: totalPages
+        total_pages: totalPages,
     };
 
     renderPagination('assets_pagination', mockPg, 'changeClientPage');
@@ -231,19 +231,20 @@ function renderCounter(pg) {
     if (!el || !pg) {
         return;
     }
-    
-    if (pg.total === 0) { 
-        el.textContent = 'No results'; 
-        return; 
+
+    if (!pg.total) {
+        el.textContent = 'No results';
+        return;
     }
-    
+
     const start = (pg.page - 1) * pg.per_page + 1;
     const end   = Math.min(pg.page * pg.per_page, pg.total);
     el.textContent = `${start}–${end} of ${pg.total}`;
 }
 
 function renderAssetTable(assets) {
-    const tbody = document.getElementById('assets_body');
+    const tbody      = document.getElementById('assets_body');
+    const isAdminUsr = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
 
     if (!assets.length) {
         tbody.innerHTML = `
@@ -263,25 +264,24 @@ function renderAssetTable(assets) {
         return;
     }
 
-    const isAdminUser = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
-
     tbody.innerHTML = assets.map(a => {
         const safeSn = escapeHtml(a.serial_number);
-        
-        const adminBtn = isAdminUser ? `
-            <button class="btn btn-danger btn-sm" 
-                    onclick="onDeleteClick(event, ${a.id}, '${safeSn}')" 
-                    title="Delete">
-                <i class="bi bi-trash"></i>
-            </button>` : '';
+
+        const adminBtn = isAdminUsr
+            ? `<button class="btn btn-danger btn-sm"
+                       onclick="onDeleteClick(
+                           event, ${a.id}, '${safeSn}'
+                       )"
+                       title="Delete">
+                   <i class="bi bi-trash"></i>
+               </button>`
+            : '';
 
         return `
-            <tr class="clickable-row" 
+            <tr class="clickable-row"
                     onclick="viewAsset(${a.id})">
                 <td>
-                    <span class="serial-chip">
-                        ${safeSn}
-                    </span>
+                    <span class="serial-chip">${safeSn}</span>
                 </td>
                 <td>${escapeHtml(a.description)}</td>
                 <td>
@@ -299,7 +299,9 @@ function renderAssetTable(assets) {
                     ${escapeHtml(a.owner_name ?? '—')}
                 </td>
                 <td>${statusTag(a.status)}</td>
-                <td class="cell-date">${formatDate(a.date_received)}</td>
+                <td class="cell-date">
+                    ${formatDate(a.date_received)}
+                </td>
                 <td>
                     <div class="table-actions">
                         <button class="btn btn-secondary btn-sm"
@@ -314,13 +316,11 @@ function renderAssetTable(assets) {
     }).join('');
 }
 
-// ─── VIEW MODAL ─────────────────────────────────────────────────────────────
+// ─── VIEW MODAL ───────────────────────────────────────────────────────────────
 async function viewAsset(id) {
     currentViewId = id;
+    const asset   = allAssets.find(x => x.id === id);
 
-    // Use local array instead of fetching again! (Saves API Call)
-    const asset = allAssets.find(x => x.id === id);
-    
     if (asset) {
         renderViewModal(asset);
         openModal('view_asset');
@@ -332,13 +332,15 @@ async function viewAsset(id) {
 function renderViewModal(a) {
     const titleEl = document.getElementById('view_asset_title');
     titleEl.textContent = `📦 ${a.description}`;
-    
-    const dateEndorsed = a.date_endorsed 
-        ? formatDate(a.date_endorsed) 
+
+    const dateEndorsed = a.date_endorsed
+        ? formatDate(a.date_endorsed)
         : '⏳ Pending';
-        
+
     const remarksCls = a.remarks ? '' : 'val-empty';
-    const remarksTxt = a.remarks ? escapeHtml(a.remarks) : 'No remarks';
+    const remarksTxt = a.remarks
+        ? escapeHtml(a.remarks)
+        : 'No remarks';
 
     document.getElementById('view_asset_body').innerHTML = `
         <div class="modal-section-title">Purchase Order Info</div>
@@ -354,7 +356,9 @@ function renderViewModal(a) {
             <div class="form-field">
                 <label>Vendor</label>
                 <div class="info-field">
-                    <div class="val">${escapeHtml(a.vendor_name ?? '—')}</div>
+                    <div class="val">
+                        ${escapeHtml(a.vendor_name ?? '—')}
+                    </div>
                 </div>
             </div>
         </div>
@@ -362,11 +366,13 @@ function renderViewModal(a) {
             <div class="form-field">
                 <label>Date Received</label>
                 <div class="info-field">
-                    <div class="val">${formatDate(a.date_received)}</div>
+                    <div class="val">
+                        ${formatDate(a.date_received)}
+                    </div>
                 </div>
             </div>
             <div class="form-field">
-                <label>Date Endorsed</label>
+                <label>Date Endorsed by Admin</label>
                 <div class="info-field">
                     <div class="val">${dateEndorsed}</div>
                 </div>
@@ -377,13 +383,17 @@ function renderViewModal(a) {
             <div class="form-field">
                 <label>Location</label>
                 <div class="info-field">
-                    <div class="val">${escapeHtml(a.location_name ?? '—')}</div>
+                    <div class="val">
+                        ${escapeHtml(a.location_name ?? '—')}
+                    </div>
                 </div>
             </div>
             <div class="form-field">
                 <label>Process Owner</label>
                 <div class="info-field">
-                    <div class="val">${escapeHtml(a.owner_name ?? '—')}</div>
+                    <div class="val">
+                        ${escapeHtml(a.owner_name ?? '—')}
+                    </div>
                 </div>
             </div>
         </div>
@@ -391,23 +401,28 @@ function renderViewModal(a) {
             <div class="form-field">
                 <label>Category</label>
                 <div class="info-field">
-                    <div class="val">${escapeHtml(a.category_name ?? '—')}</div>
+                    <div class="val">
+                        ${escapeHtml(a.category_name ?? '—')}
+                    </div>
                 </div>
             </div>
             <div class="form-field">
                 <label>Status</label>
-                <div class="info-field">${statusTag(a.status)}</div>
+                <div class="info-field">
+                    ${statusTag(a.status)}
+                </div>
             </div>
         </div>
         <div class="modal-section-title">Serial Number</div>
         <div class="serial-chip-wrap">
-            <span class="serial-chip">${escapeHtml(a.serial_number)}</span>
+            <span class="serial-chip">
+                ${escapeHtml(a.serial_number)}
+            </span>
         </div>
         <div class="modal-section-title">Remarks</div>
         <div class="info-field">
             <div class="val ${remarksCls}">${remarksTxt}</div>
-        </div>
-    `;
+        </div>`;
 }
 
 function editAssetFromView() {
@@ -415,36 +430,41 @@ function editAssetFromView() {
     openEditAsset(currentViewId);
 }
 
-// ─── ADD / EDIT / DELETE ────────────────────────────────────────────────────
+// ─── ADD / EDIT / DELETE ──────────────────────────────────────────────────────
 function openAddAsset() {
-    document.getElementById('asset_modal_title').textContent = 
+    document.getElementById('asset_modal_title').textContent =
         '📦 Add New Asset';
-        
-    ['asset_edit_id','asset_serial','asset_desc','asset_category',
-     'asset_po','asset_location','asset_owner','asset_remarks',
-     'asset_vendor'].forEach(id => safeSetVal(id, ''));
+
+    [
+        'asset_edit_id', 'asset_serial', 'asset_desc',
+        'asset_category', 'asset_po', 'asset_location',
+        'asset_owner', 'asset_remarks', 'asset_vendor',
+        'asset_serials_bulk',
+    ].forEach(id => safeSetVal(id, ''));
 
     safeSetVal('asset_status', 'active');
-    
+
     const serialEl = document.getElementById('asset_serial');
     if (serialEl) {
         serialEl.removeAttribute('readonly');
     }
-    
+
+    hidePoAutofillHint();
+    setAssetMode('single');
+    showModeToggle(true);
     openModal('add_asset');
 }
 
 function openEditAsset(id) {
-    // Read directly from memory array instead of API
     const a = allAssets.find(x => x.id === id);
     if (!a) {
         showToast('Could not load asset for editing.', 'error');
         return;
     }
 
-    document.getElementById('asset_modal_title').textContent = 
+    document.getElementById('asset_modal_title').textContent =
         '✏️ Edit Asset';
-        
+
     safeSetVal('asset_edit_id',  id);
     safeSetVal('asset_serial',   a.serial_number);
     safeSetVal('asset_desc',     a.description);
@@ -460,12 +480,21 @@ function openEditAsset(id) {
     if (serialEl) {
         serialEl.setAttribute('readonly', true);
     }
-    
+
+    hidePoAutofillHint();
+    showModeToggle(false);
+    setAssetMode('single');
     openModal('add_asset');
 }
 
 async function saveAsset() {
-    const id         = getVal('asset_edit_id');
+    const id = getVal('asset_edit_id');
+
+    if (assetMode === 'bulk' && !id) {
+        await saveBulkAssets();
+        return;
+    }
+
     const serial     = getVal('asset_serial');
     const desc       = getVal('asset_desc');
     const categoryId = getVal('asset_category');
@@ -476,7 +505,10 @@ async function saveAsset() {
     const remarks    = getVal('asset_remarks');
 
     if (!serial || !desc || !categoryId) {
-        showToast('Serial, description, and category are required.', 'error');
+        showToast(
+            'Serial, description, and category are required.',
+            'error'
+        );
         return;
     }
 
@@ -484,29 +516,84 @@ async function saveAsset() {
         serial_number: serial,
         description:   desc,
         category_id:   categoryId,
-        status:        status,
-        po_id:         poId       || null,
-        location_id:   locationId || null,
-        owner_id:      ownerId    || null,
-        remarks:       remarks,
+        status,
+        po_id:         poId        || null,
+        location_id:   locationId  || null,
+        owner_id:      ownerId     || null,
+        remarks,
     };
 
     const isEdit = !!id;
-    const url    = isEdit ? `/src/api/assets.php?id=${id}` 
-                          : '/src/api/assets.php';
+    const url    = isEdit
+        ? `/src/api/assets.php?id=${id}`
+        : '/src/api/assets.php';
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
         await apiFetch(url, { method, body: JSON.stringify(payload) });
         closeModal('add_asset');
         showToast(
-            `Asset ${isEdit ? 'updated' : 'created'} successfully.`, 
+            `Asset ${isEdit ? 'updated' : 'created'} successfully.`,
             'success'
         );
-        // Refresh master dataset after saving
         fetchInitialAssets();
     } catch (err) {
         console.error('saveAsset error:', err);
+        showToast(err.message, 'error');
+    }
+}
+
+async function saveBulkAssets() {
+    const raw        = getVal('asset_serials_bulk');
+    const desc       = getVal('asset_desc');
+    const categoryId = getVal('asset_category');
+    const status     = getVal('asset_status');
+    const poId       = getVal('asset_po');
+    const locationId = getVal('asset_location');
+    const ownerId    = getVal('asset_owner');
+    const remarks    = getVal('asset_remarks');
+
+    const serials = parseSerialInput(raw);
+
+    if (!serials.length) {
+        showToast('Enter at least one serial number.', 'error');
+        return;
+    }
+
+    if (!desc || !categoryId) {
+        showToast('Description and category are required.', 'error');
+        return;
+    }
+
+    const payload = {
+        serials,
+        description:  desc,
+        category_id:  categoryId,
+        status,
+        po_id:        poId        || null,
+        location_id:  locationId  || null,
+        owner_id:     ownerId     || null,
+        remarks,
+    };
+
+    try {
+        const res = await apiFetch(
+            '/src/api/assets.php?action=bulk',
+            { method: 'POST', body: JSON.stringify(payload) }
+        );
+
+        closeModal('add_asset');
+
+        const { inserted, skipped } = res.data;
+        let   msg = `${inserted} asset(s) created.`;
+        if (skipped.length) {
+            msg += ` ${skipped.length} skipped (duplicates).`;
+        }
+
+        showToast(msg, inserted ? 'success' : 'error');
+        fetchInitialAssets();
+    } catch (err) {
+        console.error('saveBulkAssets error:', err);
         showToast(err.message, 'error');
     }
 }
@@ -515,39 +602,218 @@ function deleteAsset(id, serial) {
     const msg = `Delete asset SN: ${serial}? This cannot be undone.`;
     showConfirm('Delete Asset', msg, async () => {
         try {
-            await apiFetch(`/src/api/assets.php?id=${id}`, { 
-                method: 'DELETE' 
+            await apiFetch(`/src/api/assets.php?id=${id}`, {
+                method: 'DELETE',
             });
             showToast('Asset deleted.', 'success');
-            // Refresh master dataset
             fetchInitialAssets();
-        } catch (err) { 
-            showToast(err.message, 'error'); 
+        } catch (err) {
+            console.error('deleteAsset error:', err);
+            showToast(err.message, 'error');
         }
     });
 }
 
-// ─── DROPDOWNS ──────────────────────────────────────────────────────────────
+// ─── MODE TOGGLE ─────────────────────────────────────────────────────────────
+function setAssetMode(mode) {
+    assetMode = mode;
+
+    const isBulk      = mode === 'bulk';
+    const singleField = document.getElementById('field_single_serial');
+    const bulkField   = document.getElementById('field_bulk_serials');
+    const hintEl      = document.getElementById('asset_mode_hint');
+    const saveLabel   = document.getElementById('asset_save_label');
+    const btnSingle   = document.getElementById('btn_mode_single');
+    const btnBulk     = document.getElementById('btn_mode_bulk');
+
+    if (singleField) {
+        singleField.style.display = isBulk ? 'none' : '';
+    }
+    if (bulkField) {
+        bulkField.style.display = isBulk ? '' : 'none';
+    }
+    if (hintEl) {
+        hintEl.textContent = isBulk
+            ? 'Paste multiple serials — one per line'
+            : 'Single serial entry';
+    }
+    if (saveLabel) {
+        saveLabel.textContent = isBulk
+            ? 'Save All'
+            : 'Save Asset';
+    }
+
+    if (btnSingle) {
+        btnSingle.className = isBulk
+            ? 'btn btn-secondary btn-sm'
+            : 'btn btn-primary btn-sm';
+    }
+    if (btnBulk) {
+        btnBulk.className = isBulk
+            ? 'btn btn-primary btn-sm'
+            : 'btn btn-secondary btn-sm';
+    }
+
+    updateBulkCount();
+}
+
+function showModeToggle(isVisible) {
+    const el = document.getElementById('asset_mode_toggle');
+    if (el) {
+        el.style.display = isVisible ? '' : 'none';
+    }
+}
+
+function updateBulkCount() {
+    const countEl = document.getElementById('bulk_sn_count');
+    if (!countEl) {
+        return;
+    }
+    const n = parseSerialInput(getVal('asset_serials_bulk')).length;
+    countEl.textContent =
+        `${n} serial number${n !== 1 ? 's' : ''} detected`;
+}
+
+/**
+ * Splits a raw textarea value into clean serial number strings.
+ * Accepts newline-separated, comma-separated, or mixed input.
+ */
+function parseSerialInput(raw) {
+    return raw
+        .split(/[\n,]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+// ─── SMART PO AUTO-FILL ───────────────────────────────────────────────────────
+async function onPoChange(selectEl) {
+    const poId      = selectEl.value;
+    const vendorName = selectEl.options[selectEl.selectedIndex]
+        ?.dataset?.vendorName || '';
+
+    safeSetVal('asset_vendor', vendorName);
+    hidePoAutofillHint();
+
+    if (!poId) {
+        return;
+    }
+
+    try {
+        const res = await apiFetch(
+            `/src/api/po_hints.php?po_id=${poId}`
+        );
+        applyPoHints(res.data);
+    } catch (err) {
+        console.error('onPoChange hint error:', err);
+    }
+}
+
+function applyPoHints(hints) {
+    if (!hints) {
+        return;
+    }
+
+    const filled = [];
+
+    if (hints.vendor_name) {
+        safeSetVal('asset_vendor', hints.vendor_name);
+    }
+
+    if (hints.location_id) {
+        safeSetVal('asset_location', hints.location_id);
+        filled.push('Location');
+    }
+
+    if (hints.owner_id) {
+        safeSetVal('asset_owner', hints.owner_id);
+        filled.push('Process Owner');
+    }
+
+    if (hints.category_id) {
+        safeSetVal('asset_category', hints.category_id);
+        filled.push('Category');
+    }
+
+    if (hints.description) {
+        safeSetVal('asset_desc', hints.description);
+        filled.push('Description');
+    }
+
+    if (filled.length) {
+        showPoAutofillHint(filled);
+    }
+}
+
+function showPoAutofillHint(fields) {
+    const wrap = document.getElementById('po_autofill_hint');
+    const msg  = document.getElementById('po_autofill_msg');
+    if (!wrap || !msg) {
+        return;
+    }
+    msg.textContent =
+        `Auto-filled from PO history: ${fields.join(', ')}. `
+        + 'You can override any field.';
+    wrap.style.display = '';
+}
+
+function hidePoAutofillHint() {
+    const wrap = document.getElementById('po_autofill_hint');
+    if (wrap) {
+        wrap.style.display = 'none';
+    }
+}
+
+// ─── DROPDOWNS ────────────────────────────────────────────────────────────────
 async function populateAssetFormDropdowns() {
     await Promise.all([
-        populateSelect('asset_category',  '/src/api/categories.php',     
-                       'id', 'name'),
-        populateSelect('asset_po',        '/src/api/purchase_orders.php',
-                       'id', 'po_number', 'vendor_name'),
-        populateSelect('asset_location',  '/src/api/locations.php',      
-                       'id', 'name'),
-        populateSelect('asset_owner',     '/src/api/process_owners.php', 
-                       'id', 'name'),
-        populateSelect('filter_category', '/src/api/categories.php',     
-                       'id', 'name'),
-        populateSelect('filter_location', '/src/api/locations.php',      
-                       'id', 'name'),
-        populateSelect('filter_owner',    '/src/api/process_owners.php', 
-                       'id', 'name'),
+        populateSelect(
+            'asset_category',
+            '/src/api/categories.php',
+            'id', 'name'
+        ),
+        populateSelect(
+            'asset_po',
+            '/src/api/purchase_orders.php',
+            'id', 'po_number',
+            { dataKey: 'vendor_name', dataAttr: 'vendorName' }
+        ),
+        populateSelect(
+            'asset_location',
+            '/src/api/locations.php',
+            'id', 'name'
+        ),
+        populateSelect(
+            'asset_owner',
+            '/src/api/process_owners.php',
+            'id', 'name'
+        ),
+        populateSelect(
+            'filter_category',
+            '/src/api/categories.php',
+            'id', 'name'
+        ),
+        populateSelect(
+            'filter_location',
+            '/src/api/locations.php',
+            'id', 'name'
+        ),
+        populateSelect(
+            'filter_owner',
+            '/src/api/process_owners.php',
+            'id', 'name'
+        ),
     ]);
 }
 
-async function populateSelect(selId, url, valKey, lblKey, extraKey = null) {
+/**
+ * Populates a <select> from an API endpoint.
+ * @param {string}      selId   - element ID
+ * @param {string}      url     - API URL (without per_page)
+ * @param {string}      valKey  - property used as option value
+ * @param {string}      lblKey  - property used as option label
+ * @param {object|null} extra   - { dataKey, dataAttr } for data-* attr
+ */
+async function populateSelect(selId, url, valKey, lblKey, extra = null) {
     const el = document.getElementById(selId);
     if (!el) {
         return;
@@ -561,10 +827,11 @@ async function populateSelect(selId, url, valKey, lblKey, extraKey = null) {
             const opt       = document.createElement('option');
             opt.value       = item[valKey];
             opt.textContent = item[lblKey];
-            
-            if (extraKey) {
-                opt.dataset[extraKey] = item[extraKey] ?? '';
+
+            if (extra?.dataKey) {
+                opt.dataset[extra.dataAttr] = item[extra.dataKey] ?? '';
             }
+
             el.appendChild(opt);
         });
     } catch (err) {
@@ -572,30 +839,19 @@ async function populateSelect(selId, url, valKey, lblKey, extraKey = null) {
     }
 }
 
-function onPoChange(selectEl) {
-    const sel = selectEl.options[selectEl.selectedIndex];
-    safeSetVal('asset_vendor', sel?.dataset?.vendorName || '');
-}
-
-// ─── EXPORT & IMPORT ────────────────────────────────────────────────────────
+// ─── EXPORT & IMPORT ──────────────────────────────────────────────────────────
 async function exportToExcel() {
-    const status  = getVal('filter_status');
-    const catId   = getVal('filter_category');
-    const locId   = getVal('filter_location');
-    const ownerId = getVal('filter_owner');
-    const search  = getVal('asset_search');
-
-    const params = new URLSearchParams({ 
-        action:      'export', 
-        status:      status, 
-        category_id: catId,
-        location_id: locId,
-        owner_id:    ownerId,
-        search:      search,
+    const params = new URLSearchParams({
+        action:      'export',
+        status:      getVal('filter_status'),
+        category_id: getVal('filter_category'),
+        location_id: getVal('filter_location'),
+        owner_id:    getVal('filter_owner'),
+        search:      getVal('asset_search'),
         sort:        currentSort,
-        dir:         currentDir
+        dir:         currentDir,
     });
-    
+
     window.location.href = `/src/api/import_export.php?${params}`;
 }
 
@@ -604,52 +860,50 @@ let importFile = null;
 function openImportModal() {
     importFile = null;
     safeSetVal('import_file', '');
-    
+
     const zoneLabel = document.getElementById('import_zone_label');
     if (zoneLabel) {
         zoneLabel.textContent = 'Drop your .xlsx file here';
     }
-    
+
     const submitBtn = document.getElementById('import_submit_btn');
     if (submitBtn) {
         submitBtn.disabled = true;
     }
-    
+
     showImportStep('upload');
     openModal('import_assets');
 }
 
 function showImportStep(step) {
-    ['upload','progress','results'].forEach(s => {
+    ['upload', 'progress', 'results'].forEach(s => {
         const el = document.getElementById(`import_step_${s}`);
         if (el) {
             el.style.display = s === step ? '' : 'none';
         }
     });
-        
+
     const footer = document.getElementById('import_modal_footer');
     if (!footer) {
         return;
     }
-    
+
     if (step === 'results') {
         footer.innerHTML = `
-            <button class="btn btn-secondary" 
+            <button class="btn btn-secondary"
                     onclick="closeModal('import_assets')">
                 Close
             </button>
-            <button class="btn btn-primary" 
+            <button class="btn btn-primary"
                     onclick="openImportModal()">
                 Import Another
-            </button>
-        `;
+            </button>`;
     } else if (step === 'upload') {
         footer.innerHTML = `
-            <button class="btn btn-secondary" 
+            <button class="btn btn-secondary"
                     onclick="closeModal('import_assets')">
                 Cancel
-            </button>
-        `;
+            </button>`;
     } else {
         footer.innerHTML = '';
     }
@@ -660,90 +914,92 @@ function onImportFileSelected(input) {
     if (!file) {
         return;
     }
-    
-    if (!file.name.endsWith('.xlsx')) { 
-        showToast('Only .xlsx files are accepted.', 'error'); 
-        input.value = ''; 
-        return; 
+
+    if (!file.name.endsWith('.xlsx')) {
+        showToast('Only .xlsx files are accepted.', 'error');
+        input.value = '';
+        return;
     }
-    
+
     importFile = file;
-    const mb = file.size / 1048576;
-    const kb = file.size / 1024;
-    const sizeStr = file.size > 1048576 
-        ? mb.toFixed(1) + ' MB' 
+    const kb      = file.size / 1024;
+    const mb      = file.size / 1048576;
+    const sizeStr = file.size > 1048576
+        ? mb.toFixed(1) + ' MB'
         : kb.toFixed(0) + ' KB';
-        
+
     const zoneLabel = document.getElementById('import_zone_label');
     if (zoneLabel) {
         zoneLabel.textContent = `✓ ${file.name} (${sizeStr})`;
     }
-    
+
     const submitBtn = document.getElementById('import_submit_btn');
     if (submitBtn) {
         submitBtn.disabled = false;
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function setupImportDropZone() {
     const zone = document.getElementById('import_drop_zone');
     const inp  = document.getElementById('import_file');
-    
+
     if (!zone || !inp) {
         return;
     }
-    
-    zone.addEventListener('dragover', e => { 
-        e.preventDefault(); 
-        zone.classList.add('dragover'); 
+
+    zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('dragover');
     });
-    
+
     zone.addEventListener('dragleave', () => {
         zone.classList.remove('dragover');
     });
-    
+
     zone.addEventListener('drop', e => {
-        e.preventDefault(); 
+        e.preventDefault();
         zone.classList.remove('dragover');
-        
-        const f = e.dataTransfer.files[0]; 
+
+        const f = e.dataTransfer.files[0];
         if (!f) {
             return;
         }
-        
-        const dt = new DataTransfer(); 
-        dt.items.add(f); 
+
+        const dt = new DataTransfer();
+        dt.items.add(f);
         inp.files = dt.files;
-        
         onImportFileSelected(inp);
     });
-});
+}
 
 async function submitImport() {
     if (!importFile) {
         return;
     }
     showImportStep('progress');
-    
+
     const fd = new FormData();
     fd.append('import_file', importFile);
-    
+
     try {
-        const res  = await fetch('/src/api/import_export.php?action=import', {
-            method:  'POST', 
-            headers: { 'X-CSRF-Token': getCsrfToken() }, 
-            body:    fd,
-        });
-        
+        const res = await fetch(
+            '/src/api/import_export.php?action=import',
+            {
+                method:  'POST',
+                headers: { 'X-CSRF-Token': getCsrfToken() },
+                body:    fd,
+            }
+        );
+
         const json = await res.json();
-        
+
         if (!json.success && !json.data) {
             throw new Error(json.message ?? 'Import failed.');
         }
-        
+
         renderImportResults(json.data);
         showImportStep('results');
-        
+
         if (json.data.success > 0) {
             fetchInitialAssets();
         }
@@ -783,7 +1039,7 @@ function renderImportResults(r) {
                 </div>
             </div>
         </div>`;
-        
+
     if (r.errors?.length) {
         html += `
             <div style="font-size:11px;font-weight:700;
@@ -791,24 +1047,26 @@ function renderImportResults(r) {
                         color:var(--white-4);margin-bottom:8px">
                 Skipped Rows
             </div>
-            <div style="max-height:200px;overflow-y:auto;display:flex;
-                        flex-direction:column;gap:4px">
+            <div style="max-height:200px;overflow-y:auto;
+                        display:flex;flex-direction:column;gap:4px">
                 ${r.errors.map(e => `
                     <div style="background:var(--navy-2);
                                 border:1px solid var(--border);
                                 border-left:3px solid var(--red);
-                                border-radius:6px;padding:7px 10px;
-                                font-size:12px;color:var(--white-3)">
+                                border-radius:6px;
+                                padding:7px 10px;
+                                font-size:12px;
+                                color:var(--white-3)">
                         ${escapeHtml(e)}
                     </div>`).join('')}
             </div>`;
     } else if (r.success > 0) {
         html += `
-            <div style="text-align:center;padding:8px 0;font-size:13px;
-                        color:var(--green)">
+            <div style="text-align:center;padding:8px 0;
+                        font-size:13px;color:var(--green)">
                 ✅ All rows imported successfully!
             </div>`;
     }
-    
+
     document.getElementById('import_results_body').innerHTML = html;
 }
