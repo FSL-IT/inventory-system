@@ -8,10 +8,12 @@ let poSort         = 'po.created_at';
 let poDir          = 'desc';
 let currentViewId  = null;
 
-const MAX_CAT_CHIPS = 3;
+const MAX_CAT_CHIPS     = 3;
+const ENDORSE_WARN_DAYS = 3;
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
-const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
+const getVal = (id) =>
+    document.getElementById(id)?.value.trim() ?? '';
 
 const safeSetVal = (id, val) => {
     const el = document.getElementById(id);
@@ -20,19 +22,8 @@ const safeSetVal = (id, val) => {
     }
 };
 
-function escapeHtml(str) {
-    if (!str) {
-        return '';
-    }
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
+// Uses global escapeHtml from app.js
 
-// Uses global debounce from app.js
 const debouncedApplyPoFilters = debounce(() => {
     poCurrentPage = 1;
     applyClientPoFilters();
@@ -44,15 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
     populatePoFormVendors();
     populatePoCategoryFilter();
     populatePoOwnerFilter();
+    populatePoFiscalYearFilter();
     fetchInitialPOs();
 });
 
 // ─── EVENT HANDLERS ──────────────────────────────────────────────────────────
-function onViewClick(e, id) {
-    e.stopPropagation();
-    viewPO(id);
-}
-
 function onEditClick(e, id) {
     e.stopPropagation();
     openEditPO(id);
@@ -63,12 +50,17 @@ function onDeleteClick(e, id, poNumber) {
     deletePO(id, poNumber);
 }
 
+function onEndorseClick(e, id) {
+    e.stopPropagation();
+    endorsePO(id);
+}
+
 // ─── DATA FETCHING ────────────────────────────────────────────────────────────
 async function fetchInitialPOs() {
     const tbody = document.getElementById('po_body');
     tbody.innerHTML = `
         <tr>
-            <td colspan="7" class="cell-date"
+            <td colspan="8" class="cell-date"
                     style="text-align:center;padding:30px">
                 <i class="bi bi-arrow-repeat spin"></i>
                 Loading POs...
@@ -77,7 +69,7 @@ async function fetchInitialPOs() {
 
     try {
         const data = await apiFetch(
-            `/src/api/purchase_orders.php?per_page=5000`
+            '/src/api/purchase_orders.php?per_page=5000'
         );
         allPOs = data.data || [];
         applyClientPoFilters();
@@ -91,7 +83,7 @@ async function fetchInitialPOs() {
 function clearPoFilters() {
     [
         'po_search', 'filter_vendor', 'filter_endorsed',
-        'filter_category', 'filter_owner',
+        'filter_category', 'filter_owner', 'filter_fiscal_year',
     ].forEach(id => safeSetVal(id, ''));
 
     poSort = 'po.created_at';
@@ -138,10 +130,11 @@ function applyClientPoFilters() {
     const endorsed  = getVal('filter_endorsed');
     const catFilter = getVal('filter_category').toLowerCase();
     const ownFilter = getVal('filter_owner').toLowerCase();
+    const fyFilter  = getVal('filter_fiscal_year').toUpperCase();
 
     filteredPOs = allPOs.filter(p => {
         const matchSearch = !search ||
-            (p.po_number &&
+            (p.po_number   &&
              p.po_number.toLowerCase().includes(search)) ||
             (p.vendor_name &&
              p.vendor_name.toLowerCase().includes(search));
@@ -149,11 +142,15 @@ function applyClientPoFilters() {
         const matchVendor = !vendorId ||
             String(p.vendor_id) === vendorId;
 
+        const days = parseInt(p.days_since_received) || 0;
         let matchEndorsed = true;
         if (endorsed === 'yes') {
-            matchEndorsed = p.date_endorsed !== null;
+            matchEndorsed = !!p.date_endorsed;
         } else if (endorsed === 'no') {
-            matchEndorsed = p.date_endorsed === null;
+            matchEndorsed = !p.date_endorsed;
+        } else if (endorsed === 'overdue') {
+            matchEndorsed = !p.date_endorsed &&
+                days > ENDORSE_WARN_DAYS;
         }
 
         const matchCat = !catFilter ||
@@ -164,8 +161,12 @@ function applyClientPoFilters() {
             (p.owners &&
              p.owners.toLowerCase().includes(ownFilter));
 
-        return matchSearch && matchVendor &&
-               matchEndorsed && matchCat && matchOwner;
+        const matchFy = !fyFilter ||
+            (p.fiscal_year &&
+             p.fiscal_year.toUpperCase() === fyFilter);
+
+        return matchSearch && matchVendor && matchEndorsed &&
+               matchCat && matchOwner && matchFy;
     });
 
     const SORT_MAP = {
@@ -250,7 +251,7 @@ function renderPoCounter(pg) {
     el.textContent = `${start}–${end} of ${pg.total}`;
 }
 
-// ─── TABLE RENDER ─────────────────────────────────────────────────────────────
+// ─── TABLE HELPERS ────────────────────────────────────────────────────────────
 function buildCatChips(categoriesStr) {
     if (!categoriesStr || categoriesStr === '—') {
         return '<span class="cell-date">—</span>';
@@ -271,6 +272,28 @@ function buildCatChips(categoriesStr) {
     return shown + more;
 }
 
+/**
+ * Returns an age badge if the PO is pending endorsement
+ * beyond ENDORSE_WARN_DAYS.
+ */
+function buildAgeTag(po) {
+    if (po.date_endorsed) {
+        return '';
+    }
+
+    const days = parseInt(po.days_since_received) || 0;
+    if (days <= ENDORSE_WARN_DAYS) {
+        return '';
+    }
+
+    return `<span class="tag tag-defective"
+                  title="${days} days since received">
+                <i class="bi bi-exclamation-circle"></i>
+                ${days}d overdue
+            </span>`;
+}
+
+// ─── RENDER TABLE ─────────────────────────────────────────────────────────────
 function renderPoTable(pos) {
     const tbody      = document.getElementById('po_body');
     const isAdminUsr = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
@@ -278,7 +301,7 @@ function renderPoTable(pos) {
     if (!pos.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7">
+                <td colspan="8">
                     <div class="empty-state">
                         <i class="bi bi-file-earmark-x
                                   empty-state__icon"></i>
@@ -294,15 +317,34 @@ function renderPoTable(pos) {
     tbody.innerHTML = pos.map(p => {
         const safePoNum = escapeHtml(p.po_number);
 
-        const endorsedTag = p.date_endorsed
+        const fyTag = p.fiscal_year
+            ? `<span class="tag"
+                     style="font-size:10px;padding:1px 6px;
+                            margin-top:3px">
+                   ${escapeHtml(p.fiscal_year)}
+               </span>`
+            : '';
+
+        const endorsedCell = p.date_endorsed
             ? `<span class="tag tag-active">
                    <i class="bi bi-check-circle"></i>
                    ${formatDate(p.date_endorsed)}
                </span>`
-            : `<span class="tag tag-repair">
-                   <i class="bi bi-clock"></i>
-                   Pending
-               </span>`;
+            : `<div style="display:flex;flex-direction:column;
+                            gap:4px">
+                   <span class="tag tag-repair">
+                       <i class="bi bi-clock"></i> Pending
+                   </span>
+                   ${buildAgeTag(p)}
+               </div>`;
+
+        const endorseBtn = !p.date_endorsed
+            ? `<button class="btn btn-secondary btn-sm"
+                       onclick="onEndorseClick(event, ${p.id})"
+                       title="Mark endorsed today">
+                   <i class="bi bi-pen-fill"></i>
+               </button>`
+            : '';
 
         const adminBtn = isAdminUsr
             ? `<button class="btn btn-danger btn-sm"
@@ -317,8 +359,14 @@ function renderPoTable(pos) {
         return `
             <tr class="clickable-row"
                     onclick="viewPO(${p.id})">
-                <td class="cell-accent val-mono">
-                    ${safePoNum}
+                <td>
+                    <div style="display:flex;
+                                flex-direction:column;gap:2px">
+                        <span class="cell-accent val-mono">
+                            ${safePoNum}
+                        </span>
+                        ${fyTag}
+                    </div>
                 </td>
                 <td class="cell-sm">
                     ${escapeHtml(p.vendor_name ?? '—')}
@@ -336,9 +384,10 @@ function renderPoTable(pos) {
                 <td class="cell-date">
                     ${formatDate(p.date_received)}
                 </td>
-                <td>${endorsedTag}</td>
+                <td>${endorsedCell}</td>
                 <td>
                     <div class="table-actions">
+                        ${endorseBtn}
                         <button class="btn btn-secondary btn-sm"
                                 onclick="onEditClick(event, ${p.id})"
                                 title="Edit">
@@ -349,6 +398,36 @@ function renderPoTable(pos) {
                 </td>
             </tr>`;
     }).join('');
+}
+
+// ─── ONE-CLICK ENDORSE ────────────────────────────────────────────────────────
+function endorsePO(id) {
+    const po = allPOs.find(x => x.id === id);
+    if (!po) {
+        return;
+    }
+
+    showConfirm(
+        'Endorse PO',
+        `Mark PO "${po.po_number}" as endorsed today?`,
+        async () => {
+            try {
+                const res = await apiFetch(
+                    `/src/api/purchase_orders.php`
+                    + `?id=${id}&action=endorse`,
+                    { method: 'PUT' }
+                );
+                showToast('PO endorsed successfully.', 'success');
+
+                // Update in-memory — avoid full reload
+                po.date_endorsed = res.data.date_endorsed;
+                applyClientPoFilters();
+            } catch (err) {
+                console.error('endorsePO error:', err);
+                showToast(err.message, 'error');
+            }
+        }
+    );
 }
 
 // ─── VIEW MODAL ───────────────────────────────────────────────────────────────
@@ -383,8 +462,9 @@ async function viewPO(id) {
         console.error('viewPO assets error:', err);
         assetBody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-red"
-                        style="text-align:center;padding:16px">
+                <td colspan="6"
+                        style="text-align:center;padding:16px;
+                               color:var(--red)">
                     Failed to load items.
                 </td>
             </tr>`;
@@ -404,6 +484,17 @@ function renderViewPoSummary(po) {
     const dateEndorsed = po.date_endorsed
         ? formatDate(po.date_endorsed)
         : '⏳ Pending';
+
+    const fyRow = po.fiscal_year
+        ? `<div class="form-field">
+               <label>Fiscal Year</label>
+               <div class="info-field">
+                   <div class="val">
+                       ${escapeHtml(po.fiscal_year)}
+                   </div>
+               </div>
+           </div>`
+        : '';
 
     bodyEl.innerHTML = `
         <div class="field-grid">
@@ -439,13 +530,10 @@ function renderViewPoSummary(po) {
                     <div class="val">${dateEndorsed}</div>
                 </div>
             </div>
-        </div>`;
+        </div>
+        ${fyRow}`;
 }
 
-/**
- * Renders the Excel-matching breakdown per PO:
- * Category | Description | Qty | Center Location | Process Owner | Remarks
- */
 function renderViewPoAssets(rows) {
     const tbody = document.getElementById('view_po_asset_body');
     if (!tbody) {
@@ -495,7 +583,7 @@ function editPoFromView() {
     openEditPO(currentViewId);
 }
 
-// ─── ADD / EDIT ───────────────────────────────────────────────────────────────
+// ─── ADD / EDIT / DELETE ──────────────────────────────────────────────────────
 function openAddPO() {
     safeSetVal('po_edit_id', '');
     document.getElementById('po_modal_title').textContent =
@@ -567,25 +655,32 @@ async function savePO() {
 }
 
 function deletePO(id, poNumber) {
-    const msg = `Delete PO: ${poNumber}?`
-        + ' All linked assets will be unlinked.';
-
-    showConfirm('Delete Purchase Order', msg, async () => {
-        try {
-            await apiFetch(
-                `/src/api/purchase_orders.php?id=${id}`,
-                { method: 'DELETE' }
-            );
-            showToast('PO deleted.', 'success');
-            fetchInitialPOs();
-        } catch (err) {
-            console.error('deletePO error:', err);
-            showToast(err.message, 'error');
+    showConfirm(
+        'Delete Purchase Order',
+        `Delete PO: ${poNumber}? All linked assets will be unlinked.`,
+        async () => {
+            try {
+                await apiFetch(
+                    `/src/api/purchase_orders.php?id=${id}`,
+                    { method: 'DELETE' }
+                );
+                showToast('PO deleted.', 'success');
+                fetchInitialPOs();
+            } catch (err) {
+                console.error('deletePO error:', err);
+                showToast(err.message, 'error');
+            }
         }
-    });
+    );
 }
 
-// ─── DROPDOWN HELPERS ─────────────────────────────────────────────────────────
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportPoTracker() {
+    window.location.href =
+        '/src/api/import_export.php?action=export_po_tracker';
+}
+
+// ─── DROPDOWNS ────────────────────────────────────────────────────────────────
 function appendOptions(selectId, items, valKey, labelKey) {
     const el = document.getElementById(selectId);
     if (!el) {
@@ -601,10 +696,8 @@ function appendOptions(selectId, items, valKey, labelKey) {
 
 async function populatePoVendorDropdown() {
     try {
-        const data = await apiFetch(
-            '/src/api/vendors.php?per_page=500'
-        );
-        appendOptions('filter_vendor', data.data ?? [], 'id', 'name');
+        const d = await apiFetch('/src/api/vendors.php?per_page=500');
+        appendOptions('filter_vendor', d.data ?? [], 'id', 'name');
     } catch (err) {
         console.error('populatePoVendorDropdown error:', err);
     }
@@ -612,10 +705,8 @@ async function populatePoVendorDropdown() {
 
 async function populatePoFormVendors() {
     try {
-        const data = await apiFetch(
-            '/src/api/vendors.php?per_page=500'
-        );
-        appendOptions('po_vendor', data.data ?? [], 'id', 'name');
+        const d = await apiFetch('/src/api/vendors.php?per_page=500');
+        appendOptions('po_vendor', d.data ?? [], 'id', 'name');
     } catch (err) {
         console.error('populatePoFormVendors error:', err);
     }
@@ -623,11 +714,11 @@ async function populatePoFormVendors() {
 
 async function populatePoCategoryFilter() {
     try {
-        const data = await apiFetch(
+        const d = await apiFetch(
             '/src/api/categories.php?per_page=200'
         );
         appendOptions(
-            'filter_category', data.data ?? [], 'name', 'name'
+            'filter_category', d.data ?? [], 'name', 'name'
         );
     } catch (err) {
         console.error('populatePoCategoryFilter error:', err);
@@ -636,18 +727,46 @@ async function populatePoCategoryFilter() {
 
 async function populatePoOwnerFilter() {
     try {
-        const data = await apiFetch(
+        const d = await apiFetch(
             '/src/api/process_owners.php?per_page=500'
         );
         appendOptions(
-            'filter_owner', data.data ?? [], 'name', 'name'
+            'filter_owner', d.data ?? [], 'name', 'name'
         );
     } catch (err) {
         console.error('populatePoOwnerFilter error:', err);
     }
 }
 
-// ─── GLOBAL SEARCH (topbar) ───────────────────────────────────────────────────
+async function populatePoFiscalYearFilter() {
+    const el = document.getElementById('filter_fiscal_year');
+    if (!el) {
+        return;
+    }
+
+    try {
+        const d = await apiFetch(
+            '/src/api/purchase_orders.php?per_page=5000'
+        );
+        const years = [
+            ...new Set(
+                (d.data ?? [])
+                    .map(p => p.fiscal_year)
+                    .filter(Boolean)
+            ),
+        ].sort().reverse();
+
+        years.forEach(fy => {
+            const opt       = document.createElement('option');
+            opt.value       = fy;
+            opt.textContent = fy;
+            el.appendChild(opt);
+        });
+    } catch (err) {
+        console.error('populatePoFiscalYearFilter error:', err);
+    }
+}
+
 function globalSearch(term) {
     safeSetVal('po_search', term);
     debouncedApplyPoFilters();

@@ -871,8 +871,158 @@ function openImportModal() {
         submitBtn.disabled = true;
     }
 
+    setImportTab('po');
     showImportStep('upload');
     openModal('import_assets');
+}
+
+function setImportTab(tab) {
+    const isPo = tab === 'po';
+
+    const infoPo   = document.getElementById('fmt_info_po');
+    const infoFlat = document.getElementById('fmt_info_flat');
+    const btnPo    = document.getElementById('fmt_tab_po');
+    const btnFlat  = document.getElementById('fmt_tab_flat');
+
+    if (infoPo) {
+        infoPo.style.display = isPo ? '' : 'none';
+    }
+    if (infoFlat) {
+        infoFlat.style.display = isPo ? 'none' : '';
+    }
+    if (btnPo) {
+        btnPo.className = isPo
+            ? 'btn btn-primary btn-sm'
+            : 'btn btn-secondary btn-sm';
+    }
+    if (btnFlat) {
+        btnFlat.className = isPo
+            ? 'btn btn-secondary btn-sm'
+            : 'btn btn-primary btn-sm';
+    }
+}
+
+function renderImportResults(r) {
+    const inserted  = r.success    ?? 0;
+    const failed    = r.failed     ?? 0;
+    const infDupes  = r.infile_dupes ?? [];
+    const dbDupes   = r.db_dupes    ?? [];
+    const errors    = r.errors      ?? [];
+
+    let html = `
+        <div style="display:flex;gap:12px;margin-bottom:18px">
+            <div style="flex:1;background:var(--green-dim);
+                        border:1px solid rgba(34,197,94,.25);
+                        border-radius:var(--radius-sm);
+                        padding:14px;text-align:center">
+                <div style="font-size:28px;font-weight:800;
+                            color:var(--green)">
+                    ${inserted}
+                </div>
+                <div style="font-size:11px;color:var(--white-3);
+                            margin-top:2px">
+                    Imported
+                </div>
+            </div>
+            <div style="flex:1;background:var(--red-dim);
+                        border:1px solid rgba(239,68,68,.25);
+                        border-radius:var(--radius-sm);
+                        padding:14px;text-align:center">
+                <div style="font-size:28px;font-weight:800;
+                            color:var(--red)">
+                    ${failed}
+                </div>
+                <div style="font-size:11px;color:var(--white-3);
+                            margin-top:2px">
+                    Skipped
+                </div>
+            </div>
+        </div>`;
+
+    // In-file duplicates section
+    if (infDupes.length) {
+        html += buildResultSection(
+            '⚠️ Duplicate within file',
+            'These serials appeared more than once in the uploaded '
+            + 'file — only the first occurrence was processed:',
+            infDupes,
+            'var(--yellow, #F59E0B)',
+            'rgba(245,158,11,.15)'
+        );
+    }
+
+    // DB duplicates section
+    if (dbDupes.length) {
+        html += buildResultSection(
+            '🔁 Already in system',
+            'These serials already exist in the database and '
+            + 'were skipped:',
+            dbDupes,
+            'var(--accent)',
+            'var(--navy-2)'
+        );
+    }
+
+    // Other row errors section
+    if (errors.length) {
+        html += buildResultSection(
+            '❌ Row errors',
+            'These rows had missing required fields or DB errors:',
+            errors,
+            'var(--red)',
+            'var(--red-dim)'
+        );
+    }
+
+    if (!infDupes.length && !dbDupes.length && !errors.length
+            && inserted > 0) {
+        html += `
+            <div style="text-align:center;padding:8px 0;
+                        font-size:13px;color:var(--green)">
+                ✅ All rows imported successfully!
+            </div>`;
+    }
+
+    document.getElementById('import_results_body').innerHTML = html;
+}
+
+function buildResultSection(
+    title, desc, items, borderColor, bgColor
+) {
+    const rows = items
+        .map(item => `
+            <div style="background:${bgColor};
+                        border:1px solid var(--border);
+                        border-left:3px solid ${borderColor};
+                        border-radius:6px;
+                        padding:7px 10px;
+                        font-size:12px;
+                        color:var(--white-3);
+                        font-family:monospace">
+                ${escapeHtml(String(item))}
+            </div>`)
+        .join('');
+
+    return `
+        <div style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:600;
+                        color:var(--white-2);margin-bottom:4px">
+                ${title}
+                <span class="tag"
+                        style="font-size:11px;margin-left:4px">
+                    ${items.length}
+                </span>
+            </div>
+            <div style="font-size:11px;color:var(--white-4);
+                        margin-bottom:8px">
+                ${desc}
+            </div>
+            <div style="max-height:160px;overflow-y:auto;
+                        display:flex;flex-direction:column;
+                        gap:4px">
+                ${rows}
+            </div>
+        </div>`;
 }
 
 function showImportStep(step) {

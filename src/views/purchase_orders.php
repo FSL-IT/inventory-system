@@ -1,4 +1,6 @@
 <?php
+// src/views/purchase_orders.php
+
 require_once __DIR__ . '/../../src/core/auth.php';
 requireLogin();
 $pageTitle = 'PO Tracker';
@@ -35,8 +37,14 @@ include __DIR__ . '/shared/sidebar.php';
                 </div>
             </div>
             <div class="page-header__right">
+                <button class="btn btn-secondary"
+                        onclick="exportPoTracker()">
+                    <i class="bi bi-file-earmark-excel"></i>
+                    Export Excel
+                </button>
                 <?php if (isAdmin()): ?>
-                <button class="btn btn-primary" onclick="openAddPO()">
+                <button class="btn btn-primary"
+                        onclick="openAddPO()">
                     <i class="bi bi-plus-lg"></i> New PO
                 </button>
                 <?php endif; ?>
@@ -44,7 +52,7 @@ include __DIR__ . '/shared/sidebar.php';
         </div>
 
         <div class="table-toolbar">
-            <div class="search-field" style="max-width:220px">
+            <div class="search-field" style="max-width:240px">
                 <i class="bi bi-search"></i>
                 <input type="text" id="po_search"
                         placeholder="PO number, vendor..."
@@ -66,15 +74,23 @@ include __DIR__ . '/shared/sidebar.php';
                 <option value="">All Process Owners</option>
             </select>
 
+            <select class="filter-select" id="filter_fiscal_year"
+                    onchange="debouncedApplyPoFilters()">
+                <option value="">All Fiscal Years</option>
+            </select>
+
             <select class="filter-select" id="filter_endorsed"
                     onchange="debouncedApplyPoFilters()">
                 <option value="">All Statuses</option>
-                <option value="no">⏳ Pending Endorsement</option>
+                <option value="no">⏳ Pending</option>
+                <option value="overdue">
+                    🔴 Overdue (&gt;3 days)
+                </option>
                 <option value="yes">✓ Endorsed</option>
             </select>
 
-            <div style="display:flex;align-items:center;gap:8px;
-                        margin-left:auto">
+            <div style="display:flex;align-items:center;
+                        gap:8px;margin-left:auto">
                 <span id="po_counter"
                         style="font-size:12px;color:var(--white-4);
                                white-space:nowrap"></span>
