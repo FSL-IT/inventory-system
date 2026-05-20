@@ -1,3 +1,5 @@
+<?php // src/views/shared/modals/modal_asset.php ?>
+
 <div class="modal-overlay" id="modal-add_asset">
     <div class="modal" style="max-width:720px">
         <div class="modal-header">
@@ -13,9 +15,10 @@
         <div class="modal-body">
             <input type="hidden" id="asset_edit_id" value="">
 
-            <!-- ── MODE TOGGLE (hidden during edit) ───────────── -->
+            <!-- Mode toggle (add only) -->
             <div id="asset_mode_toggle"
-                    style="display:flex;gap:8px;margin-bottom:16px">
+                    style="display:flex;gap:8px;
+                           margin-bottom:16px">
                 <button id="btn_mode_single"
                         class="btn btn-primary btn-sm"
                         onclick="setAssetMode('single')">
@@ -32,7 +35,6 @@
                 </span>
             </div>
 
-            <!-- ── PURCHASE ORDER ─────────────────────────────── -->
             <div class="modal-section-title">Purchase Order</div>
             <div class="field-grid">
                 <div class="form-field">
@@ -43,19 +45,15 @@
                     </select>
                 </div>
                 <div class="form-field">
-                    <label for="asset_vendor">
-                        Vendor (via PO)
-                    </label>
+                    <label for="asset_vendor">Vendor (via PO)</label>
                     <input type="text" id="asset_vendor"
                             placeholder="Auto-filled from PO"
                             readonly>
                 </div>
             </div>
 
-            <!-- ── ASSET INFORMATION ──────────────────────────── -->
             <div class="modal-section-title">Asset Information</div>
 
-            <!-- Single mode: one serial field -->
             <div id="field_single_serial">
                 <div class="form-field">
                     <label for="asset_serial">
@@ -67,7 +65,6 @@
                 </div>
             </div>
 
-            <!-- Bulk mode: textarea for pasted serials -->
             <div id="field_bulk_serials" style="display:none">
                 <div class="form-field">
                     <label for="asset_serials_bulk">
@@ -76,14 +73,16 @@
                         <span class="cell-date"
                                 style="font-weight:400;
                                        text-transform:none">
-                            — paste one per line or comma-separated
+                            — one per line or comma-separated
                         </span>
                     </label>
                     <textarea id="asset_serials_bulk"
-                            placeholder="5CD432D87V&#10;5CD432D888&#10;5CD432D87W"
-                            style="min-height:120px;font-family:monospace;
+                            placeholder="5CD432D87V&#10;5CD432D888"
+                            style="min-height:120px;
+                                   font-family:monospace;
                                    font-size:12px"
-                            oninput="updateBulkCount()"></textarea>
+                            oninput="updateBulkCount()">
+                    </textarea>
                     <span id="bulk_sn_count" class="cell-date"
                             style="font-size:11px;margin-top:2px">
                         0 serial numbers detected
@@ -111,7 +110,7 @@
                 </div>
             </div>
 
-            <div class="form-field" id="field_status_wrap">
+            <div class="form-field">
                 <label for="asset_status">Status</label>
                 <select id="asset_status">
                     <option value="active">Active</option>
@@ -123,12 +122,10 @@
                 </select>
             </div>
 
-            <!-- ── LOCATION & ASSIGNMENT ──────────────────────── -->
             <div class="modal-section-title">
                 Location &amp; Assignment
             </div>
 
-            <!-- Auto-fill hint banner — shown when PO fills fields -->
             <div id="po_autofill_hint"
                     style="display:none;margin-bottom:12px">
                 <div class="info-field"
@@ -147,6 +144,7 @@
                 <div class="form-field">
                     <label for="asset_location">
                         Center / Location
+                        <span style="color:var(--red)">*</span>
                     </label>
                     <select id="asset_location">
                         <option value="">— Select Location —</option>
@@ -155,6 +153,7 @@
                 <div class="form-field">
                     <label for="asset_owner">
                         Process Owner
+                        <span style="color:var(--red)">*</span>
                     </label>
                     <select id="asset_owner">
                         <option value="">— Select Owner —</option>
@@ -162,12 +161,34 @@
                 </div>
             </div>
 
+            <!-- Standardised remarks dropdown -->
             <div class="form-field">
-                <label for="asset_remarks">Remarks</label>
+                <label for="asset_remarks_select">Remarks</label>
+                <select id="asset_remarks_select"
+                        onchange="onRemarksChange(this)">
+                    <option value="NA">None / NA</option>
+                    <option value="pink_mark">With pink mark</option>
+                    <option value="orange_mark">
+                        With orange mark
+                    </option>
+                    <option value="no_mark">No mark</option>
+                    <option value="with_monitor">With monitor</option>
+                    <option value="partial">Partial delivery</option>
+                    <option value="others">Others (specify)</option>
+                </select>
+            </div>
+
+            <!-- Free-text: shown only when Others is selected -->
+            <div class="form-field" id="field_remarks_text"
+                    style="display:none">
+                <label for="asset_remarks">
+                    Specify remarks
+                </label>
                 <textarea id="asset_remarks"
-                        placeholder="Optional notes, special conditions, marks...">
+                        placeholder="Describe condition, marks...">
                 </textarea>
             </div>
+
         </div>
 
         <div class="modal-footer">

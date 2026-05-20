@@ -434,21 +434,27 @@ function editAssetFromView() {
 function openAddAsset() {
     document.getElementById('asset_modal_title').textContent =
         '📦 Add New Asset';
-
+ 
     [
         'asset_edit_id', 'asset_serial', 'asset_desc',
         'asset_category', 'asset_po', 'asset_location',
         'asset_owner', 'asset_remarks', 'asset_vendor',
         'asset_serials_bulk',
     ].forEach(id => safeSetVal(id, ''));
-
-    safeSetVal('asset_status', 'active');
-
+ 
+    safeSetVal('asset_status',         'active');
+    safeSetVal('asset_remarks_select', 'NA');
+ 
+    const wrap = document.getElementById('field_remarks_text');
+    if (wrap) {
+        wrap.style.display = 'none';
+    }
+ 
     const serialEl = document.getElementById('asset_serial');
     if (serialEl) {
         serialEl.removeAttribute('readonly');
     }
-
+ 
     hidePoAutofillHint();
     setAssetMode('single');
     showModeToggle(true);
@@ -461,10 +467,10 @@ function openEditAsset(id) {
         showToast('Could not load asset for editing.', 'error');
         return;
     }
-
+ 
     document.getElementById('asset_modal_title').textContent =
         '✏️ Edit Asset';
-
+ 
     safeSetVal('asset_edit_id',  id);
     safeSetVal('asset_serial',   a.serial_number);
     safeSetVal('asset_desc',     a.description);
@@ -474,27 +480,30 @@ function openEditAsset(id) {
     safeSetVal('asset_vendor',   a.vendor_name ?? '');
     safeSetVal('asset_location', a.location_id ?? '');
     safeSetVal('asset_owner',    a.owner_id    ?? '');
-    safeSetVal('asset_remarks',  a.remarks     ?? '');
-
+ 
+    setRemarksValue(a.remarks);
+ 
     const serialEl = document.getElementById('asset_serial');
     if (serialEl) {
         serialEl.setAttribute('readonly', true);
     }
-
+ 
     hidePoAutofillHint();
     showModeToggle(false);
     setAssetMode('single');
     openModal('add_asset');
 }
-
+ 
+// ─── UPDATED saveAsset ───────────────────────────────────────────
+// Replace the existing saveAsset() in assets.js with this.
 async function saveAsset() {
     const id = getVal('asset_edit_id');
-
+ 
     if (assetMode === 'bulk' && !id) {
         await saveBulkAssets();
         return;
     }
-
+ 
     const serial     = getVal('asset_serial');
     const desc       = getVal('asset_desc');
     const categoryId = getVal('asset_category');
@@ -502,33 +511,41 @@ async function saveAsset() {
     const poId       = getVal('asset_po');
     const locationId = getVal('asset_location');
     const ownerId    = getVal('asset_owner');
-    const remarks    = getVal('asset_remarks');
-
-    if (!serial || !desc || !categoryId) {
+    const remarks    = getRemarksValue();
+ 
+    // Required field validation
+    const missing = [];
+    if (!serial)     { missing.push('Serial Number'); }
+    if (!desc)       { missing.push('Description'); }
+    if (!categoryId) { missing.push('Category'); }
+    if (!locationId) { missing.push('Location'); }
+    if (!ownerId)    { missing.push('Process Owner'); }
+ 
+    if (missing.length) {
         showToast(
-            'Serial, description, and category are required.',
+            `Required: ${missing.join(', ')}.`,
             'error'
         );
         return;
     }
-
+ 
     const payload = {
         serial_number: serial,
         description:   desc,
         category_id:   categoryId,
         status,
         po_id:         poId        || null,
-        location_id:   locationId  || null,
-        owner_id:      ownerId     || null,
+        location_id:   locationId,
+        owner_id:      ownerId,
         remarks,
     };
-
+ 
     const isEdit = !!id;
     const url    = isEdit
         ? `/src/api/assets.php?id=${id}`
         : '/src/api/assets.php';
     const method = isEdit ? 'PUT' : 'POST';
-
+ 
     try {
         await apiFetch(url, { method, body: JSON.stringify(payload) });
         closeModal('add_asset');
@@ -542,7 +559,9 @@ async function saveAsset() {
         showToast(err.message, 'error');
     }
 }
-
+ 
+// ─── UPDATED saveBulkAssets ──────────────────────────────────────
+// Replace the existing saveBulkAssets() in assets.js with this.
 async function saveBulkAssets() {
     const raw        = getVal('asset_serials_bulk');
     const desc       = getVal('asset_desc');
@@ -551,45 +570,46 @@ async function saveBulkAssets() {
     const poId       = getVal('asset_po');
     const locationId = getVal('asset_location');
     const ownerId    = getVal('asset_owner');
-    const remarks    = getVal('asset_remarks');
-
-    const serials = parseSerialInput(raw);
-
-    if (!serials.length) {
-        showToast('Enter at least one serial number.', 'error');
+    const remarks    = getRemarksValue();
+    const serials    = parseSerialInput(raw);
+ 
+    const missing = [];
+    if (!serials.length) { missing.push('at least one serial'); }
+    if (!desc)           { missing.push('Description'); }
+    if (!categoryId)     { missing.push('Category'); }
+    if (!locationId)     { missing.push('Location'); }
+    if (!ownerId)        { missing.push('Process Owner'); }
+ 
+    if (missing.length) {
+        showToast(`Required: ${missing.join(', ')}.`, 'error');
         return;
     }
-
-    if (!desc || !categoryId) {
-        showToast('Description and category are required.', 'error');
-        return;
-    }
-
+ 
     const payload = {
         serials,
         description:  desc,
         category_id:  categoryId,
         status,
         po_id:        poId        || null,
-        location_id:  locationId  || null,
-        owner_id:     ownerId     || null,
+        location_id:  locationId,
+        owner_id:     ownerId,
         remarks,
     };
-
+ 
     try {
         const res = await apiFetch(
             '/src/api/assets.php?action=bulk',
             { method: 'POST', body: JSON.stringify(payload) }
         );
-
+ 
         closeModal('add_asset');
-
+ 
         const { inserted, skipped } = res.data;
         let   msg = `${inserted} asset(s) created.`;
         if (skipped.length) {
             msg += ` ${skipped.length} skipped (duplicates).`;
         }
-
+ 
         showToast(msg, inserted ? 'success' : 'error');
         fetchInitialAssets();
     } catch (err) {
@@ -1220,3 +1240,74 @@ function renderImportResults(r) {
 
     document.getElementById('import_results_body').innerHTML = html;
 }
+
+// ─── REMARKS DROPDOWN TOGGLE ─────────────────────────────────────
+function onRemarksChange(selectEl) {
+    const isOthers = selectEl.value === 'others';
+    const wrap = document.getElementById('field_remarks_text');
+    if (wrap) {
+        wrap.style.display = isOthers ? '' : 'none';
+    }
+    if (!isOthers) {
+        const ta = document.getElementById('asset_remarks');
+        if (ta) {
+            ta.value = '';
+        }
+    }
+}
+ 
+// ─── REMARKS READ HELPER ─────────────────────────────────────────
+/**
+ * Reads the standardised remarks value.
+ * If "others" is selected, reads the free-text textarea.
+ */
+function getRemarksValue() {
+    const sel = document.getElementById('asset_remarks_select');
+    if (!sel) {
+        return 'NA';
+    }
+    if (sel.value === 'others') {
+        const ta = document.getElementById('asset_remarks');
+        return ta ? ta.value.trim() || 'NA' : 'NA';
+    }
+    return sel.value;
+}
+ 
+// ─── SET REMARKS VALUE ───────────────────────────────────────────
+/**
+ * Populates the remarks dropdown (and free-text if needed)
+ * from a stored value. Called during openEditAsset().
+ */
+function setRemarksValue(val) {
+    const KNOWN_KEYS = [
+        'NA', 'pink_mark', 'orange_mark',
+        'no_mark', 'with_monitor', 'partial',
+    ];
+ 
+    const sel = document.getElementById('asset_remarks_select');
+    if (!sel) {
+        return;
+    }
+ 
+    if (!val || val === 'NA') {
+        sel.value = 'NA';
+        return;
+    }
+ 
+    if (KNOWN_KEYS.includes(val)) {
+        sel.value = val;
+        return;
+    }
+ 
+    // Free-text from old import
+    sel.value = 'others';
+    const ta = document.getElementById('asset_remarks');
+    if (ta) {
+        ta.value = val;
+    }
+    const wrap = document.getElementById('field_remarks_text');
+    if (wrap) {
+        wrap.style.display = '';
+    }
+}
+ 

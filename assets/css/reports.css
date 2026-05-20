@@ -1,0 +1,107 @@
+/* assets/css/reports.css
+   APPEND this file — link it in header.php after components.css
+   <link rel="stylesheet" href="/assets/css/reports.css">
+*/
+
+/* ── Report group header ─────────────────────────────────────── */
+.report-group__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--navy-3);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--white);
+}
+
+.report-group__icon {
+    font-size: 16px;
+}
+
+.report-group__name {
+    flex: 1;
+}
+
+/* ── Print header (hidden on screen, shown on print) ─────────── */
+.report-print-header {
+    display: none;
+}
+
+/* ── Sort icon active state (used in purchase_orders.js too) ─── */
+.sort-active {
+    opacity: 1;
+    color: var(--accent);
+}
+
+/* ── Print styles ────────────────────────────────────────────── */
+@media print {
+    .sidebar,
+    .topbar,
+    .page-header,
+    #report_toolbar,
+    #btn_print {
+        display: none !important;
+    }
+
+    .main {
+        margin-left: 0 !important;
+    }
+
+    .content {
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    .report-print-header {
+        display: block;
+        text-align: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #000;
+    }
+
+    .report-print-header__title {
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .report-print-header__date {
+        font-size: 12px;
+        color: #666;
+        margin-top: 4px;
+    }
+
+    .report-group {
+        page-break-inside: avoid;
+    }
+
+    .report-group__header {
+        background: #eee !important;
+        color: #000 !important;
+        border: 1px solid #ccc;
+    }
+
+    .data-table th {
+        background: #ddd !important;
+        color: #000 !important;
+    }
+
+    .data-table td {
+        color: #000 !important;
+        border-bottom: 1px solid #eee;
+    }
+
+    .table-wrapper {
+        overflow: visible !important;
+        box-shadow: none !important;
+    }
+
+    .tag {
+        border: 1px solid #ccc !important;
+        color: #000 !important;
+        background: #f5f5f5 !important;
+    }
+}

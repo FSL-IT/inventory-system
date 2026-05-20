@@ -25,6 +25,9 @@ $csrfToken = generateCsrfToken();
         href="/assets/css/components.css">
     <link
         rel="stylesheet"
+        href="/assets/css/reports.css">
+    <link
+        rel="stylesheet"
         href="/assets/css/forms.css">
     <link
         rel="stylesheet"

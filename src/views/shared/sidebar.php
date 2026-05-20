@@ -1,16 +1,22 @@
 <?php
 // src/views/shared/sidebar.php
+
 $currentUser = htmlspecialchars($_SESSION['username'] ?? '');
-$currentRole = htmlspecialchars($_SESSION['role'] ?? 'user');
-$roleLabel = $currentRole === 'admin' ? 'Administrator' : 'IT Staff';
-$avatarChar = strtoupper(substr($currentUser, 0, 1));
+$currentRole = htmlspecialchars($_SESSION['role']     ?? 'user');
+$roleLabel   = $currentRole === 'admin'
+    ? 'Administrator'
+    : 'IT Staff';
+$avatarChar  = strtoupper(substr($currentUser, 0, 1));
 ?>
+
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-brand">
         <div class="brand-icon">📦</div>
         <div class="brand-text">
             <div class="brand-text__name">FSL Inventory</div>
-            <div class="brand-text__sub">Asset Management System</div>
+            <div class="brand-text__sub">
+                Asset Management System
+            </div>
         </div>
     </div>
 
@@ -32,7 +38,7 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
         <div class="nav-section-label">Main</div>
 
         <a class="nav-item" href="/src/views/dashboard.php"
-            id="nav-dashboard">
+                id="nav-dashboard">
             <span class="nav-item__icon">
                 <i class="bi bi-speedometer2"></i>
             </span>
@@ -40,7 +46,7 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
         </a>
 
         <a class="nav-item" href="/src/views/assets.php"
-            id="nav-assets">
+                id="nav-assets">
             <span class="nav-item__icon">
                 <i class="bi bi-search"></i>
             </span>
@@ -48,17 +54,25 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
         </a>
 
         <a class="nav-item" href="/src/views/purchase_orders.php"
-            id="nav-purchase_orders">
+                id="nav-purchase_orders">
             <span class="nav-item__icon">
                 <i class="bi bi-file-earmark-text"></i>
             </span>
             <span class="nav-item__label">PO Tracker</span>
         </a>
 
+        <a class="nav-item" href="/src/views/reports.php"
+                id="nav-reports">
+            <span class="nav-item__icon">
+                <i class="bi bi-bar-chart-line"></i>
+            </span>
+            <span class="nav-item__label">Reports</span>
+        </a>
+
         <div class="nav-section-label">Reference Data</div>
 
         <a class="nav-item" href="/src/views/vendors.php"
-            id="nav-vendors">
+                id="nav-vendors">
             <span class="nav-item__icon">
                 <i class="bi bi-building"></i>
             </span>
@@ -66,7 +80,7 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
         </a>
 
         <a class="nav-item" href="/src/views/locations.php"
-            id="nav-locations">
+                id="nav-locations">
             <span class="nav-item__icon">
                 <i class="bi bi-geo-alt"></i>
             </span>
@@ -74,7 +88,7 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
         </a>
 
         <a class="nav-item" href="/src/views/process_owners.php"
-            id="nav-process_owners">
+                id="nav-process_owners">
             <span class="nav-item__icon">
                 <i class="bi bi-person-workspace"></i>
             </span>
@@ -85,23 +99,26 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
         <div class="nav-section-label">Administration</div>
 
         <a class="nav-item" href="/src/views/categories.php"
-            id="nav-categories">
+                id="nav-categories">
             <span class="nav-item__icon">
                 <i class="bi bi-tags"></i>
             </span>
-            <span class="nav-item__label">Category Management</span>
+            <span class="nav-item__label">
+                Category Management
+            </span>
         </a>
 
         <a class="nav-item" href="/src/views/admin/users.php"
-            id="nav-users">
+                id="nav-users">
             <span class="nav-item__icon">
                 <i class="bi bi-people"></i>
             </span>
             <span class="nav-item__label">User Management</span>
         </a>
 
-        <a class="nav-item" href="/src/views/admin/audit_logs.php"
-            id="nav-audit_logs">
+        <a class="nav-item"
+                href="/src/views/admin/audit_logs.php"
+                id="nav-audit_logs">
             <span class="nav-item__icon">
                 <i class="bi bi-clock-history"></i>
             </span>
@@ -109,7 +126,7 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
         </a>
 
         <a class="nav-item" href="/src/views/admin/backup.php"
-            id="nav-backup">
+                id="nav-backup">
             <span class="nav-item__icon">
                 <i class="bi bi-cloud-arrow-up"></i>
             </span>
@@ -119,10 +136,9 @@ $avatarChar = strtoupper(substr($currentUser, 0, 1));
     </div>
 
     <div class="sidebar-footer">
-        <button
-            class="sidebar-footer-btn"
-            id="logout_btn"
-            onclick="logoutUser()">
+        <button class="sidebar-footer-btn"
+                id="logout_btn"
+                onclick="logoutUser()">
             <i class="bi bi-box-arrow-left"></i> Logout
         </button>
     </div>
