@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', loadDashboard);
 
 async function loadDashboard() {
     try {
-        const data = await apiFetch('/src/api/dashboard.php');
+        const data  = await apiFetch('/src/api/dashboard.php');
         const stats = data.data;
 
         renderStatCards(stats);
@@ -14,33 +14,40 @@ async function loadDashboard() {
         renderRecentActivity(stats.recent_activity);
         renderTopOwners(stats.top_owners);
     } catch (err) {
+        console.error('loadDashboard error:', err);
         showToast('Failed to load dashboard data.', 'error');
     }
 }
 
+// ─── STAT CARDS ───────────────────────────────────────────────────────────────
 function renderStatCards(stats) {
-    const byStatus = stats.by_status ?? {};
-    const active = (byStatus.active ?? 0) + (byStatus.deployed ?? 0);
-    const defective = (byStatus.defective ?? 0) + (byStatus.in_repair ?? 0);
+    const byStatus  = stats.by_status ?? {};
+    const active    = (byStatus.active    ?? 0)
+                    + (byStatus.deployed  ?? 0);
+    const defective = (byStatus.defective ?? 0)
+                    + (byStatus.in_repair ?? 0);
 
-    setText('stat_total_num', stats.total_assets ?? 0);
-    setText('stat_active_num', active);
+    setText('stat_total_num',    stats.total_assets     ?? 0);
+    setText('stat_active_num',   active);
     setText(
         'stat_active_sub',
         `↑ ${calcPct(active, stats.total_assets)}% of total`
     );
-    setText('stat_pending_num', stats.pending_endorsement ?? 0);
+    setText('stat_pending_num',  stats.pending_endorsement ?? 0);
     setText('stat_defective_num', defective);
-    setText('stat_defective_sub', `${defective} units need attention`);
-    setText('stat_pos_num', stats.total_pos ?? 0);
-    setText('stat_loc_num', stats.total_locations ?? 0);
-    setText('stat_vendor_num', stats.total_vendors ?? 0);
-    setText('stat_cat_num', stats.total_categories ?? 0);
+    setText(
+        'stat_defective_sub',
+        `${defective} units need attention`
+    );
+    setText('stat_pos_num',      stats.total_pos        ?? 0);
+    setText('stat_loc_num',      stats.total_locations  ?? 0);
+    setText('stat_vendor_num',   stats.total_vendors    ?? 0);
+    setText('stat_cat_num',      stats.total_categories ?? 0);
 }
 
+// ─── CATEGORY BREAKDOWN ───────────────────────────────────────────────────────
 function renderCategoryBreakdown(categories) {
     const container = document.getElementById('category_breakdown');
-
     if (!container) {
         return;
     }
@@ -50,26 +57,29 @@ function renderCategoryBreakdown(categories) {
         return;
     }
 
-    const max = Math.max(...categories.map(c => parseInt(c.count)));
+    const max = Math.max(
+        ...categories.map(c => parseInt(c.count))
+    );
 
     container.innerHTML = categories.map(cat => {
-        const pct = max > 0 ? Math.round((cat.count / max) * 100) : 0;
-
+        const pct = max > 0
+            ? Math.round((cat.count / max) * 100)
+            : 0;
         return `
             <div class="cat-bar-row">
                 <div class="cat-bar-label">${cat.name}</div>
                 <div class="cat-bar-track">
-                    <div class="cat-bar-fill" style="width:${pct}%"></div>
+                    <div class="cat-bar-fill"
+                            style="width:${pct}%"></div>
                 </div>
                 <div class="cat-bar-count">${cat.count}</div>
-            </div>
-        `;
+            </div>`;
     }).join('');
 }
 
+// ─── STATUS BREAKDOWN ─────────────────────────────────────────────────────────
 function renderStatusBreakdown(byStatus, total) {
     const container = document.getElementById('status_breakdown');
-
     if (!container) {
         return;
     }
@@ -84,36 +94,68 @@ function renderStatusBreakdown(byStatus, total) {
     };
 
     const rows = Object.entries(byStatus).map(([status, count]) => {
-        const pct = total > 0 ? calcPct(count, total) : 0;
+        const pct   = total > 0 ? calcPct(count, total) : 0;
         const color = colorMap[status] ?? 'var(--white-4)';
-
         return `
             <div class="status-row">
-                <div class="status-dot" style="background:${color}"></div>
-                <div class="status-name">${capitalize(status)}</div>
+                <div class="status-dot"
+                        style="background:${color}"></div>
+                <div class="status-name">
+                    ${capitalize(status)}
+                </div>
                 <div class="status-count">${count}</div>
                 <div class="status-pct">${pct}%</div>
-            </div>
-        `;
+            </div>`;
     });
 
     container.innerHTML = rows.join('') || emptyState('No data.');
 }
 
+// ─── INSIGHTS ─────────────────────────────────────────────────────────────────
 function renderInsights(stats) {
     const container = document.getElementById('dashboard_insights');
-
     if (!container) {
         return;
     }
 
-    const pending = stats.pending_endorsement ?? 0;
+    const pending   = stats.pending_endorsement ?? 0;
+    const overdue   = stats.overdue_pos         ?? 0;
+    const missingSn = stats.total_missing_sn    ?? 0;
+    const oldest    = stats.oldest_overdue_po   ?? null;
     const defective = (stats.by_status?.defective ?? 0)
-        + (stats.by_status?.in_repair ?? 0);
+                    + (stats.by_status?.in_repair  ?? 0);
 
     let html = '';
 
-    if (pending > 0) {
+    // Overdue endorsement — highest priority alert
+    if (overdue > 0 && oldest) {
+        const poLink = `/src/views/purchase_orders.php`;
+        html += `
+            <div class="insight-card insight-card--red">
+                <div class="insight-card__icon">🔴</div>
+                <div>
+                    <div class="insight-card__title"
+                            style="color:var(--red)">
+                        ${overdue} PO${overdue !== 1 ? 's' : ''}
+                        Overdue for Endorsement
+                    </div>
+                    <div class="insight-card__desc">
+                        Oldest: <strong>${
+                            escapeHtml(oldest.po_number)
+                        }</strong>
+                        — ${oldest.days_overdue} day${
+                            oldest.days_overdue !== 1 ? 's' : ''
+                        } pending.
+                        <a href="${poLink}"
+                                style="color:var(--accent);
+                                       text-decoration:none;
+                                       margin-left:4px">
+                            View all →
+                        </a>
+                    </div>
+                </div>
+            </div>`;
+    } else if (pending > 0) {
         html += `
             <div class="insight-card">
                 <div class="insight-card__icon">⚠️</div>
@@ -122,28 +164,54 @@ function renderInsights(stats) {
                         ${pending} Items Pending Endorsement
                     </div>
                     <div class="insight-card__desc">
-                        Assets received but not yet endorsed by admin.
+                        Assets received but not yet endorsed
+                        by admin.
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 
+    // Qty vs serialised gap
+    if (missingSn > 0) {
+        html += `
+            <div class="insight-card">
+                <div class="insight-card__icon">📊</div>
+                <div>
+                    <div class="insight-card__title">
+                        ${missingSn} Asset${
+                            missingSn !== 1 ? 's' : ''
+                        } Missing Serial Numbers
+                    </div>
+                    <div class="insight-card__desc">
+                        These assets are linked to a PO but have
+                        no serial number recorded.
+                        <a href="/src/views/assets.php"
+                                style="color:var(--accent);
+                                       text-decoration:none;
+                                       margin-left:4px">
+                            Review →
+                        </a>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // Defective / in-repair
     if (defective > 0) {
         html += `
             <div class="insight-card insight-card--red">
                 <div class="insight-card__icon">🔧</div>
                 <div>
                     <div class="insight-card__title"
-                        style="color:var(--red)">
+                            style="color:var(--red)">
                         ${defective} Assets Need Attention
                     </div>
                     <div class="insight-card__desc">
-                        Defective or in-repair units require follow-up.
+                        Defective or in-repair units require
+                        follow-up.
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 
     if (!html) {
@@ -152,23 +220,23 @@ function renderInsights(stats) {
                 <div class="insight-card__icon">✅</div>
                 <div>
                     <div class="insight-card__title"
-                        style="color:var(--green)">
+                            style="color:var(--green)">
                         All Clear
                     </div>
                     <div class="insight-card__desc">
-                        No pending endorsements or critical issues.
+                        No pending endorsements or critical
+                        issues.
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 
     container.innerHTML = html;
 }
 
+// ─── RECENT ACTIVITY ──────────────────────────────────────────────────────────
 function renderRecentActivity(activities) {
     const container = document.getElementById('recent_activity');
-
     if (!container) {
         return;
     }
@@ -181,9 +249,11 @@ function renderRecentActivity(activities) {
     container.innerHTML = activities.map(a => {
         const initial = (a.username ?? '?')[0].toUpperCase();
         const changes = a.changes ? JSON.parse(a.changes) : {};
-        const desc = changes.after?.event
+        const desc    = changes.after?.event
             ? `${a.username} performed: ${changes.after.event}`
-            : `${a.username} ${a.action.toLowerCase()}d on ${a.table_name}`;
+            : `${a.username} ${
+                a.action.toLowerCase()
+              }d on ${a.table_name}`;
 
         return `
             <div class="activity-item">
@@ -194,14 +264,13 @@ function renderRecentActivity(activities) {
                         ${a.action} · ${formatDate(a.timestamp)}
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }).join('');
 }
 
+// ─── TOP OWNERS ───────────────────────────────────────────────────────────────
 function renderTopOwners(owners) {
     const container = document.getElementById('top_owners');
-
     if (!container) {
         return;
     }
@@ -214,26 +283,27 @@ function renderTopOwners(owners) {
     const max = Math.max(...owners.map(o => parseInt(o.count)));
 
     container.innerHTML = owners.map(o => {
-        const pct = max > 0 ? Math.round((o.count / max) * 100) : 0;
-
+        const pct = max > 0
+            ? Math.round((o.count / max) * 100)
+            : 0;
         return `
             <div class="cat-bar-row">
-                <div class="cat-bar-label" style="font-size:11px">
+                <div class="cat-bar-label"
+                        style="font-size:11px">
                     ${o.name}
                 </div>
                 <div class="cat-bar-track">
-                    <div class="cat-bar-fill" style="width:${pct}%"></div>
+                    <div class="cat-bar-fill"
+                            style="width:${pct}%"></div>
                 </div>
                 <div class="cat-bar-count">${o.count}</div>
-            </div>
-        `;
+            </div>`;
     }).join('');
 }
 
-// ===== HELPERS =====
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 function setText(id, text) {
     const el = document.getElementById(id);
-
     if (el) {
         el.textContent = text;
     }
@@ -243,18 +313,18 @@ function calcPct(part, total) {
     if (!total) {
         return 0;
     }
-
     return Math.round((part / total) * 100);
 }
 
 function capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1).replace('_', ' ');
+    return str.charAt(0).toUpperCase()
+        + str.slice(1).replace('_', ' ');
 }
 
 function emptyState(msg) {
     return `
         <div class="empty-state">
             <div class="empty-state__desc">${msg}</div>
-        </div>
-    `;
+        </div>`;
 }
+
