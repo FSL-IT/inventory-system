@@ -1,7 +1,8 @@
 <?php
 // src/api/backup.php
-// Pure PHP/PDO — no mysqldump required (works on Windows).
-// Backs up assets and purchase_orders tables ONLY.
+//
+// Backs up assets and purchase_orders tables only (per client spec).
+// Restore still accepts a full .sql file for safety.
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../config/database.php';
@@ -41,17 +42,16 @@ if ($method === 'POST' && $action === 'backup') {
 }
 
 // ─── TABLES TO BACK UP ───────────────────────────────────────────
-// Client requirement: assets and purchase_orders only.
-// purchase_orders first — assets has FK dependency on it.
+// Only assets and purchase_orders per client requirement.
+// Reference tables (vendors, locations, etc.) are admin-managed
+// and excluded.
 const BACKUP_TABLES = ['purchase_orders', 'assets'];
 
-// ─── CREATE BACKUP ────────────────────────────────────────────────
+// ─── CREATE ──────────────────────────────────────────────────────
 function createBackup(): void
 {
-    $backupPath = rtrim(
-        $_ENV['BACKUP_PATH'] ?? 'storage/backups/', '/'
-    );
-    $dir = __DIR__ . "/../../{$backupPath}";
+    $backupPath = rtrim($_ENV['BACKUP_PATH'] ?? 'storage/backups/', '/');
+    $dir        = __DIR__ . "/../../{$backupPath}";
 
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
         sendError('Cannot create backup directory.', 500);
@@ -85,6 +85,7 @@ function createBackup(): void
             'filename' => $filename,
             'size'     => $size,
             'tables'   => BACKUP_TABLES,
+            'path'     => "{$backupPath}/{$filename}",
         ], 'Backup created successfully.');
 
     } catch (Throwable $e) {
@@ -98,23 +99,22 @@ function generateSqlDump(PDO $pdo): string
     @ini_set('max_execution_time', '300');
 
     $dbName = $_ENV['DB_NAME'];
+    $out    = '';
 
-    $out  = "-- FSL Inventory SQL Backup\n";
+    $out .= "-- FSL Inventory SQL Backup\n";
     $out .= "-- Generated : " . date('Y-m-d H:i:s') . "\n";
     $out .= "-- Database  : {$dbName}\n";
-    $out .= "-- Tables    : "
-        . implode(', ', BACKUP_TABLES) . "\n\n";
+    $out .= "-- Tables    : " . implode(', ', BACKUP_TABLES) . "\n\n";
     $out .= "SET FOREIGN_KEY_CHECKS=0;\n";
     $out .= "SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n";
     $out .= "SET NAMES utf8mb4;\n\n";
 
+    // Dump purchase_orders first (assets FK depends on it)
     foreach (BACKUP_TABLES as $table) {
         $q = "`{$table}`";
 
-        $createRow = $pdo
-            ->query("SHOW CREATE TABLE {$q}")
+        $createRow = $pdo->query("SHOW CREATE TABLE {$q}")
             ->fetch(PDO::FETCH_NUM);
-
         $out .= "DROP TABLE IF EXISTS {$q};\n";
         $out .= $createRow[1] . ";\n\n";
 
@@ -124,8 +124,7 @@ function generateSqlDump(PDO $pdo): string
 
         while (true) {
             $rows = $pdo->query(
-                "SELECT * FROM {$q}"
-                . " LIMIT {$chunkSize} OFFSET {$offset}"
+                "SELECT * FROM {$q} LIMIT {$chunkSize} OFFSET {$offset}"
             )->fetchAll(PDO::FETCH_ASSOC);
 
             if (empty($rows)) {
@@ -146,14 +145,11 @@ function generateSqlDump(PDO $pdo): string
                         : $pdo->quote((string) $v);
                 }, array_values($row));
 
-                $out .= "INSERT INTO {$q} ({$colList}) "
-                    . "VALUES ("
-                    . implode(', ', $vals)
-                    . ");\n";
+                $out .= "INSERT INTO {$q} ({$colList}) VALUES ("
+                    . implode(', ', $vals) . ");\n";
             }
 
             $offset += $chunkSize;
-
             if (count($rows) < $chunkSize) {
                 break;
             }
@@ -166,45 +162,10 @@ function generateSqlDump(PDO $pdo): string
     return $out;
 }
 
-// ─── RESTORE FROM UPLOADED FILE ───────────────────────────────────
-function restoreBackup(): void
-{
-    if (empty($_FILES['backup_file'])) {
-        sendError('No file uploaded.', 422);
-    }
-
-    $file = $_FILES['backup_file'];
-    $ext  = strtolower(
-        pathinfo($file['name'], PATHINFO_EXTENSION)
-    );
-
-    if ($ext !== 'sql') {
-        sendError('Only .sql files are allowed.', 422);
-    }
-
-    if ($file['error'] !== UPLOAD_ERR_OK) {
-        sendError('Upload error code: ' . $file['error'], 422);
-    }
-
-    executeSqlFile($file['tmp_name']);
-
-    logAudit($_SESSION['user_id'], 'RESTORE', 'backup', 0, [
-        'before' => [],
-        'after'  => [
-            'event' => 'restore_from_upload',
-            'file'  => $file['name'],
-        ],
-    ]);
-
-    sendSuccess([], 'Database restored successfully.');
-}
-
 // ─── RESTORE FROM SERVER FILE ─────────────────────────────────────
 function restoreServerBackup(): void
 {
-    $body     = json_decode(
-        file_get_contents('php://input'), true
-    );
+    $body     = json_decode(file_get_contents('php://input'), true);
     $filename = $body['filename'] ?? '';
 
     if (!$filename) {
@@ -221,9 +182,7 @@ function restoreServerBackup(): void
     $filePath    = realpath(
         __DIR__ . "/../../{$backupPath}/{$filename}"
     );
-    $expectedDir = realpath(
-        __DIR__ . "/../../{$backupPath}"
-    );
+    $expectedDir = realpath(__DIR__ . "/../../{$backupPath}");
 
     if (!$filePath || !str_starts_with($filePath, $expectedDir)) {
         sendError('Backup file not found.', 404);
@@ -234,8 +193,39 @@ function restoreServerBackup(): void
     logAudit($_SESSION['user_id'], 'RESTORE', 'backup', 0, [
         'before' => [],
         'after'  => [
-            'event' => 'restore_from_server',
-            'file'  => $filename,
+            'event'  => 'restore_from_server',
+            'file'   => $filename,
+        ],
+    ]);
+
+    sendSuccess([], 'Database restored successfully.');
+}
+
+// ─── RESTORE FROM UPLOAD ──────────────────────────────────────────
+function restoreBackup(): void
+{
+    if (empty($_FILES['backup_file'])) {
+        sendError('No file uploaded.', 422);
+    }
+
+    $file = $_FILES['backup_file'];
+    $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+    if ($ext !== 'sql') {
+        sendError('Only .sql files are allowed.', 422);
+    }
+
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        sendError('File upload error: ' . $file['error'], 422);
+    }
+
+    executeSqlFile($file['tmp_name']);
+
+    logAudit($_SESSION['user_id'], 'RESTORE', 'backup', 0, [
+        'before' => [],
+        'after'  => [
+            'event' => 'restore_from_upload',
+            'file'  => $file['name'],
         ],
     ]);
 
@@ -245,6 +235,10 @@ function restoreServerBackup(): void
 // ─── SQL EXECUTOR ─────────────────────────────────────────────────
 function executeSqlFile(string $filePath): void
 {
+    if (filesize($filePath) === false) {
+        sendError('Cannot stat backup file.', 500);
+    }
+
     $handle = fopen($filePath, 'r');
     if (!$handle) {
         sendError('Cannot open backup file.', 500);
@@ -256,9 +250,7 @@ function executeSqlFile(string $filePath): void
     try {
         $pdo = getDbConnection();
         $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-        $pdo->setAttribute(
-            PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION
-        );
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
         $pdo->exec('SET NAMES utf8mb4');
 
@@ -274,11 +266,10 @@ function executeSqlFile(string $filePath): void
             }
 
             $line = rtrim($line, "\r\n");
-            $ltrim = ltrim($line);
 
             if (
                 !$inString &&
-                (str_starts_with($ltrim, '--') ||
+                (str_starts_with(ltrim($line), '--') ||
                  trim($line) === '')
             ) {
                 continue;
@@ -294,9 +285,7 @@ function executeSqlFile(string $filePath): void
                 ) {
                     $inString = true;
                     $strChar  = $ch;
-                } elseif (
-                    $inString && $ch === $strChar
-                ) {
+                } elseif ($inString && $ch === $strChar) {
                     if (
                         isset($line[$i + 1]) &&
                         $line[$i + 1] === $strChar
@@ -320,7 +309,12 @@ function executeSqlFile(string $filePath): void
                         try {
                             $pdo->exec($stmt);
                         } catch (PDOException $e) {
-                            $errors[] = $e->getMessage();
+                            $msg = $e->getMessage();
+                            if (!str_contains(
+                                $msg, 'Unknown system variable'
+                            )) {
+                                $errors[] = $msg;
+                            }
                         }
                     }
                 } else {
@@ -345,19 +339,20 @@ function executeSqlFile(string $filePath): void
         $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
         fclose($handle);
 
-        $fatal = array_filter(
-            $errors,
-            fn ($m) => !str_contains($m, 'Unknown system variable')
-        );
-
-        if (!empty($fatal)) {
-            sendError(
-                'Restore errors: '
-                . implode(' | ', array_slice(
-                    array_values($fatal), 0, 3
-                )),
-                500
+        if (!empty($errors)) {
+            $fatal = array_filter(
+                $errors,
+                fn ($m) => !str_contains($m, 'Unknown system variable')
             );
+            if (!empty($fatal)) {
+                sendError(
+                    'Restore completed with errors: '
+                    . implode(' | ', array_slice(
+                        array_values($fatal), 0, 3
+                    )),
+                    500
+                );
+            }
         }
 
     } catch (Throwable $e) {
@@ -370,7 +365,6 @@ function executeSqlFile(string $filePath): void
 function downloadBackup(): void
 {
     $filename = getQueryString('filename');
-
     if (!$filename) {
         http_response_code(400);
         echo 'Missing filename.';
@@ -389,9 +383,7 @@ function downloadBackup(): void
     $filePath    = realpath(
         __DIR__ . "/../../{$backupPath}/{$filename}"
     );
-    $expectedDir = realpath(
-        __DIR__ . "/../../{$backupPath}"
-    );
+    $expectedDir = realpath(__DIR__ . "/../../{$backupPath}");
 
     if (
         !$filePath ||
@@ -405,8 +397,7 @@ function downloadBackup(): void
 
     header('Content-Type: application/octet-stream');
     header(
-        'Content-Disposition: attachment; filename="'
-        . $filename . '"'
+        'Content-Disposition: attachment; filename="' . $filename . '"'
     );
     header('Content-Length: ' . filesize($filePath));
     readfile($filePath);

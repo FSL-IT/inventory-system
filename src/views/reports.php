@@ -29,7 +29,7 @@ include __DIR__ . '/shared/sidebar.php';
                 </div>
             </div>
             <div class="page-header__right">
-                <!-- NO onclick — wired in reports.js DOMContentLoaded -->
+                <!-- id used by JS addEventListener — no onclick -->
                 <button class="btn btn-secondary" id="btn_print">
                     <i class="bi bi-printer"></i>
                     Print / Save PDF
@@ -39,7 +39,7 @@ include __DIR__ . '/shared/sidebar.php';
 
         <div class="table-toolbar" id="report_toolbar">
             <div style="display:flex;gap:8px">
-                <!-- NO onclick — wired in reports.js DOMContentLoaded -->
+                <!-- IDs wired in reports.js DOMContentLoaded -->
                 <button id="tab_by_location"
                         class="btn btn-primary">
                     <i class="bi bi-geo-alt"></i>
@@ -59,7 +59,7 @@ include __DIR__ . '/shared/sidebar.php';
                 <div class="search-field"
                         style="max-width:220px">
                     <i class="bi bi-search"></i>
-                    <!-- NO oninput — wired in reports.js -->
+                    <!-- oninput wired in reports.js -->
                     <input type="text"
                             id="report_search"
                             placeholder="Filter assets...">
@@ -81,3 +81,4 @@ include __DIR__ . '/shared/sidebar.php';
 </div><!-- end .main -->
 
 <?php include __DIR__ . '/shared/footer.php'; ?>
+

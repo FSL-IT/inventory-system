@@ -36,7 +36,7 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
 
     <div class="sidebar-nav" id="sidebar_nav">
 
-        <!-- ── MAIN — visible to ALL roles ────────────────────── -->
+        <!-- ── MAIN (all roles) ────────────────────────────────── -->
         <div class="nav-section-label">Main</div>
 
         <a class="nav-item"
@@ -54,7 +54,9 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
             <span class="nav-item__icon">
                 <i class="bi bi-search"></i>
             </span>
-            <span class="nav-item__label">Asset Inventory</span>
+            <span class="nav-item__label">
+                Asset Inventory
+            </span>
         </a>
 
         <a class="nav-item"

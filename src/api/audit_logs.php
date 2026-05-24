@@ -6,12 +6,14 @@ require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/response.php';
 require_once __DIR__ . '/../core/validator.php';
-require_once __DIR__ . '/../helpers/export_helper.php'; 
+require_once __DIR__ . '/../helpers/export_helper.php';
 
 requireRole('admin');
 
-// We intercept GET requests. If the "export" param is true, we download Excel!
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && getQueryString('export') === 'true') {
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET' &&
+    getQueryString('export') === 'true'
+) {
     exportAuditLogsData();
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
     header('Content-Type: application/json');
@@ -21,81 +23,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && getQueryString('export') === 'true')
     sendError('Method not allowed.', 405);
 }
 
-function fetchAuditLogs(): void 
+function fetchAuditLogs(): void
 {
     $pdo     = getDbConnection();
-    // Allow large limits to load all into client memory for the frontend filtering
-    $perPage = getQueryInt('per_page', 5000); 
-    
-    $whereClause = 'WHERE 1=1';
+    $perPage = getQueryInt('per_page', 5000);
 
-    $countSql  = "SELECT COUNT(*) FROM audit_logs al {$whereClause}";
-    $countStmt = $pdo->query($countSql);
-    $total     = (int) $countStmt->fetchColumn();
+    $total = (int) $pdo
+        ->query('SELECT COUNT(*) FROM audit_logs')
+        ->fetchColumn();
 
-    $sql = "
+    $stmt = $pdo->prepare('
         SELECT
-            al.id, al.action, al.table_name, al.record_id,
-            al.changes, al.ip_address, al.timestamp,
+            al.id,
+            al.action,
+            al.table_name,
+            al.record_id,
+            al.changes,
+            al.ip_address,
+            al.timestamp,
             u.username
         FROM audit_logs al
         LEFT JOIN users u ON al.user_id = u.id
-        {$whereClause}
         ORDER BY al.timestamp DESC
         LIMIT :limit
-    ";
-
-    $stmt = $pdo->prepare($sql);
+    ');
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $stmt->execute();
-    $rows = $stmt->fetchAll();
 
-    // Client-side pagination expects page info, but we bypass server math
-    sendPaginated($rows, $total, 1, $perPage);
+    sendPaginated($stmt->fetchAll(), $total, 1, $perPage);
 }
 
 function exportAuditLogsData(): void
 {
     $pdo = getDbConnection();
 
-    // Reapply backend filtering specifically for the Excel Export!
-    $action    = getQueryString('action');
-    $tableName = getQueryString('table_name');
-    
-    $where  = ['1=1'];
-    $params = [];
-
-    if ($action && validateEnum($action, AUDIT_ACTIONS)) {
-        $where[]           = 'al.action = :action';
-        $params[':action'] = $action;
-    }
-
-    if ($tableName && validateEnum($tableName, AUDIT_TABLES)) {
-        $where[]               = 'al.table_name = :table_name';
-        $params[':table_name'] = $tableName;
-    }
-
-    $whereClause = 'WHERE ' . implode(' AND ', $where);
-
-    $sql = "
+    $stmt = $pdo->query('
         SELECT
-            al.id, al.action, al.table_name, al.record_id,
-            al.changes, al.ip_address, al.timestamp,
+            al.id,
+            al.action,
+            al.table_name,
+            al.record_id,
+            al.changes,
+            al.ip_address,
+            al.timestamp,
             u.username
         FROM audit_logs al
         LEFT JOIN users u ON al.user_id = u.id
-        {$whereClause}
         ORDER BY al.timestamp DESC
-    ";
+    ');
+    $rows = $stmt->fetchAll();
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $formatted = array_map(function ($row) {
+        $changes = json_decode($row['changes'] ?? '{}', true);
+        $event   = $changes['after']['event'] ?? null;
 
-    // Call our newly mapped Export Helper function (Ensure it exists in export_helper.php!)
-    if (function_exists('exportAuditLogsToExcel')) {
-        exportAuditLogsToExcel($logs);
-    } else {
-        die('Export function for Audit Logs is not yet implemented in export_helper.php');
-    }
+        // Human-readable description for backup/restore rows
+        if ($event) {
+            $desc = match ($event) {
+                'backup_created'      => 'Backup: ' . ($changes['after']['file'] ?? ''),
+                'restore_from_server' => 'Restore (server file): ' . ($changes['after']['file'] ?? ''),
+                'restore_from_upload' => 'Restore (upload): ' . ($changes['after']['file'] ?? ''),
+                default               => $event,
+            };
+        } else {
+            $desc = json_encode($changes);
+        }
+
+        return [
+            'id'         => $row['id'],
+            'username'   => $row['username']   ?? '—',
+            'action'     => $row['action'],
+            'table_name' => $row['table_name'],
+            'record_id'  => $row['record_id'],
+            'description'=> $desc,
+            'ip_address' => $row['ip_address'] ?? '—',
+            'timestamp'  => $row['timestamp'],
+        ];
+    }, $rows);
+
+    exportAuditLogs($formatted, 'fsl_audit_logs_' . date('Ymd'));
 }
