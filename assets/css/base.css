@@ -15,8 +15,8 @@ html {
 
 body {
     font-family: var(--font-body);
-    background: var(--navy);
-    color: var(--white);
+    background: var(--white);
+    color: var(--black);
     height: 100vh;
     overflow: hidden;
     display: flex;
