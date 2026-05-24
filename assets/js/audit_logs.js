@@ -22,8 +22,23 @@ const debouncedLoadAuditLogs = debounce(() => {
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadRefData();
-    // Fetch EVERYTHING once into memory
     fetchInitialAuditLogs();
+ 
+    // Add BACKUP / RESTORE to filter dropdown
+    const sel = document.getElementById('filter_action');
+    if (sel) {
+        ['BACKUP', 'RESTORE'].forEach(action => {
+            const exists = Array.from(sel.options)
+                .some(o => o.value === action);
+            if (exists) {
+                return;
+            }
+            const opt       = document.createElement('option');
+            opt.value       = action;
+            opt.textContent = action;
+            sel.appendChild(opt);
+        });
+    }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -173,65 +188,139 @@ function renderCurrentAuditPage() {
 // ─── RENDER ENGINE ──────────────────────────────────────────────────────────
 function renderAuditLog(entries) {
     const container = document.getElementById('audit_log_list');
-
+ 
     if (!entries.length) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state__icon">
                     <i class="bi bi-clock-history"></i>
                 </div>
-                <div class="empty-state__title">No audit entries found</div>
+                <div class="empty-state__title">
+                    No audit entries found
+                </div>
                 <div class="empty-state__desc">
                     Try adjusting the filters above.
                 </div>
             </div>`;
         return;
     }
-
+ 
     container.innerHTML = entries.map(a => {
-        const changes     = parseChanges(a.changes);
-        const rawId       = escapeJsStr(getRawIdentifier(a.table_name, changes));
-        const isClickable = a.action !== 'DELETE';
-        const clickClass  = isClickable ? 'audit-clickable' : '';
-        
-        const clickAttr = isClickable
+        const changes      = parseChanges(a.changes);
+        const isClickable  = a.action !== 'DELETE';
+        const clickClass   = isClickable ? 'audit-clickable' : '';
+        const clickAttr    = isClickable
             ? `onclick="inspectAudit(${a.id})"`
             : '';
-            
         const linkIcon = isClickable
             ? `<i class="bi bi-search audit-link-icon"></i>`
             : '';
-
+ 
+        // Restore button: shown on UPDATE and DELETE only
+        const canRestore =
+            (a.action === 'UPDATE' || a.action === 'DELETE') &&
+            a.table_name !== 'backup' &&
+            changes.before &&
+            Object.keys(changes.before).length > 0;
+ 
+        const restoreBtn = canRestore
+            ? `<button class="btn btn-secondary btn-sm"
+                       style="margin-left:8px;font-size:11px"
+                       onclick="event.stopPropagation();
+                                restoreRecord(${a.id})"
+                       title="Restore to previous state">
+                   <i class="bi bi-arrow-counterclockwise"></i>
+                   Restore
+               </button>`
+            : '';
+ 
         return `
-            <div class="audit-item ${clickClass}" 
+            <div class="audit-item ${clickClass}"
                     ${clickAttr}>
-                <div class="audit-badge audit-${a.action}">${a.action}</div>
+                <div class="audit-badge
+                            audit-${a.action}">
+                    ${a.action}
+                </div>
                 <div class="audit-body audit-body-full">
-                    <div class="audit-desc">
+                    <div class="audit-desc"
+                            style="display:flex;
+                                   align-items:center;
+                                   flex-wrap:wrap;gap:6px">
                         ${buildAuditDesc(a, changes)}
                         ${linkIcon}
+                        ${restoreBtn}
                     </div>
                     <div class="audit-meta">
                         <span>
-                            <i class="bi bi-person"></i> 
+                            <i class="bi bi-person"></i>
                             ${escapeHtml(a.username ?? 'System')}
                         </span>
                         <span>
-                            <i class="bi bi-table"></i> 
+                            <i class="bi bi-table"></i>
                             ${escapeHtml(a.table_name)}
                         </span>
                         <span>
-                            <i class="bi bi-hash"></i> 
+                            <i class="bi bi-hash"></i>
                             ID: ${a.record_id}
                         </span>
                         <span>
-                            <i class="bi bi-calendar3"></i> 
+                            <i class="bi bi-calendar3"></i>
                             ${formatDate(a.timestamp)}
                         </span>
                     </div>
                 </div>
             </div>`;
     }).join('');
+}
+
+async function restoreRecord(auditId) {
+    const log = allAuditLogs.find(a => a.id === auditId);
+    if (!log) {
+        showToast('Audit record not found.', 'error');
+        return;
+    }
+ 
+    const changes = parseChanges(log.changes);
+    const before  = changes.before ?? {};
+ 
+    if (!Object.keys(before).length) {
+        showToast(
+            'No previous state to restore.',
+            'error'
+        );
+        return;
+    }
+ 
+    const label = `${log.table_name} #${log.record_id}`;
+    showConfirm(
+        'Restore Record',
+        `Restore ${label} to its previous state? `
+        + 'This will overwrite current data and be logged.',
+        async () => {
+            try {
+                const res = await apiFetch(
+                    '/src/api/audit_logs.php?action=restore',
+                    {
+                        method: 'POST',
+                        body:   JSON.stringify({
+                            audit_id:   auditId,
+                            table_name: log.table_name,
+                            record_id:  log.record_id,
+                            before:     before,
+                        }),
+                    }
+                );
+                showToast(
+                    `${label} restored successfully.`,
+                    'success'
+                );
+                fetchInitialAuditLogs();
+            } catch (err) {
+                console.error('restoreRecord error:', err);
+                showToast(err.message, 'error');
+            }
+        }
+    );
 }
 
 // ─── DIFF VIEWER (INSPECTOR MODAL) ──────────────────────────────────────────

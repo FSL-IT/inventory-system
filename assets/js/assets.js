@@ -7,9 +7,9 @@ let itemsPerPage   = 25;
 let currentSort    = 'a.created_at';
 let currentDir     = 'desc';
 let currentViewId  = null;
-let assetMode      = 'single'; // 'single' | 'bulk'
+let assetMode      = 'single';
 
-// ─── UTILITIES ───────────────────────────────────────────────────────────────
+// ─── UTILITIES ────────────────────────────────────────────────────
 const safeSetVal = (id, val) => {
     const el = document.getElementById(id);
     if (el) {
@@ -32,7 +32,7 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-// ─── INIT ────────────────────────────────────────────────────────────────────
+// ─── INIT ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get('search');
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupImportDropZone();
 });
 
-// ─── EVENT HANDLERS ──────────────────────────────────────────────────────────
+// ─── EVENT HANDLERS ───────────────────────────────────────────────
 function onViewClick(e, id) {
     e.stopPropagation();
     viewAsset(id);
@@ -65,7 +65,7 @@ function onDeleteClick(e, id, serial) {
     deleteAsset(id, serial);
 }
 
-// ─── DATA FETCHING ────────────────────────────────────────────────────────────
+// ─── FETCH ────────────────────────────────────────────────────────
 async function fetchInitialAssets() {
     const tbody = document.getElementById('assets_body');
     tbody.innerHTML = `
@@ -79,17 +79,17 @@ async function fetchInitialAssets() {
 
     try {
         const data = await apiFetch(
-            `/src/api/assets.php?per_page=10000`
+            '/src/api/assets.php?per_page=10000'
         );
         allAssets = data.data || [];
         applyClientFilters();
     } catch (err) {
         console.error('fetchInitialAssets error:', err);
-        showToast('Failed to load assets from server.', 'error');
+        showToast('Failed to load assets.', 'error');
     }
 }
 
-// ─── FILTERING & SORTING ──────────────────────────────────────────────────────
+// ─── FILTERING & SORTING ──────────────────────────────────────────
 function debouncedLoadAssets() {
     currentPage = 1;
     applyClientFilters();
@@ -130,12 +130,15 @@ function updateSortIcons() {
         el.className = 'bi bi-arrow-down-up sort-icon';
     });
 
-    const active = document.getElementById(`sort_${currentSort}`);
+    const active = document.getElementById(
+        `sort_${currentSort}`
+    );
     if (active) {
         const dirClass = currentDir === 'asc'
             ? 'bi-sort-up'
             : 'bi-sort-down';
-        active.className = `bi ${dirClass} sort-icon sort-active`;
+        active.className =
+            `bi ${dirClass} sort-icon sort-active`;
     }
 }
 
@@ -157,10 +160,14 @@ function applyClientFilters() {
             (a.vendor_name &&
              a.vendor_name.toLowerCase().includes(search));
 
-        const matchStatus = !status || String(a.status) === status;
-        const matchCat    = !catId  || String(a.category_id) === catId;
-        const matchLoc    = !locId  || String(a.location_id) === locId;
-        const matchOwn    = !ownId  || String(a.owner_id) === ownId;
+        const matchStatus = !status ||
+            String(a.status) === status;
+        const matchCat  = !catId ||
+            String(a.category_id) === catId;
+        const matchLoc  = !locId ||
+            String(a.location_id) === locId;
+        const matchOwn  = !ownId ||
+            String(a.owner_id) === ownId;
 
         return matchSearch && matchStatus &&
                matchCat && matchLoc && matchOwn;
@@ -183,8 +190,12 @@ function applyClientFilters() {
         let valA = a[jsSortKey] || '';
         let valB = b[jsSortKey] || '';
 
-        if (typeof valA === 'string') { valA = valA.toLowerCase(); }
-        if (typeof valB === 'string') { valB = valB.toLowerCase(); }
+        if (typeof valA === 'string') {
+            valA = valA.toLowerCase();
+        }
+        if (typeof valB === 'string') {
+            valB = valB.toLowerCase();
+        }
 
         if (valA < valB) { return currentDir === 'asc' ? -1 : 1; }
         if (valA > valB) { return currentDir === 'asc' ? 1 : -1; }
@@ -194,7 +205,6 @@ function applyClientFilters() {
     renderCurrentPage();
 }
 
-// ─── RENDERING & PAGINATION ───────────────────────────────────────────────────
 window.changeClientPage = function (page) {
     currentPage = page;
     renderCurrentPage();
@@ -202,7 +212,8 @@ window.changeClientPage = function (page) {
 
 function renderCurrentPage() {
     const totalItems = filteredAssets.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    const totalPages =
+        Math.ceil(totalItems / itemsPerPage) || 1;
 
     if (currentPage > totalPages) {
         currentPage = totalPages;
@@ -222,7 +233,9 @@ function renderCurrentPage() {
         total_pages: totalPages,
     };
 
-    renderPagination('assets_pagination', mockPg, 'changeClientPage');
+    renderPagination(
+        'assets_pagination', mockPg, 'changeClientPage'
+    );
     renderCounter(mockPg);
 }
 
@@ -242,9 +255,10 @@ function renderCounter(pg) {
     el.textContent = `${start}–${end} of ${pg.total}`;
 }
 
+// ─── TABLE RENDER ─────────────────────────────────────────────────
+// Delete button shown for ALL roles (not admin-only)
 function renderAssetTable(assets) {
-    const tbody      = document.getElementById('assets_body');
-    const isAdminUsr = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
+    const tbody = document.getElementById('assets_body');
 
     if (!assets.length) {
         tbody.innerHTML = `
@@ -266,16 +280,6 @@ function renderAssetTable(assets) {
 
     tbody.innerHTML = assets.map(a => {
         const safeSn = escapeHtml(a.serial_number);
-
-        const adminBtn = isAdminUsr
-            ? `<button class="btn btn-danger btn-sm"
-                       onclick="onDeleteClick(
-                           event, ${a.id}, '${safeSn}'
-                       )"
-                       title="Delete">
-                   <i class="bi bi-trash"></i>
-               </button>`
-            : '';
 
         return `
             <tr class="clickable-row"
@@ -305,18 +309,26 @@ function renderAssetTable(assets) {
                 <td>
                     <div class="table-actions">
                         <button class="btn btn-secondary btn-sm"
-                                onclick="onEditClick(event, ${a.id})"
+                                onclick="onEditClick(
+                                    event, ${a.id}
+                                )"
                                 title="Edit Asset">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        ${adminBtn}
+                        <button class="btn btn-danger btn-sm"
+                                onclick="onDeleteClick(
+                                    event, ${a.id}, '${safeSn}'
+                                )"
+                                title="Delete Asset">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </td>
             </tr>`;
     }).join('');
 }
 
-// ─── VIEW MODAL ───────────────────────────────────────────────────────────────
+// ─── VIEW MODAL ───────────────────────────────────────────────────
 async function viewAsset(id) {
     currentViewId = id;
     const asset   = allAssets.find(x => x.id === id);
@@ -324,8 +336,9 @@ async function viewAsset(id) {
     if (asset) {
         renderViewModal(asset);
         openModal('view_asset');
+        loadTransferHistory(id);
     } else {
-        showToast('Could not find asset in memory.', 'error');
+        showToast('Could not find asset.', 'error');
     }
 }
 
@@ -337,13 +350,10 @@ function renderViewModal(a) {
         ? formatDate(a.date_endorsed)
         : '⏳ Pending';
 
-    const remarksCls = a.remarks ? '' : 'val-empty';
-    const remarksTxt = a.remarks
-        ? escapeHtml(a.remarks)
-        : 'No remarks';
-
     document.getElementById('view_asset_body').innerHTML = `
-        <div class="modal-section-title">Purchase Order Info</div>
+        <div class="modal-section-title">
+            Purchase Order Info
+        </div>
         <div class="field-grid">
             <div class="form-field">
                 <label>PO Number</label>
@@ -414,14 +424,16 @@ function renderViewModal(a) {
             </div>
         </div>
         <div class="modal-section-title">Serial Number</div>
-        <div class="serial-chip-wrap">
+        <div style="margin:8px 0">
             <span class="serial-chip">
                 ${escapeHtml(a.serial_number)}
             </span>
         </div>
         <div class="modal-section-title">Remarks</div>
         <div class="info-field">
-            <div class="val ${remarksCls}">${remarksTxt}</div>
+            <div class="val">
+                ${escapeHtml(a.remarks || 'No remarks')}
+            </div>
         </div>`;
 }
 
@@ -430,31 +442,108 @@ function editAssetFromView() {
     openEditAsset(currentViewId);
 }
 
-// ─── ADD / EDIT / DELETE ──────────────────────────────────────────────────────
+async function loadTransferHistory(assetId) {
+    const section = document.getElementById(
+        'view_transfer_section'
+    );
+    const body    = document.getElementById('view_transfer_body');
+    if (!section || !body) {
+        return;
+    }
+
+    try {
+        const res = await apiFetch(
+            `/src/api/assets.php?id=${assetId}&action=transfers`
+        );
+        const rows = res.data || [];
+
+        if (!rows.length) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = '';
+        body.innerHTML = rows.map(r => {
+            const locChange =
+                (r.from_location || r.to_location)
+                ? `<span style="font-size:11px;
+                               color:var(--white-3)">
+                       📍 ${escapeHtml(r.from_location ?? '—')}
+                       → ${escapeHtml(r.to_location ?? '—')}
+                   </span>`
+                : '';
+
+            const ownChange =
+                (r.from_owner || r.to_owner)
+                ? `<span style="font-size:11px;
+                               color:var(--white-3)">
+                       👤 ${escapeHtml(r.from_owner ?? '—')}
+                       → ${escapeHtml(r.to_owner ?? '—')}
+                   </span>`
+                : '';
+
+            const note = r.notes
+                ? `<span class="cell-date"
+                           style="font-size:11px;
+                                  font-style:italic">
+                       "${escapeHtml(r.notes)}"
+                   </span>`
+                : '';
+
+            return `
+                <div class="activity-item">
+                    <div class="activity-avatar">
+                        ${
+                            (r.transferred_by ?? '?')[0]
+                                .toUpperCase()
+                        }
+                    </div>
+                    <div style="display:flex;
+                                flex-direction:column;
+                                gap:2px;flex:1">
+                        <div style="display:flex;gap:8px;
+                                    flex-wrap:wrap">
+                            ${locChange}
+                            ${ownChange}
+                        </div>
+                        ${note}
+                        <div class="activity-time">
+                            ${escapeHtml(r.transferred_by ?? '—')}
+                            · ${formatDate(r.transferred_at)}
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (err) {
+        console.error('loadTransferHistory error:', err);
+        section.style.display = 'none';
+    }
+}
+
+// ─── ADD / EDIT ───────────────────────────────────────────────────
 function openAddAsset() {
     document.getElementById('asset_modal_title').textContent =
         '📦 Add New Asset';
- 
+
     [
         'asset_edit_id', 'asset_serial', 'asset_desc',
-        'asset_category', 'asset_po', 'asset_location',
-        'asset_owner', 'asset_remarks', 'asset_vendor',
-        'asset_serials_bulk',
+        'asset_po', 'asset_location', 'asset_owner',
+        'asset_remarks', 'asset_vendor', 'asset_serials_bulk',
+        'asset_status',
     ].forEach(id => safeSetVal(id, ''));
- 
-    safeSetVal('asset_status',         'active');
-    safeSetVal('asset_remarks_select', 'NA');
- 
-    const wrap = document.getElementById('field_remarks_text');
-    if (wrap) {
-        wrap.style.display = 'none';
-    }
- 
+
+    // Reset searchable selects
+    resetSearchableSelect('asset_category', '— Select Category —');
+    resetSearchableSelect('asset_location', '— Select Location —');
+    resetSearchableSelect('asset_owner', '— Select Owner —');
+
+    clearAllFieldErrors();
+
     const serialEl = document.getElementById('asset_serial');
     if (serialEl) {
         serialEl.removeAttribute('readonly');
     }
- 
+
     hidePoAutofillHint();
     setAssetMode('single');
     showModeToggle(true);
@@ -467,43 +556,143 @@ function openEditAsset(id) {
         showToast('Could not load asset for editing.', 'error');
         return;
     }
- 
+
     document.getElementById('asset_modal_title').textContent =
         '✏️ Edit Asset';
- 
-    safeSetVal('asset_edit_id',  id);
-    safeSetVal('asset_serial',   a.serial_number);
-    safeSetVal('asset_desc',     a.description);
-    safeSetVal('asset_category', a.category_id ?? '');
-    safeSetVal('asset_status',   a.status);
-    safeSetVal('asset_po',       a.po_id       ?? '');
-    safeSetVal('asset_vendor',   a.vendor_name ?? '');
-    safeSetVal('asset_location', a.location_id ?? '');
-    safeSetVal('asset_owner',    a.owner_id    ?? '');
- 
-    setRemarksValue(a.remarks);
- 
+
+    safeSetVal('asset_edit_id', id);
+    safeSetVal('asset_serial',  a.serial_number);
+    safeSetVal('asset_desc',    a.description);
+    safeSetVal('asset_status',  a.status);
+    safeSetVal('asset_po',      a.po_id       ?? '');
+    safeSetVal('asset_vendor',  a.vendor_name ?? '');
+    safeSetVal('asset_remarks', a.remarks     ?? '');
+
+    // Set searchable selects
+    setSearchableSelectValue(
+        'asset_category',
+        a.category_id ?? ''
+    );
+    setSearchableSelectValue(
+        'asset_location',
+        a.location_id ?? ''
+    );
+    setSearchableSelectValue(
+        'asset_owner',
+        a.owner_id ?? ''
+    );
+
+    clearAllFieldErrors();
+
     const serialEl = document.getElementById('asset_serial');
     if (serialEl) {
         serialEl.setAttribute('readonly', true);
     }
- 
+
     hidePoAutofillHint();
     showModeToggle(false);
     setAssetMode('single');
     openModal('add_asset');
 }
- 
-// ─── UPDATED saveAsset ───────────────────────────────────────────
-// Replace the existing saveAsset() in assets.js with this.
+
+// ─── FIELD VALIDATION ─────────────────────────────────────────────
+function clearFieldError(fieldId) {
+    const errEl = document.getElementById(`err_${fieldId}`);
+    if (errEl) {
+        errEl.textContent = '';
+    }
+    const el = document.getElementById(fieldId);
+    if (el) {
+        el.classList.remove('has-error');
+    }
+}
+
+function clearAllFieldErrors() {
+    document.querySelectorAll('.field-error')
+        .forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('.has-error')
+        .forEach(el => el.classList.remove('has-error'));
+    document.querySelectorAll('.searchable-select-trigger')
+        .forEach(el => el.classList.remove('has-error'));
+}
+
+function showFieldError(fieldId, msg) {
+    const errEl = document.getElementById(`err_${fieldId}`);
+    const el    = document.getElementById(fieldId);
+
+    if (errEl) {
+        errEl.textContent = msg;
+    }
+    if (el) {
+        el.classList.add('has-error');
+    }
+}
+
+function validateAssetForm(isBulk = false) {
+    clearAllFieldErrors();
+
+    const status     = getVal('asset_status');
+    const desc       = getVal('asset_desc');
+    const categoryId = getVal('asset_category');
+    const locationId = getVal('asset_location');
+    const ownerId    = getVal('asset_owner');
+
+    let isValid = true;
+
+    if (!isBulk) {
+        const serial = getVal('asset_serial');
+        if (!serial) {
+            showFieldError('asset_serial', 'Serial number is required.');
+            isValid = false;
+        }
+    } else {
+        const raw = getVal('asset_serials_bulk');
+        if (!parseSerialInput(raw).length) {
+            showFieldError(
+                'asset_serials_bulk',
+                'Enter at least one serial number.'
+            );
+            isValid = false;
+        }
+    }
+
+    if (!desc) {
+        showFieldError('asset_desc', 'Description is required.');
+        isValid = false;
+    }
+    if (!categoryId) {
+        showSelectError('asset_category', 'Select a category.');
+        isValid = false;
+    }
+    if (!status) {
+        showFieldError('asset_status', 'Select a status.');
+        isValid = false;
+    }
+    if (!locationId) {
+        showSelectError('asset_location', 'Select a location.');
+        isValid = false;
+    }
+    if (!ownerId) {
+        showSelectError('asset_owner', 'Select a process owner.');
+        isValid = false;
+    }
+
+    return isValid;
+}
+
+// ─── SAVE ─────────────────────────────────────────────────────────
 async function saveAsset() {
     const id = getVal('asset_edit_id');
- 
+
     if (assetMode === 'bulk' && !id) {
         await saveBulkAssets();
         return;
     }
- 
+
+    if (!validateAssetForm(false)) {
+        return;
+    }
+
     const serial     = getVal('asset_serial');
     const desc       = getVal('asset_desc');
     const categoryId = getVal('asset_category');
@@ -511,24 +700,8 @@ async function saveAsset() {
     const poId       = getVal('asset_po');
     const locationId = getVal('asset_location');
     const ownerId    = getVal('asset_owner');
-    const remarks    = getRemarksValue();
- 
-    // Required field validation
-    const missing = [];
-    if (!serial)     { missing.push('Serial Number'); }
-    if (!desc)       { missing.push('Description'); }
-    if (!categoryId) { missing.push('Category'); }
-    if (!locationId) { missing.push('Location'); }
-    if (!ownerId)    { missing.push('Process Owner'); }
- 
-    if (missing.length) {
-        showToast(
-            `Required: ${missing.join(', ')}.`,
-            'error'
-        );
-        return;
-    }
- 
+    const remarks    = getVal('asset_remarks');
+
     const payload = {
         serial_number: serial,
         description:   desc,
@@ -537,15 +710,15 @@ async function saveAsset() {
         po_id:         poId        || null,
         location_id:   locationId,
         owner_id:      ownerId,
-        remarks,
+        remarks:       remarks     || '',
     };
- 
+
     const isEdit = !!id;
     const url    = isEdit
         ? `/src/api/assets.php?id=${id}`
         : '/src/api/assets.php';
     const method = isEdit ? 'PUT' : 'POST';
- 
+
     try {
         await apiFetch(url, { method, body: JSON.stringify(payload) });
         closeModal('add_asset');
@@ -559,10 +732,12 @@ async function saveAsset() {
         showToast(err.message, 'error');
     }
 }
- 
-// ─── UPDATED saveBulkAssets ──────────────────────────────────────
-// Replace the existing saveBulkAssets() in assets.js with this.
+
 async function saveBulkAssets() {
+    if (!validateAssetForm(true)) {
+        return;
+    }
+
     const raw        = getVal('asset_serials_bulk');
     const desc       = getVal('asset_desc');
     const categoryId = getVal('asset_category');
@@ -570,21 +745,9 @@ async function saveBulkAssets() {
     const poId       = getVal('asset_po');
     const locationId = getVal('asset_location');
     const ownerId    = getVal('asset_owner');
-    const remarks    = getRemarksValue();
+    const remarks    = getVal('asset_remarks');
     const serials    = parseSerialInput(raw);
- 
-    const missing = [];
-    if (!serials.length) { missing.push('at least one serial'); }
-    if (!desc)           { missing.push('Description'); }
-    if (!categoryId)     { missing.push('Category'); }
-    if (!locationId)     { missing.push('Location'); }
-    if (!ownerId)        { missing.push('Process Owner'); }
- 
-    if (missing.length) {
-        showToast(`Required: ${missing.join(', ')}.`, 'error');
-        return;
-    }
- 
+
     const payload = {
         serials,
         description:  desc,
@@ -593,23 +756,23 @@ async function saveBulkAssets() {
         po_id:        poId        || null,
         location_id:  locationId,
         owner_id:     ownerId,
-        remarks,
+        remarks:      remarks     || '',
     };
- 
+
     try {
         const res = await apiFetch(
             '/src/api/assets.php?action=bulk',
             { method: 'POST', body: JSON.stringify(payload) }
         );
- 
+
         closeModal('add_asset');
- 
+
         const { inserted, skipped } = res.data;
         let   msg = `${inserted} asset(s) created.`;
         if (skipped.length) {
             msg += ` ${skipped.length} skipped (duplicates).`;
         }
- 
+
         showToast(msg, inserted ? 'success' : 'error');
         fetchInitialAssets();
     } catch (err) {
@@ -618,29 +781,37 @@ async function saveBulkAssets() {
     }
 }
 
+// ─── DELETE ───────────────────────────────────────────────────────
 function deleteAsset(id, serial) {
-    const msg = `Delete asset SN: ${serial}? This cannot be undone.`;
-    showConfirm('Delete Asset', msg, async () => {
-        try {
-            await apiFetch(`/src/api/assets.php?id=${id}`, {
-                method: 'DELETE',
-            });
-            showToast('Asset deleted.', 'success');
-            fetchInitialAssets();
-        } catch (err) {
-            console.error('deleteAsset error:', err);
-            showToast(err.message, 'error');
+    showConfirm(
+        'Delete Asset',
+        `Delete asset SN: ${serial}? This cannot be undone.`,
+        async () => {
+            try {
+                await apiFetch(`/src/api/assets.php?id=${id}`, {
+                    method: 'DELETE',
+                });
+                showToast('Asset deleted.', 'success');
+                fetchInitialAssets();
+            } catch (err) {
+                console.error('deleteAsset error:', err);
+                showToast(err.message, 'error');
+            }
         }
-    });
+    );
 }
 
-// ─── MODE TOGGLE ─────────────────────────────────────────────────────────────
+// ─── MODE TOGGLE ──────────────────────────────────────────────────
 function setAssetMode(mode) {
     assetMode = mode;
 
     const isBulk      = mode === 'bulk';
-    const singleField = document.getElementById('field_single_serial');
-    const bulkField   = document.getElementById('field_bulk_serials');
+    const singleField = document.getElementById(
+        'field_single_serial'
+    );
+    const bulkField   = document.getElementById(
+        'field_bulk_serials'
+    );
     const hintEl      = document.getElementById('asset_mode_hint');
     const saveLabel   = document.getElementById('asset_save_label');
     const btnSingle   = document.getElementById('btn_mode_single');
@@ -658,11 +829,8 @@ function setAssetMode(mode) {
             : 'Single serial entry';
     }
     if (saveLabel) {
-        saveLabel.textContent = isBulk
-            ? 'Save All'
-            : 'Save Asset';
+        saveLabel.textContent = isBulk ? 'Save All' : 'Save Asset';
     }
-
     if (btnSingle) {
         btnSingle.className = isBulk
             ? 'btn btn-secondary btn-sm'
@@ -689,15 +857,13 @@ function updateBulkCount() {
     if (!countEl) {
         return;
     }
-    const n = parseSerialInput(getVal('asset_serials_bulk')).length;
+    const n = parseSerialInput(
+        getVal('asset_serials_bulk')
+    ).length;
     countEl.textContent =
         `${n} serial number${n !== 1 ? 's' : ''} detected`;
 }
 
-/**
- * Splits a raw textarea value into clean serial number strings.
- * Accepts newline-separated, comma-separated, or mixed input.
- */
 function parseSerialInput(raw) {
     return raw
         .split(/[\n,]+/)
@@ -705,17 +871,20 @@ function parseSerialInput(raw) {
         .filter(Boolean);
 }
 
-// ─── SMART PO AUTO-FILL ───────────────────────────────────────────────────────
+// ─── SMART PO AUTO-FILL ───────────────────────────────────────────
 async function onPoChange(selectEl) {
-    const poId      = selectEl.value;
-    const vendorName = selectEl.options[selectEl.selectedIndex]
-        ?.dataset?.vendorName || '';
-
-    safeSetVal('asset_vendor', vendorName);
+    const poId = selectEl.value;
     hidePoAutofillHint();
 
     if (!poId) {
+        safeSetVal('asset_vendor', '');
         return;
+    }
+
+    // Fill vendor name from PO select option data attribute
+    const opt = selectEl.options[selectEl.selectedIndex];
+    if (opt?.dataset?.vendorName) {
+        safeSetVal('asset_vendor', opt.dataset.vendorName);
     }
 
     try {
@@ -740,17 +909,21 @@ function applyPoHints(hints) {
     }
 
     if (hints.location_id) {
-        safeSetVal('asset_location', hints.location_id);
+        setSearchableSelectValue(
+            'asset_location', hints.location_id
+        );
         filled.push('Location');
     }
 
     if (hints.owner_id) {
-        safeSetVal('asset_owner', hints.owner_id);
+        setSearchableSelectValue('asset_owner', hints.owner_id);
         filled.push('Process Owner');
     }
 
     if (hints.category_id) {
-        safeSetVal('asset_category', hints.category_id);
+        setSearchableSelectValue(
+            'asset_category', hints.category_id
+        );
         filled.push('Category');
     }
 
@@ -783,29 +956,29 @@ function hidePoAutofillHint() {
     }
 }
 
-// ─── DROPDOWNS ────────────────────────────────────────────────────────────────
+// ─── DROPDOWNS ────────────────────────────────────────────────────
 async function populateAssetFormDropdowns() {
     await Promise.all([
-        populateSelect(
+        populateSearchableSelectFromApi(
             'asset_category',
             '/src/api/categories.php',
-            'id', 'name'
+            'id', 'name', '— Select Category —'
+        ),
+        populateSearchableSelectFromApi(
+            'asset_location',
+            '/src/api/locations.php',
+            'id', 'name', '— Select Location —'
+        ),
+        populateSearchableSelectFromApi(
+            'asset_owner',
+            '/src/api/process_owners.php',
+            'id', 'name', '— Select Owner —'
         ),
         populateSelect(
             'asset_po',
             '/src/api/purchase_orders.php',
             'id', 'po_number',
             { dataKey: 'vendor_name', dataAttr: 'vendorName' }
-        ),
-        populateSelect(
-            'asset_location',
-            '/src/api/locations.php',
-            'id', 'name'
-        ),
-        populateSelect(
-            'asset_owner',
-            '/src/api/process_owners.php',
-            'id', 'name'
         ),
         populateSelect(
             'filter_category',
@@ -825,15 +998,26 @@ async function populateAssetFormDropdowns() {
     ]);
 }
 
-/**
- * Populates a <select> from an API endpoint.
- * @param {string}      selId   - element ID
- * @param {string}      url     - API URL (without per_page)
- * @param {string}      valKey  - property used as option value
- * @param {string}      lblKey  - property used as option label
- * @param {object|null} extra   - { dataKey, dataAttr } for data-* attr
- */
-async function populateSelect(selId, url, valKey, lblKey, extra = null) {
+async function populateSearchableSelectFromApi(
+    fieldId, url, valKey, lblKey, placeholder
+) {
+    try {
+        const data  = await apiFetch(`${url}?per_page=500`);
+        const items = data.data ?? [];
+        populateSearchableSelect(
+            fieldId, items, valKey, lblKey, placeholder
+        );
+    } catch (err) {
+        console.error(
+            `populateSearchableSelectFromApi(${fieldId}) error:`,
+            err
+        );
+    }
+}
+
+async function populateSelect(
+    selId, url, valKey, lblKey, extra = null
+) {
     const el = document.getElementById(selId);
     if (!el) {
         return;
@@ -849,7 +1033,8 @@ async function populateSelect(selId, url, valKey, lblKey, extra = null) {
             opt.textContent = item[lblKey];
 
             if (extra?.dataKey) {
-                opt.dataset[extra.dataAttr] = item[extra.dataKey] ?? '';
+                opt.dataset[extra.dataAttr] =
+                    item[extra.dataKey] ?? '';
             }
 
             el.appendChild(opt);
@@ -859,7 +1044,7 @@ async function populateSelect(selId, url, valKey, lblKey, extra = null) {
     }
 }
 
-// ─── EXPORT & IMPORT ──────────────────────────────────────────────────────────
+// ─── EXPORT ───────────────────────────────────────────────────────
 async function exportToExcel() {
     const params = new URLSearchParams({
         action:      'export',
@@ -868,192 +1053,50 @@ async function exportToExcel() {
         location_id: getVal('filter_location'),
         owner_id:    getVal('filter_owner'),
         search:      getVal('asset_search'),
-        sort:        currentSort,
-        dir:         currentDir,
     });
 
-    window.location.href = `/src/api/import_export.php?${params}`;
+    window.location.href =
+        `/src/api/import_export.php?${params}`;
 }
 
+// ─── IMPORT ───────────────────────────────────────────────────────
 let importFile = null;
 
 function openImportModal() {
     importFile = null;
     safeSetVal('import_file', '');
 
-    const zoneLabel = document.getElementById('import_zone_label');
+    const zoneLabel = document.getElementById(
+        'import_zone_label'
+    );
     if (zoneLabel) {
         zoneLabel.textContent = 'Drop your .xlsx file here';
     }
 
-    const submitBtn = document.getElementById('import_submit_btn');
+    const submitBtn = document.getElementById(
+        'import_submit_btn'
+    );
     if (submitBtn) {
         submitBtn.disabled = true;
     }
 
-    setImportTab('po');
     showImportStep('upload');
     openModal('import_assets');
 }
 
-function setImportTab(tab) {
-    const isPo = tab === 'po';
-
-    const infoPo   = document.getElementById('fmt_info_po');
-    const infoFlat = document.getElementById('fmt_info_flat');
-    const btnPo    = document.getElementById('fmt_tab_po');
-    const btnFlat  = document.getElementById('fmt_tab_flat');
-
-    if (infoPo) {
-        infoPo.style.display = isPo ? '' : 'none';
-    }
-    if (infoFlat) {
-        infoFlat.style.display = isPo ? 'none' : '';
-    }
-    if (btnPo) {
-        btnPo.className = isPo
-            ? 'btn btn-primary btn-sm'
-            : 'btn btn-secondary btn-sm';
-    }
-    if (btnFlat) {
-        btnFlat.className = isPo
-            ? 'btn btn-secondary btn-sm'
-            : 'btn btn-primary btn-sm';
-    }
-}
-
-function renderImportResults(r) {
-    const inserted  = r.success    ?? 0;
-    const failed    = r.failed     ?? 0;
-    const infDupes  = r.infile_dupes ?? [];
-    const dbDupes   = r.db_dupes    ?? [];
-    const errors    = r.errors      ?? [];
-
-    let html = `
-        <div style="display:flex;gap:12px;margin-bottom:18px">
-            <div style="flex:1;background:var(--green-dim);
-                        border:1px solid rgba(34,197,94,.25);
-                        border-radius:var(--radius-sm);
-                        padding:14px;text-align:center">
-                <div style="font-size:28px;font-weight:800;
-                            color:var(--green)">
-                    ${inserted}
-                </div>
-                <div style="font-size:11px;color:var(--white-3);
-                            margin-top:2px">
-                    Imported
-                </div>
-            </div>
-            <div style="flex:1;background:var(--red-dim);
-                        border:1px solid rgba(239,68,68,.25);
-                        border-radius:var(--radius-sm);
-                        padding:14px;text-align:center">
-                <div style="font-size:28px;font-weight:800;
-                            color:var(--red)">
-                    ${failed}
-                </div>
-                <div style="font-size:11px;color:var(--white-3);
-                            margin-top:2px">
-                    Skipped
-                </div>
-            </div>
-        </div>`;
-
-    // In-file duplicates section
-    if (infDupes.length) {
-        html += buildResultSection(
-            '⚠️ Duplicate within file',
-            'These serials appeared more than once in the uploaded '
-            + 'file — only the first occurrence was processed:',
-            infDupes,
-            'var(--yellow, #F59E0B)',
-            'rgba(245,158,11,.15)'
-        );
-    }
-
-    // DB duplicates section
-    if (dbDupes.length) {
-        html += buildResultSection(
-            '🔁 Already in system',
-            'These serials already exist in the database and '
-            + 'were skipped:',
-            dbDupes,
-            'var(--accent)',
-            'var(--navy-2)'
-        );
-    }
-
-    // Other row errors section
-    if (errors.length) {
-        html += buildResultSection(
-            '❌ Row errors',
-            'These rows had missing required fields or DB errors:',
-            errors,
-            'var(--red)',
-            'var(--red-dim)'
-        );
-    }
-
-    if (!infDupes.length && !dbDupes.length && !errors.length
-            && inserted > 0) {
-        html += `
-            <div style="text-align:center;padding:8px 0;
-                        font-size:13px;color:var(--green)">
-                ✅ All rows imported successfully!
-            </div>`;
-    }
-
-    document.getElementById('import_results_body').innerHTML = html;
-}
-
-function buildResultSection(
-    title, desc, items, borderColor, bgColor
-) {
-    const rows = items
-        .map(item => `
-            <div style="background:${bgColor};
-                        border:1px solid var(--border);
-                        border-left:3px solid ${borderColor};
-                        border-radius:6px;
-                        padding:7px 10px;
-                        font-size:12px;
-                        color:var(--white-3);
-                        font-family:monospace">
-                ${escapeHtml(String(item))}
-            </div>`)
-        .join('');
-
-    return `
-        <div style="margin-bottom:14px">
-            <div style="font-size:12px;font-weight:600;
-                        color:var(--white-2);margin-bottom:4px">
-                ${title}
-                <span class="tag"
-                        style="font-size:11px;margin-left:4px">
-                    ${items.length}
-                </span>
-            </div>
-            <div style="font-size:11px;color:var(--white-4);
-                        margin-bottom:8px">
-                ${desc}
-            </div>
-            <div style="max-height:160px;overflow-y:auto;
-                        display:flex;flex-direction:column;
-                        gap:4px">
-                ${rows}
-            </div>
-        </div>`;
-}
-
 function showImportStep(step) {
     ['upload', 'progress', 'results'].forEach(s => {
-        const el = document.getElementById(`import_step_${s}`);
+        const el = document.getElementById(
+            `import_step_${s}`
+        );
         if (el) {
             el.style.display = s === step ? '' : 'none';
         }
     });
 
-    const footer = document.getElementById('import_modal_footer');
+    const footer = document.getElementById(
+        'import_modal_footer'
+    );
     if (!footer) {
         return;
     }
@@ -1092,18 +1135,21 @@ function onImportFileSelected(input) {
     }
 
     importFile = file;
-    const kb      = file.size / 1024;
-    const mb      = file.size / 1048576;
     const sizeStr = file.size > 1048576
-        ? mb.toFixed(1) + ' MB'
-        : kb.toFixed(0) + ' KB';
+        ? (file.size / 1048576).toFixed(1) + ' MB'
+        : (file.size / 1024).toFixed(0) + ' KB';
 
-    const zoneLabel = document.getElementById('import_zone_label');
+    const zoneLabel = document.getElementById(
+        'import_zone_label'
+    );
     if (zoneLabel) {
-        zoneLabel.textContent = `✓ ${file.name} (${sizeStr})`;
+        zoneLabel.textContent =
+            `✓ ${file.name} (${sizeStr})`;
     }
 
-    const submitBtn = document.getElementById('import_submit_btn');
+    const submitBtn = document.getElementById(
+        'import_submit_btn'
+    );
     if (submitBtn) {
         submitBtn.disabled = false;
     }
@@ -1156,8 +1202,10 @@ async function submitImport() {
             '/src/api/import_export.php?action=import',
             {
                 method:  'POST',
-                headers: { 'X-CSRF-Token': getCsrfToken() },
-                body:    fd,
+                headers: {
+                    'X-CSRF-Token': getCsrfToken(),
+                },
+                body: fd,
             }
         );
 
@@ -1180,57 +1228,72 @@ async function submitImport() {
 }
 
 function renderImportResults(r) {
+    const inserted = r.success      ?? 0;
+    const failed   = r.failed       ?? 0;
+    const infDupes = r.infile_dupes ?? [];
+    const dbDupes  = r.db_dupes     ?? [];
+    const errors   = r.errors       ?? [];
+
     let html = `
         <div style="display:flex;gap:12px;margin-bottom:18px">
             <div style="flex:1;background:var(--green-dim);
                         border:1px solid rgba(34,197,94,.25);
-                        border-radius:var(--radius-sm);padding:14px;
-                        text-align:center">
+                        border-radius:var(--radius-sm);
+                        padding:14px;text-align:center">
                 <div style="font-size:28px;font-weight:800;
                             color:var(--green)">
-                    ${r.success}
+                    ${inserted}
                 </div>
-                <div style="font-size:11px;color:var(--white-3);
+                <div style="font-size:11px;
+                            color:var(--white-3);
                             margin-top:2px">
                     Imported
                 </div>
             </div>
             <div style="flex:1;background:var(--red-dim);
                         border:1px solid rgba(239,68,68,.25);
-                        border-radius:var(--radius-sm);padding:14px;
-                        text-align:center">
+                        border-radius:var(--radius-sm);
+                        padding:14px;text-align:center">
                 <div style="font-size:28px;font-weight:800;
                             color:var(--red)">
-                    ${r.failed}
+                    ${failed}
                 </div>
-                <div style="font-size:11px;color:var(--white-3);
+                <div style="font-size:11px;
+                            color:var(--white-3);
                             margin-top:2px">
                     Skipped
                 </div>
             </div>
         </div>`;
 
-    if (r.errors?.length) {
-        html += `
-            <div style="font-size:11px;font-weight:700;
-                        text-transform:uppercase;letter-spacing:1px;
-                        color:var(--white-4);margin-bottom:8px">
-                Skipped Rows
-            </div>
-            <div style="max-height:200px;overflow-y:auto;
-                        display:flex;flex-direction:column;gap:4px">
-                ${r.errors.map(e => `
-                    <div style="background:var(--navy-2);
-                                border:1px solid var(--border);
-                                border-left:3px solid var(--red);
-                                border-radius:6px;
-                                padding:7px 10px;
-                                font-size:12px;
-                                color:var(--white-3)">
-                        ${escapeHtml(e)}
-                    </div>`).join('')}
-            </div>`;
-    } else if (r.success > 0) {
+    if (infDupes.length) {
+        html += buildResultSection(
+            '⚠️ Duplicate within file',
+            `${infDupes.length} serial(s) appeared more than once:`,
+            infDupes, 'var(--yellow)', 'rgba(245,158,11,.15)'
+        );
+    }
+
+    if (dbDupes.length) {
+        html += buildResultSection(
+            '🔁 Already in system',
+            `${dbDupes.length} serial(s) already exist:`,
+            dbDupes, 'var(--accent)', 'var(--navy-2)'
+        );
+    }
+
+    if (errors.length) {
+        html += buildResultSection(
+            '❌ Row errors',
+            `${errors.length} row(s) had errors:`,
+            errors, 'var(--red)', 'var(--red-dim)'
+        );
+    }
+
+    if (
+        !infDupes.length && !dbDupes.length &&
+        !errors.length && inserted > 0
+    ) {
         html += `
             <div style="text-align:center;padding:8px 0;
                         font-size:13px;color:var(--green)">
@@ -1238,76 +1301,42 @@ function renderImportResults(r) {
             </div>`;
     }
 
-    document.getElementById('import_results_body').innerHTML = html;
+    document.getElementById(
+        'import_results_body'
+    ).innerHTML = html;
 }
 
-// ─── REMARKS DROPDOWN TOGGLE ─────────────────────────────────────
-function onRemarksChange(selectEl) {
-    const isOthers = selectEl.value === 'others';
-    const wrap = document.getElementById('field_remarks_text');
-    if (wrap) {
-        wrap.style.display = isOthers ? '' : 'none';
-    }
-    if (!isOthers) {
-        const ta = document.getElementById('asset_remarks');
-        if (ta) {
-            ta.value = '';
-        }
-    }
+function buildResultSection(
+    title, desc, items, borderColor, bgColor
+) {
+    const rows = items.map(item => `
+        <div style="background:${bgColor};
+                    border:1px solid var(--border);
+                    border-left:3px solid ${borderColor};
+                    border-radius:6px;padding:7px 10px;
+                    font-size:12px;color:var(--white-3);
+                    font-family:monospace">
+            ${escapeHtml(String(item))}
+        </div>`).join('');
+
+    return `
+        <div style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:600;
+                        color:var(--white-2);margin-bottom:4px">
+                ${title}
+                <span class="tag"
+                        style="font-size:11px;margin-left:4px">
+                    ${items.length}
+                </span>
+            </div>
+            <div style="font-size:11px;color:var(--white-4);
+                        margin-bottom:8px">
+                ${desc}
+            </div>
+            <div style="max-height:160px;overflow-y:auto;
+                        display:flex;flex-direction:column;
+                        gap:4px">
+                ${rows}
+            </div>
+        </div>`;
 }
- 
-// ─── REMARKS READ HELPER ─────────────────────────────────────────
-/**
- * Reads the standardised remarks value.
- * If "others" is selected, reads the free-text textarea.
- */
-function getRemarksValue() {
-    const sel = document.getElementById('asset_remarks_select');
-    if (!sel) {
-        return 'NA';
-    }
-    if (sel.value === 'others') {
-        const ta = document.getElementById('asset_remarks');
-        return ta ? ta.value.trim() || 'NA' : 'NA';
-    }
-    return sel.value;
-}
- 
-// ─── SET REMARKS VALUE ───────────────────────────────────────────
-/**
- * Populates the remarks dropdown (and free-text if needed)
- * from a stored value. Called during openEditAsset().
- */
-function setRemarksValue(val) {
-    const KNOWN_KEYS = [
-        'NA', 'pink_mark', 'orange_mark',
-        'no_mark', 'with_monitor', 'partial',
-    ];
- 
-    const sel = document.getElementById('asset_remarks_select');
-    if (!sel) {
-        return;
-    }
- 
-    if (!val || val === 'NA') {
-        sel.value = 'NA';
-        return;
-    }
- 
-    if (KNOWN_KEYS.includes(val)) {
-        sel.value = val;
-        return;
-    }
- 
-    // Free-text from old import
-    sel.value = 'others';
-    const ta = document.getElementById('asset_remarks');
-    if (ta) {
-        ta.value = val;
-    }
-    const wrap = document.getElementById('field_remarks_text');
-    if (wrap) {
-        wrap.style.display = '';
-    }
-}
- 
