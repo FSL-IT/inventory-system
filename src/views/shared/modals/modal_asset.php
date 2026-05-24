@@ -35,7 +35,10 @@
                 </span>
             </div>
 
-            <div class="modal-section-title">Purchase Order</div>
+            <!-- Purchase Order -->
+            <div class="modal-section-title">
+                Purchase Order
+            </div>
             <div class="field-grid">
                 <div class="form-field">
                     <label for="asset_po">PO Number</label>
@@ -45,23 +48,31 @@
                     </select>
                 </div>
                 <div class="form-field">
-                    <label for="asset_vendor">Vendor (via PO)</label>
+                    <label for="asset_vendor">
+                        Vendor (via PO)
+                    </label>
                     <input type="text" id="asset_vendor"
                             placeholder="Auto-filled from PO"
                             readonly>
                 </div>
             </div>
 
-            <div class="modal-section-title">Asset Information</div>
+            <!-- Asset Information -->
+            <div class="modal-section-title">
+                Asset Information
+            </div>
 
             <div id="field_single_serial">
                 <div class="form-field">
                     <label for="asset_serial">
                         Serial Number
-                        <span style="color:var(--red)">*</span>
+                        <span class="field-required">*</span>
                     </label>
                     <input type="text" id="asset_serial"
-                            placeholder="e.g. 5CD432D87V">
+                            placeholder="e.g. 5CD432D87V"
+                            oninput="clearFieldError('asset_serial')">
+                    <span class="field-error"
+                            id="err_asset_serial"></span>
                 </div>
             </div>
 
@@ -69,7 +80,7 @@
                 <div class="form-field">
                     <label for="asset_serials_bulk">
                         Serial Numbers
-                        <span style="color:var(--red)">*</span>
+                        <span class="field-required">*</span>
                         <span class="cell-date"
                                 style="font-weight:400;
                                        text-transform:none">
@@ -81,12 +92,17 @@
                             style="min-height:120px;
                                    font-family:monospace;
                                    font-size:12px"
-                            oninput="updateBulkCount()">
+                            oninput="updateBulkCount();
+                                     clearFieldError(
+                                         'asset_serials_bulk'
+                                     )">
                     </textarea>
                     <span id="bulk_sn_count" class="cell-date"
                             style="font-size:11px;margin-top:2px">
                         0 serial numbers detected
                     </span>
+                    <span class="field-error"
+                            id="err_asset_serials_bulk"></span>
                 </div>
             </div>
 
@@ -94,25 +110,62 @@
                 <div class="form-field">
                     <label for="asset_desc">
                         Description
-                        <span style="color:var(--red)">*</span>
+                        <span class="field-required">*</span>
                     </label>
                     <input type="text" id="asset_desc"
-                            placeholder="e.g. HP ProBook 440 G11">
+                            placeholder="e.g. HP ProBook 440 G11"
+                            oninput="clearFieldError('asset_desc')">
+                    <span class="field-error"
+                            id="err_asset_desc"></span>
                 </div>
                 <div class="form-field">
                     <label for="asset_category">
                         Category
-                        <span style="color:var(--red)">*</span>
+                        <span class="field-required">*</span>
                     </label>
-                    <select id="asset_category">
-                        <option value="">— Select Category —</option>
-                    </select>
+                    <!-- Searchable dropdown wrapper -->
+                    <div class="searchable-select-wrap"
+                            id="wrap_asset_category">
+                        <div class="searchable-select-trigger"
+                                id="trigger_asset_category"
+                                onclick="toggleSearchableSelect(
+                                    'asset_category'
+                                )">
+                            <span id="label_asset_category">
+                                — Select Category —
+                            </span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                        <div class="searchable-select-dropdown"
+                                id="dropdown_asset_category"
+                                style="display:none">
+                            <input type="text"
+                                    class="searchable-select-search"
+                                    placeholder="Search..."
+                                    oninput="filterSearchableSelect(
+                                        'asset_category', this.value
+                                    )"
+                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-options"
+                                    id="options_asset_category">
+                            </div>
+                        </div>
+                        <input type="hidden" id="asset_category">
+                    </div>
+                    <span class="field-error"
+                            id="err_asset_category"></span>
                 </div>
             </div>
 
+            <!-- Status — mandatory, no default -->
             <div class="form-field">
-                <label for="asset_status">Status</label>
-                <select id="asset_status">
+                <label for="asset_status">
+                    Status
+                    <span class="field-required">*</span>
+                </label>
+                <select id="asset_status"
+                        onchange="clearFieldError('asset_status')">
+                    <option value="">— Select Status —</option>
                     <option value="active">Active</option>
                     <option value="deployed">Deployed</option>
                     <option value="defective">Defective</option>
@@ -120,17 +173,21 @@
                     <option value="retired">Retired</option>
                     <option value="lost">Lost</option>
                 </select>
+                <span class="field-error"
+                        id="err_asset_status"></span>
             </div>
 
+            <!-- Location & Assignment -->
             <div class="modal-section-title">
                 Location &amp; Assignment
             </div>
 
+            <!-- Auto-fill hint -->
             <div id="po_autofill_hint"
                     style="display:none;margin-bottom:12px">
                 <div class="info-field"
-                        style="border-left:3px solid var(--accent);
-                               padding:8px 12px">
+                        style="border-left:3px solid
+                               var(--accent);padding:8px 12px">
                     <div class="val" style="font-size:12px">
                         <i class="bi bi-magic"
                                 style="color:var(--accent);
@@ -144,48 +201,82 @@
                 <div class="form-field">
                     <label for="asset_location">
                         Center / Location
-                        <span style="color:var(--red)">*</span>
+                        <span class="field-required">*</span>
                     </label>
-                    <select id="asset_location">
-                        <option value="">— Select Location —</option>
-                    </select>
+                    <div class="searchable-select-wrap"
+                            id="wrap_asset_location">
+                        <div class="searchable-select-trigger"
+                                id="trigger_asset_location"
+                                onclick="toggleSearchableSelect(
+                                    'asset_location'
+                                )">
+                            <span id="label_asset_location">
+                                — Select Location —
+                            </span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                        <div class="searchable-select-dropdown"
+                                id="dropdown_asset_location"
+                                style="display:none">
+                            <input type="text"
+                                    class="searchable-select-search"
+                                    placeholder="Search..."
+                                    oninput="filterSearchableSelect(
+                                        'asset_location', this.value
+                                    )"
+                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-options"
+                                    id="options_asset_location">
+                            </div>
+                        </div>
+                        <input type="hidden" id="asset_location">
+                    </div>
+                    <span class="field-error"
+                            id="err_asset_location"></span>
                 </div>
                 <div class="form-field">
                     <label for="asset_owner">
                         Process Owner
-                        <span style="color:var(--red)">*</span>
+                        <span class="field-required">*</span>
                     </label>
-                    <select id="asset_owner">
-                        <option value="">— Select Owner —</option>
-                    </select>
+                    <div class="searchable-select-wrap"
+                            id="wrap_asset_owner">
+                        <div class="searchable-select-trigger"
+                                id="trigger_asset_owner"
+                                onclick="toggleSearchableSelect(
+                                    'asset_owner'
+                                )">
+                            <span id="label_asset_owner">
+                                — Select Owner —
+                            </span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                        <div class="searchable-select-dropdown"
+                                id="dropdown_asset_owner"
+                                style="display:none">
+                            <input type="text"
+                                    class="searchable-select-search"
+                                    placeholder="Search..."
+                                    oninput="filterSearchableSelect(
+                                        'asset_owner', this.value
+                                    )"
+                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-options"
+                                    id="options_asset_owner">
+                            </div>
+                        </div>
+                        <input type="hidden" id="asset_owner">
+                    </div>
+                    <span class="field-error"
+                            id="err_asset_owner"></span>
                 </div>
             </div>
 
-            <!-- Standardised remarks dropdown -->
+            <!-- Remarks — plain textarea per client request -->
             <div class="form-field">
-                <label for="asset_remarks_select">Remarks</label>
-                <select id="asset_remarks_select"
-                        onchange="onRemarksChange(this)">
-                    <option value="NA">None / NA</option>
-                    <option value="pink_mark">With pink mark</option>
-                    <option value="orange_mark">
-                        With orange mark
-                    </option>
-                    <option value="no_mark">No mark</option>
-                    <option value="with_monitor">With monitor</option>
-                    <option value="partial">Partial delivery</option>
-                    <option value="others">Others (specify)</option>
-                </select>
-            </div>
-
-            <!-- Free-text: shown only when Others is selected -->
-            <div class="form-field" id="field_remarks_text"
-                    style="display:none">
-                <label for="asset_remarks">
-                    Specify remarks
-                </label>
+                <label for="asset_remarks">Remarks</label>
                 <textarea id="asset_remarks"
-                        placeholder="Describe condition, marks...">
+                        placeholder="Optional: condition, marks, notes...">
                 </textarea>
             </div>
 
@@ -205,8 +296,9 @@
     </div>
 </div>
 
+<!-- View Modal -->
 <div class="modal-overlay" id="modal-view_asset">
-    <div class="modal" style="max-width:680px">
+    <div class="modal" style="max-width:700px">
         <div class="modal-header">
             <div class="modal-title" id="view_asset_title">
                 Asset Detail
@@ -216,7 +308,16 @@
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body" id="view_asset_body"></div>
+        <div class="modal-body">
+            <div id="view_asset_body"></div>
+            <div id="view_transfer_section"
+                    style="display:none;margin-top:20px">
+                <div class="modal-section-title">
+                    Transfer History
+                </div>
+                <div id="view_transfer_body"></div>
+            </div>
+        </div>
         <div class="modal-footer">
             <button class="btn btn-secondary"
                     onclick="closeModal('view_asset')">

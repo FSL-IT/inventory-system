@@ -12,11 +12,14 @@
 </script>
 <script src="/assets/js/app.js"></script>
 <script src="/assets/js/modal_handler.js"></script>
+<script src="/assets/js/searchable_select.js"></script>
 <?php if (isset($pageJs)): ?>
-<script src="/assets/js/<?= htmlspecialchars($pageJs) ?>"></script>
+<script src="/assets/js/<?= htmlspecialchars($pageJs) ?>">
+</script>
 <?php endif; ?>
 <?php if (isset($pageJs2)): ?>
-<script src="/assets/js/<?= htmlspecialchars($pageJs2) ?>"></script>
+<script src="/assets/js/<?= htmlspecialchars($pageJs2) ?>">
+</script>
 <?php endif; ?>
 </body>
 </html>

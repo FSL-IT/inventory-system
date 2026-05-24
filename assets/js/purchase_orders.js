@@ -295,9 +295,8 @@ function buildAgeTag(po) {
 
 // ─── RENDER TABLE ─────────────────────────────────────────────────────────────
 function renderPoTable(pos) {
-    const tbody      = document.getElementById('po_body');
-    const isAdminUsr = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
-
+    const tbody = document.getElementById('po_body');
+ 
     if (!pos.length) {
         tbody.innerHTML = `
             <tr>
@@ -313,10 +312,10 @@ function renderPoTable(pos) {
             </tr>`;
         return;
     }
-
+ 
     tbody.innerHTML = pos.map(p => {
         const safePoNum = escapeHtml(p.po_number);
-
+ 
         const fyTag = p.fiscal_year
             ? `<span class="tag"
                      style="font-size:10px;padding:1px 6px;
@@ -324,20 +323,20 @@ function renderPoTable(pos) {
                    ${escapeHtml(p.fiscal_year)}
                </span>`
             : '';
-
+ 
         const endorsedCell = p.date_endorsed
             ? `<span class="tag tag-active">
                    <i class="bi bi-check-circle"></i>
                    ${formatDate(p.date_endorsed)}
                </span>`
-            : `<div style="display:flex;flex-direction:column;
-                            gap:4px">
+            : `<div style="display:flex;
+                            flex-direction:column;gap:4px">
                    <span class="tag tag-repair">
                        <i class="bi bi-clock"></i> Pending
                    </span>
                    ${buildAgeTag(p)}
                </div>`;
-
+ 
         const endorseBtn = !p.date_endorsed
             ? `<button class="btn btn-secondary btn-sm"
                        onclick="onEndorseClick(event, ${p.id})"
@@ -345,17 +344,17 @@ function renderPoTable(pos) {
                    <i class="bi bi-pen-fill"></i>
                </button>`
             : '';
-
-        const adminBtn = isAdminUsr
-            ? `<button class="btn btn-danger btn-sm"
-                       onclick="onDeleteClick(
-                           event, ${p.id}, '${safePoNum}'
-                       )"
-                       title="Delete">
-                   <i class="bi bi-trash"></i>
-               </button>`
-            : '';
-
+ 
+        // Delete shown for ALL roles
+        const deleteBtn = `
+            <button class="btn btn-danger btn-sm"
+                    onclick="onDeleteClick(
+                        event, ${p.id}, '${safePoNum}'
+                    )"
+                    title="Delete PO">
+                <i class="bi bi-trash"></i>
+            </button>`;
+ 
         return `
             <tr class="clickable-row"
                     onclick="viewPO(${p.id})">
@@ -377,7 +376,11 @@ function renderPoTable(pos) {
                     </div>
                 </td>
                 <td style="text-align:center">
-                    <span class="tag tag-deployed">
+                    <span class="tag tag-deployed"
+                            style="cursor:pointer"
+                            onclick="event.stopPropagation();
+                                     viewPO(${p.id})"
+                            title="View items">
                         ${escapeHtml(p.asset_count ?? 0)}
                     </span>
                 </td>
@@ -389,11 +392,13 @@ function renderPoTable(pos) {
                     <div class="table-actions">
                         ${endorseBtn}
                         <button class="btn btn-secondary btn-sm"
-                                onclick="onEditClick(event, ${p.id})"
+                                onclick="onEditClick(
+                                    event, ${p.id}
+                                )"
                                 title="Edit">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        ${adminBtn}
+                        ${deleteBtn}
                     </div>
                 </td>
             </tr>`;
@@ -539,7 +544,7 @@ function renderViewPoAssets(rows) {
     if (!tbody) {
         return;
     }
-
+ 
     if (!rows.length) {
         tbody.innerHTML = `
             <tr>
@@ -550,9 +555,19 @@ function renderViewPoAssets(rows) {
             </tr>`;
         return;
     }
-
+ 
+    // Get the PO number from the modal title for the link
+    const titleEl  = document.getElementById('view_po_title');
+    const poNumber = titleEl
+        ? titleEl.textContent.replace('📋 PO: ', '').trim()
+        : '';
+    const searchUrl = `/src/views/assets.php?search=`
+        + encodeURIComponent(poNumber);
+ 
     tbody.innerHTML = rows.map(r => `
-        <tr>
+        <tr class="clickable-row"
+                onclick="window.location.href='${searchUrl}'"
+                title="View assets for this PO in inventory">
             <td>
                 <span class="tag tag-category">
                     ${escapeHtml(r.category ?? '—')}
@@ -771,3 +786,78 @@ function globalSearch(term) {
     safeSetVal('po_search', term);
     debouncedApplyPoFilters();
 }
+
+let poImportFile = null;
+ 
+function openPoImportModal() {
+    poImportFile = null;
+ 
+    const zoneLabel = document.getElementById(
+        'import_zone_label'
+    );
+    if (zoneLabel) {
+        zoneLabel.textContent = 'Drop your .xlsx file here';
+    }
+ 
+    const fileInput = document.getElementById('import_file');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+ 
+    const submitBtn = document.getElementById(
+        'import_submit_btn'
+    );
+    if (submitBtn) {
+        submitBtn.disabled = true;
+    }
+ 
+    // Point submit to PO import handler
+    if (submitBtn) {
+        submitBtn.onclick = submitPoImport;
+    }
+ 
+    showImportStep('upload');
+    openModal('import_assets');
+}
+ 
+async function submitPoImport() {
+    const fileInput = document.getElementById('import_file');
+    const file      = fileInput?.files?.[0];
+ 
+    if (!file) {
+        showToast('Select a file first.', 'error');
+        return;
+    }
+ 
+    showImportStep('progress');
+ 
+    const fd = new FormData();
+    fd.append('import_file', file);
+ 
+    try {
+        const res = await fetch(
+            '/src/api/import_export.php?action=import',
+            {
+                method:  'POST',
+                headers: { 'X-CSRF-Token': getCsrfToken() },
+                body:    fd,
+            }
+        );
+        const json = await res.json();
+ 
+        if (!json.success && !json.data) {
+            throw new Error(json.message ?? 'Import failed.');
+        }
+ 
+        renderImportResults(json.data);
+        showImportStep('results');
+ 
+        if ((json.data?.success ?? 0) > 0) {
+            fetchInitialPOs();
+        }
+    } catch (err) {
+        showImportStep('upload');
+        showToast(err.message ?? 'Import failed.', 'error');
+    }
+}
+ 

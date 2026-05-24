@@ -13,10 +13,16 @@ require_once __DIR__ . '/../core/validator.php';
 require_once __DIR__ . '/../helpers/export_helper.php';
 require_once __DIR__ . '/../helpers/import_helper.php';
 
-requireRole('admin');
-
 $method = $_SERVER['REQUEST_METHOD'];
 $action = getQueryString('action');
+
+// Export: all logged-in users can export
+// Import: admin only (modifies data)
+if (in_array($action, ['export', 'export_po_tracker', 'template'], true)) {
+    requireLogin();
+} else {
+    requireRole('admin');
+}
 
 if ($method === 'GET' && $action === 'export') {
     handleExport();
@@ -43,8 +49,8 @@ function handleExport(): void
     $params = [];
 
     if ($status) {
-        $where[]            = 'a.status = :status';
-        $params[':status']  = $status;
+        $where[]           = 'a.status = :status';
+        $params[':status'] = $status;
     }
 
     if ($categoryId) {
@@ -60,7 +66,8 @@ function handleExport(): void
             c.name AS category_name,
             l.name AS location_name,
             o.name AS owner_name,
-            po.po_number, po.date_received, po.date_endorsed,
+            po.po_number,
+            po.date_received, po.date_endorsed,
             v.name AS vendor_name
         FROM assets a
         LEFT JOIN categories      c  ON a.category_id = c.id
@@ -76,7 +83,10 @@ function handleExport(): void
     $stmt->execute($params);
     $assets = $stmt->fetchAll();
 
-    exportToExcel($assets, 'fsl_inventory_export_' . date('Ymd'));
+    exportToExcel(
+        $assets,
+        'fsl_inventory_export_' . date('Ymd')
+    );
 }
 
 function handlePoTrackerExport(): void
@@ -94,18 +104,23 @@ function handleImport(): void
     }
 
     $file = $_FILES['import_file'];
-    $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $ext  = strtolower(
+        pathinfo($file['name'], PATHINFO_EXTENSION)
+    );
 
     if ($ext !== 'xlsx') {
         header('Content-Type: application/json');
         sendError('Only .xlsx files are accepted.', 422);
     }
 
-    $result = importFromExcel($file['tmp_name'], $_SESSION['user_id']);
+    $result = importFromExcel(
+        $file['tmp_name'],
+        $_SESSION['user_id']
+    );
 
     $total   = $result['success'] + $result['failed'];
-    $message = "{$result['success']} added, {$result['failed']} skipped"
-        . " of {$total} rows.";
+    $message = "{$result['success']} added, "
+        . "{$result['failed']} skipped of {$total} rows.";
 
     header('Content-Type: application/json');
     sendSuccess($result, $message);

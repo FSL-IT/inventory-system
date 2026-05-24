@@ -37,6 +37,12 @@ include __DIR__ . '/shared/sidebar.php';
                 </div>
             </div>
             <div class="page-header__right">
+                <!-- Import: all roles -->
+                <button class="btn btn-secondary"
+                        onclick="openPoImportModal()">
+                    <i class="bi bi-upload"></i> Import
+                </button>
+                <!-- Export: all roles -->
                 <button class="btn btn-secondary"
                         onclick="exportPoTracker()">
                     <i class="bi bi-file-earmark-excel"></i>
@@ -92,7 +98,8 @@ include __DIR__ . '/shared/sidebar.php';
             <div style="display:flex;align-items:center;
                         gap:8px;margin-left:auto">
                 <span id="po_counter"
-                        style="font-size:12px;color:var(--white-4);
+                        style="font-size:12px;
+                               color:var(--white-4);
                                white-space:nowrap"></span>
                 <select class="filter-select" id="po_per_page"
                         onchange="onPoPerPageChange()">
@@ -114,38 +121,51 @@ include __DIR__ . '/shared/sidebar.php';
                     <thead>
                         <tr>
                             <th class="sortable-th"
-                                    onclick="sortPOs('po.po_number')">
+                                    onclick="sortPOs(
+                                        'po.po_number'
+                                    )">
                                 PO Number
-                                <i class="bi bi-arrow-down-up sort-icon"
-                                        id="posort_po.po_number"></i>
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
+                                        id="posort_po.po_number">
+                                </i>
                             </th>
                             <th class="sortable-th"
                                     onclick="sortPOs('v.name')">
                                 Vendor
-                                <i class="bi bi-arrow-down-up sort-icon"
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
                                         id="posort_v.name"></i>
                             </th>
                             <th>Categories</th>
                             <th class="sortable-th"
-                                    onclick="sortPOs('asset_count')"
+                                    onclick="sortPOs(
+                                        'asset_count'
+                                    )"
                                     style="text-align:center">
                                 Assets
-                                <i class="bi bi-arrow-down-up sort-icon"
-                                        id="posort_asset_count"></i>
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
+                                        id="posort_asset_count">
+                                </i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="
-                                        sortPOs('po.date_received')">
+                                    onclick="sortPOs(
+                                        'po.date_received'
+                                    )">
                                 Date Received
-                                <i class="bi bi-arrow-down-up sort-icon"
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
                                         id="posort_po.date_received">
                                 </i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="
-                                        sortPOs('po.date_endorsed')">
+                                    onclick="sortPOs(
+                                        'po.date_endorsed'
+                                    )">
                                 Date Endorsed
-                                <i class="bi bi-arrow-down-up sort-icon"
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
                                         id="posort_po.date_endorsed">
                                 </i>
                             </th>
@@ -172,4 +192,5 @@ include __DIR__ . '/shared/sidebar.php';
 
 <?php include __DIR__ . '/shared/modals/modal_po.php'; ?>
 <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
+<?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 <?php include __DIR__ . '/shared/footer.php'; ?>
