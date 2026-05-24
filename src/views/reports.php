@@ -3,8 +3,10 @@
 
 require_once __DIR__ . '/../../src/core/auth.php';
 requireLogin();
+
 $pageTitle = 'Reports';
 $pageJs    = 'reports.js';
+
 include __DIR__ . '/shared/header.php';
 include __DIR__ . '/shared/sidebar.php';
 ?>
@@ -17,36 +19,34 @@ include __DIR__ . '/shared/sidebar.php';
         <div class="topbar__title">Reports</div>
     </div>
 
-    <div class="content" id="report_content">
+    <div class="content">
         <div class="page-header">
             <div class="page-header__left">
                 <div class="page-header__title">Reports</div>
                 <div class="page-header__desc">
                     Per-location and per-owner asset summaries.
-                    Use Print to export as PDF.
+                    Use Print / Save PDF to export.
                 </div>
             </div>
             <div class="page-header__right">
-                <button class="btn btn-secondary"
-                        onclick="window.print()"
-                        id="btn_print">
-                    <i class="bi bi-printer"></i> Print / Save PDF
+                <!-- NO onclick — wired in reports.js DOMContentLoaded -->
+                <button class="btn btn-secondary" id="btn_print">
+                    <i class="bi bi-printer"></i>
+                    Print / Save PDF
                 </button>
             </div>
         </div>
 
-        <!-- Report type selector -->
         <div class="table-toolbar" id="report_toolbar">
             <div style="display:flex;gap:8px">
+                <!-- NO onclick — wired in reports.js DOMContentLoaded -->
                 <button id="tab_by_location"
-                        class="btn btn-primary"
-                        onclick="loadReport('by_location')">
+                        class="btn btn-primary">
                     <i class="bi bi-geo-alt"></i>
                     By Location
                 </button>
                 <button id="tab_by_owner"
-                        class="btn btn-secondary"
-                        onclick="loadReport('by_owner')">
+                        class="btn btn-secondary">
                     <i class="bi bi-person-workspace"></i>
                     By Process Owner
                 </button>
@@ -56,26 +56,28 @@ include __DIR__ . '/shared/sidebar.php';
                 <span id="report_meta"
                         style="font-size:12px;
                                color:var(--white-4)"></span>
-                <div class="search-field" style="max-width:220px">
+                <div class="search-field"
+                        style="max-width:220px">
                     <i class="bi bi-search"></i>
-                    <input type="text" id="report_search"
-                            placeholder="Filter assets..."
-                            oninput="filterReport(this.value)">
+                    <!-- NO oninput — wired in reports.js -->
+                    <input type="text"
+                            id="report_search"
+                            placeholder="Filter assets...">
                 </div>
             </div>
         </div>
 
-        <!-- Report body -->
         <div id="report_body">
             <div class="empty-state">
                 <i class="bi bi-bar-chart-line
                           empty-state__icon"></i>
                 <div class="empty-state__title">
-                    Select a report type above
+                    Loading report...
                 </div>
             </div>
         </div>
-    </div>
-</div>
+
+    </div><!-- end .content -->
+</div><!-- end .main -->
 
 <?php include __DIR__ . '/shared/footer.php'; ?>

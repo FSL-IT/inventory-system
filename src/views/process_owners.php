@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../src/core/auth.php';
-requireLogin();
+requireRole('admin');
 $pageTitle = 'Process Owners';
 $pageJs    = 'process_owners.js';
 include __DIR__ . '/shared/header.php';

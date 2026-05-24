@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../src/core/auth.php';
-requireLogin();
+requireRole('admin');
 $pageTitle = 'Locations';
 $pageJs    = 'locations.js';
 include __DIR__ . '/shared/header.php';

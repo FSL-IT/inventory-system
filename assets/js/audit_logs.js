@@ -26,6 +26,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchInitialAuditLogs();
 });
 
+document.addEventListener('DOMContentLoaded', () => {
+    const sel = document.getElementById('filter_action');
+    if (!sel) {
+        return;
+    }
+ 
+    ['BACKUP', 'RESTORE'].forEach(action => {
+        const exists = Array.from(sel.options)
+            .some(o => o.value === action);
+        if (exists) {
+            return;
+        }
+ 
+        const opt       = document.createElement('option');
+        opt.value       = action;
+        opt.textContent = action;
+        sel.appendChild(opt);
+    });
+});
+
 // ─── UTILITIES ──────────────────────────────────────────────────────────────
 function escapeHtml(str) {
     if (str === null || str === undefined || str === '') {
@@ -497,30 +517,62 @@ function getRecordIdentifier(tableName, changes, recordId) {
 }
 
 function buildAuditDesc(entry, changes) {
-    const user  = `<b>${escapeHtml(entry.username ?? 'System')}</b>`;
-    const table = `<b>${escapeHtml(entry.table_name)}</b>`;
+    const user  =
+        `<b>${escapeHtml(entry.username ?? 'System')}</b>`;
+    const table =
+        `<b>${escapeHtml(entry.table_name)}</b>`;
+ 
+    // Handle BACKUP and RESTORE events
+    if (
+        entry.action === 'BACKUP' ||
+        entry.action === 'RESTORE'
+    ) {
+        const ev   = changes.after?.event  ?? entry.action;
+        const file = changes.after?.file   ?? '';
+        const tbs  = changes.after?.tables ?? [];
+ 
+        const evLabel = {
+            'backup_created':
+                '🗄️ Created backup',
+            'restore_from_server':
+                '🔁 Restored from server file',
+            'restore_from_upload':
+                '🔁 Restored from uploaded file',
+        }[ev] ?? escapeHtml(ev);
+ 
+        const tbStr  = tbs.length
+            ? ` (tables: ${tbs.join(', ')})`
+            : '';
+        const fileStr = file
+            ? ` — <code>${escapeHtml(file)}</code>`
+            : '';
+ 
+        return `${user} ${evLabel}${fileStr}${tbStr}`;
+    }
+ 
     const idStr = getRecordIdentifier(
         entry.table_name, changes, entry.record_id
     );
-
+ 
     if (entry.action === 'INSERT') {
         return `${user} added a new ${table} ${idStr}`;
     }
-
+ 
     if (entry.action === 'DELETE') {
         const action = changes.after?.action ?? 'deleted';
         return `${user} ${escapeHtml(action)} ${table} ${idStr}`;
     }
-
+ 
     // UPDATE
     const afterKeys = Object.keys(changes.after ?? {});
-
+ 
     if (afterKeys.length) {
-        const changedKeys = afterKeys.map(k => formatKey(k));
-        const changedStr  = escapeHtml(changedKeys.join(', '));
+        const changedStr = escapeHtml(
+            afterKeys.map(k => formatKey(k)).join(', ')
+        );
         return `${user} updated [${changedStr}] on ${table} ${idStr}`;
     }
-
+ 
     return `${user} updated ${table} ${idStr}`;
 }
 
