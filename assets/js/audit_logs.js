@@ -3,55 +3,25 @@
 let allAuditLogs      = [];
 let filteredAuditLogs = [];
 let auditCurrentPage  = 1;
-let auditItemsPerPage = 25;
+let auditItemsPerPage = 50;
+let auditRefData      = {};
 
-// Reference dictionary for human-readable IDs
-const refDict = {
-    categories:      {},
-    locations:       {},
-    vendors:         {},
-    owners:          {},
-    purchase_orders: {}
-};
-
-// Unified debounce handler triggering purely client-side filtering
-const debouncedLoadAuditLogs = debounce(() => {
-    auditCurrentPage = 1;
-    applyClientAuditFilters();
-}, 350);
-
+// ─── SINGLE INIT ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
     await loadRefData();
     fetchInitialAuditLogs();
- 
-    // Add BACKUP / RESTORE to filter dropdown
-    const sel = document.getElementById('filter_action');
-    if (sel) {
-        ['BACKUP', 'RESTORE'].forEach(action => {
-            const exists = Array.from(sel.options)
-                .some(o => o.value === action);
-            if (exists) {
-                return;
-            }
-            const opt       = document.createElement('option');
-            opt.value       = action;
-            opt.textContent = action;
-            sel.appendChild(opt);
-        });
-    }
+    addBackupFilterOptions();
 });
 
-document.addEventListener('DOMContentLoaded', () => {
+function addBackupFilterOptions() {
     const sel = document.getElementById('filter_action');
     if (!sel) {
         return;
     }
-
-    const extra = ['BACKUP', 'RESTORE'];
-    extra.forEach(action => {
-        const alreadyExists = Array.from(sel.options)
+    ['BACKUP', 'RESTORE'].forEach(action => {
+        const exists = Array.from(sel.options)
             .some(o => o.value === action);
-        if (alreadyExists) {
+        if (exists) {
             return;
         }
         const opt       = document.createElement('option');
@@ -59,136 +29,137 @@ document.addEventListener('DOMContentLoaded', () => {
         opt.textContent = action;
         sel.appendChild(opt);
     });
-});
-
-
-// ─── UTILITIES ──────────────────────────────────────────────────────────────
-function escapeHtml(str) {
-    if (str === null || str === undefined || str === '') {
-        return '—';
-    }
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
 }
 
-function escapeJsStr(str) {
-    if (!str) {
-        return '';
-    }
-    return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
-}
-
-// ─── REFERENCE DATA LOADER ──────────────────────────────────────────────────
+// ─── REF DATA ─────────────────────────────────────────────────────
+// Does NOT use AUDIT_TABLES — fetches users directly.
 async function loadRefData() {
     try {
-        const reqs = [
-            apiFetch('/src/api/categories.php?per_page=500'),
-            apiFetch('/src/api/locations.php?per_page=500'),
-            apiFetch('/src/api/vendors.php?per_page=500'),
-            apiFetch('/src/api/process_owners.php?per_page=500'),
-            apiFetch('/src/api/purchase_orders.php?per_page=500')
-        ];
-        
-        const safeReqs = reqs.map(p => p.catch(() => ({ data: [] })));
-        const [cats, locs, vens, owns, pos] = await Promise.all(safeReqs);
-
-        (cats.data || []).forEach(c => {
-            refDict.categories[c.id] = c.name;
-        });
-        (locs.data || []).forEach(l => {
-            refDict.locations[l.id] = l.name;
-        });
-        (vens.data || []).forEach(v => {
-            refDict.vendors[v.id] = v.name;
-        });
-        (owns.data || []).forEach(o => {
-            refDict.owners[o.id] = o.name;
-        });
-        (pos.data  || []).forEach(p => {
-            refDict.purchase_orders[p.id] = p.po_number;
-        });
+        const res = await apiFetch(
+            '/src/api/users.php?per_page=500'
+        );
+        auditRefData.users = res.data ?? [];
     } catch (err) {
-        console.error('Failed to load reference data:', err);
+        console.error('loadRefData error:', err);
+        auditRefData.users = [];
     }
 }
 
-// ─── CLIENT-SIDE DATA FETCHING ──────────────────────────────────────────────
+// ─── FETCH ────────────────────────────────────────────────────────
 async function fetchInitialAuditLogs() {
-    const container = document.getElementById('audit_log_list');
-    container.innerHTML = `
-        <p class="text-center py-4" style="color:var(--white-4)">
-            <i class="bi bi-arrow-repeat" 
-                    style="animation:spin 1s linear infinite"></i>
-            Loading audit history...
-        </p>`;
-
     try {
-        // Fetch up to 5000 logs into memory
-        const data = await apiFetch(`/src/api/audit_logs.php?per_page=5000`);
-        allAuditLogs = data.data ?? []; 
-        
-        applyClientAuditFilters();
+        const data = await apiFetch(
+            '/src/api/audit_logs.php?per_page=5000'
+        );
+        allAuditLogs = data.data || [];
+        applyAuditFilters();
     } catch (err) {
-        showToast('Failed to load audit logs from server.', 'error');
+        console.error('fetchInitialAuditLogs error:', err);
+        showToast('Failed to load activity history.', 'error');
     }
 }
 
-// ─── CLIENT-SIDE FILTERING ──────────────────────────────────────────────────
-function applyClientAuditFilters() {
-    const actionEl = document.getElementById('filter_action');
-    const tableEl  = document.getElementById('filter_table');
+const debouncedLoadAuditLogs = debounce(() => {
+    auditCurrentPage = 1;
+    applyAuditFilters();
+}, 350);
 
-    const action    = actionEl?.value ?? '';
-    const tableName = tableEl?.value ?? '';
+// ─── FILTER ───────────────────────────────────────────────────────
+function applyAuditFilters() {
+    const search = (
+        document.getElementById('audit_search')?.value ?? ''
+    ).toLowerCase();
+    const action   =
+        document.getElementById('filter_action')?.value   ?? '';
+    const table    =
+        document.getElementById('filter_table')?.value    ?? '';
+    const user     =
+        document.getElementById('filter_user')?.value     ?? '';
+    const dateFrom =
+        document.getElementById('filter_date_from')?.value ?? '';
+    const dateTo   =
+        document.getElementById('filter_date_to')?.value   ?? '';
 
-    // 1. Filter the array in memory
-    filteredAuditLogs = allAuditLogs.filter(log => {
-        const matchAction = !action    || log.action === action;
-        const matchTable  = !tableName || log.table_name === tableName;
-        return matchAction && matchTable;
+    filteredAuditLogs = allAuditLogs.filter(a => {
+        const matchSearch = !search ||
+            (a.username   &&
+             a.username.toLowerCase().includes(search))   ||
+            (a.table_name &&
+             a.table_name.toLowerCase().includes(search)) ||
+            (a.changes    &&
+             a.changes.toLowerCase().includes(search));
+
+        const matchAction = !action || a.action     === action;
+        const matchTable  = !table  || a.table_name === table;
+        const matchUser   = !user   ||
+            String(a.user_id) === user;
+
+        let matchDate = true;
+        if (dateFrom) {
+            matchDate = matchDate &&
+                new Date(a.timestamp) >= new Date(dateFrom);
+        }
+        if (dateTo) {
+            matchDate = matchDate &&
+                new Date(a.timestamp) <=
+                new Date(dateTo + 'T23:59:59');
+        }
+
+        return matchSearch && matchAction &&
+               matchTable  && matchUser && matchDate;
     });
 
-    // 2. Render the specific page view
-    renderCurrentAuditPage();
+    auditCurrentPage = 1;
+    renderAuditPage();
 }
 
-window.changeAuditClientPage = function(page) {
+window.changeAuditPage = function (page) {
     auditCurrentPage = page;
-    renderCurrentAuditPage();
+    renderAuditPage();
 };
 
-function renderCurrentAuditPage() {
-    const totalItems = filteredAuditLogs.length;
-    const totalPages = Math.ceil(totalItems / auditItemsPerPage) || 1;
-    
+function renderAuditPage() {
+    const total      = filteredAuditLogs.length;
+    const totalPages =
+        Math.ceil(total / auditItemsPerPage) || 1;
+
     if (auditCurrentPage > totalPages) {
         auditCurrentPage = totalPages;
     }
 
-    const startIdx = (auditCurrentPage - 1) * auditItemsPerPage;
-    const endIdx   = startIdx + auditItemsPerPage;
-    const pageData = filteredAuditLogs.slice(startIdx, endIdx);
+    const start    = (auditCurrentPage - 1) * auditItemsPerPage;
+    const pageData = filteredAuditLogs.slice(
+        start, start + auditItemsPerPage
+    );
 
     renderAuditLog(pageData);
 
-    const mockPg = {
-        page:        auditCurrentPage,
-        per_page:    auditItemsPerPage,
-        total:       totalItems,
-        total_pages: totalPages
-    };
+    renderPagination(
+        'audit_pagination',
+        {
+            page:        auditCurrentPage,
+            per_page:    auditItemsPerPage,
+            total,
+            total_pages: totalPages,
+        },
+        'changeAuditPage'
+    );
 
-    renderPagination('audit_pagination', mockPg, 'changeAuditClientPage');
+    const counterEl = document.getElementById('audit_counter');
+    if (counterEl) {
+        counterEl.textContent = total
+            ? `${total} entr${total !== 1 ? 'ies' : 'y'}`
+            : 'No results';
+    }
 }
 
-// ─── RENDER ENGINE ──────────────────────────────────────────────────────────
+// ─── RENDER ───────────────────────────────────────────────────────
 function renderAuditLog(entries) {
     const container = document.getElementById('audit_log_list');
- 
+    if (!container) {
+        return;
+    }
+
     if (!entries.length) {
         container.innerHTML = `
             <div class="empty-state">
@@ -204,41 +175,35 @@ function renderAuditLog(entries) {
             </div>`;
         return;
     }
- 
+
     container.innerHTML = entries.map(a => {
-        const changes      = parseChanges(a.changes);
-        const isClickable  = a.action !== 'DELETE';
-        const clickClass   = isClickable ? 'audit-clickable' : '';
-        const clickAttr    = isClickable
-            ? `onclick="inspectAudit(${a.id})"`
-            : '';
-        const linkIcon = isClickable
-            ? `<i class="bi bi-search audit-link-icon"></i>`
-            : '';
- 
-        // Restore button: shown on UPDATE and DELETE only
+        const changes = parseChanges(a.changes);
+
+        // Restore button — shown for UPDATE and DELETE
+        // when a before state is available
         const canRestore =
-            (a.action === 'UPDATE' || a.action === 'DELETE') &&
-            a.table_name !== 'backup' &&
-            changes.before &&
+            (a.action === 'UPDATE' ||
+             a.action === 'DELETE') &&
+            a.table_name !== 'backup'     &&
+            a.table_name !== 'audit_logs' &&
+            changes.before                &&
             Object.keys(changes.before).length > 0;
- 
+
         const restoreBtn = canRestore
             ? `<button class="btn btn-secondary btn-sm"
-                       style="margin-left:8px;font-size:11px"
+                       style="font-size:11px;margin-left:6px"
                        onclick="event.stopPropagation();
                                 restoreRecord(${a.id})"
                        title="Restore to previous state">
-                   <i class="bi bi-arrow-counterclockwise"></i>
+                   <i class="bi bi-arrow-counterclockwise">
+                   </i>
                    Restore
                </button>`
             : '';
- 
+
         return `
-            <div class="audit-item ${clickClass}"
-                    ${clickAttr}>
-                <div class="audit-badge
-                            audit-${a.action}">
+            <div class="audit-item">
+                <div class="audit-badge audit-${a.action}">
                     ${a.action}
                 </div>
                 <div class="audit-body audit-body-full">
@@ -247,7 +212,6 @@ function renderAuditLog(entries) {
                                    align-items:center;
                                    flex-wrap:wrap;gap:6px">
                         ${buildAuditDesc(a, changes)}
-                        ${linkIcon}
                         ${restoreBtn}
                     </div>
                     <div class="audit-meta">
@@ -273,32 +237,32 @@ function renderAuditLog(entries) {
     }).join('');
 }
 
-async function restoreRecord(auditId) {
+// ─── RESTORE RECORD ───────────────────────────────────────────────
+function restoreRecord(auditId) {
     const log = allAuditLogs.find(a => a.id === auditId);
     if (!log) {
         showToast('Audit record not found.', 'error');
         return;
     }
- 
+
     const changes = parseChanges(log.changes);
     const before  = changes.before ?? {};
- 
+
     if (!Object.keys(before).length) {
-        showToast(
-            'No previous state to restore.',
-            'error'
-        );
+        showToast('No previous state to restore.', 'error');
         return;
     }
- 
+
     const label = `${log.table_name} #${log.record_id}`;
+
     showConfirm(
         'Restore Record',
         `Restore ${label} to its previous state? `
-        + 'This will overwrite current data and be logged.',
+        + 'This will overwrite current data '
+        + 'and be logged in activity history.',
         async () => {
             try {
-                const res = await apiFetch(
+                await apiFetch(
                     '/src/api/audit_logs.php?action=restore',
                     {
                         method: 'POST',
@@ -306,7 +270,7 @@ async function restoreRecord(auditId) {
                             audit_id:   auditId,
                             table_name: log.table_name,
                             record_id:  log.record_id,
-                            before:     before,
+                            before,
                         }),
                     }
                 );
@@ -323,294 +287,13 @@ async function restoreRecord(auditId) {
     );
 }
 
-// ─── DIFF VIEWER (INSPECTOR MODAL) ──────────────────────────────────────────
-function inspectAudit(id) {
-    // Pull from memory array instead of hitting API
-    const log = allAuditLogs.find(a => a.id === id);
-    
-    if (!log) {
-        showToast('Log details not found in memory.', 'error');
-        return;
-    }
-
-    const changes = parseChanges(log.changes);
-    const bodyEl  = document.getElementById('audit_modal_body');
-    const titleEl = document.getElementById('audit_modal_title');
-    
-    if (!bodyEl || !titleEl) {
-        return;
-    }
-    
-    titleEl.innerHTML = `
-        <span class="audit-badge audit-${log.action}" 
-                style="margin-right:8px; display:inline-block">
-            ${log.action}
-        </span>
-        Activity Details
-    `;
-
-    const metaHtml = `
-        <div class="audit-detail-meta">
-            <div>
-                <span class="diff-key">User:</span> 
-                ${escapeHtml(log.username ?? 'System')}
-            </div>
-            <div>
-                <span class="diff-key">Table:</span> 
-                ${escapeHtml(log.table_name)}
-            </div>
-            <div>
-                <span class="diff-key">Record ID:</span> 
-                ${log.record_id}
-            </div>
-            <div>
-                <span class="diff-key">Time:</span> 
-                ${formatDate(log.timestamp)}
-            </div>
-        </div>`;
-
-    bodyEl.innerHTML = metaHtml + buildDiffHtml(log.action, changes);
-    openModal('audit_detail');
-}
-
-// ─── SMART DATA FORMATTERS ──────────────────────────────────────────────────
-function getOldValue(before, key) {
-    const map = {
-        'serial':     'serial_number',
-        'desc':       'description',
-        'categoryId': 'category_id',
-        'locationId': 'location_id',
-        'ownerId':    'owner_id',
-        'poId':       'po_id',
-        'vendorId':   'vendor_id'
-    };
-    return before[key] ?? before[map[key]] ?? '—';
-}
-
-function formatKey(k) {
-    const names = {
-        'serial_number': 'Serial Number',
-        'serial':        'Serial Number',
-        'description':   'Description',
-        'desc':          'Description',
-        'category_id':   'Category',
-        'categoryId':    'Category',
-        'location_id':   'Location',
-        'locationId':    'Location',
-        'owner_id':      'Process Owner',
-        'ownerId':       'Process Owner',
-        'po_id':         'PO Number',
-        'poId':          'PO Number',
-        'vendor_id':     'Vendor',
-        'vendorId':      'Vendor',
-        'status':        'Status',
-        'remarks':       'Remarks',
-        'role':          'Role',
-        'username':      'Username'
-    };
-    return names[k] || k.replace(/_/g, ' ')
-                        .replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function formatVal(key, val) {
-    if (val === null || val === undefined || val === '') {
-        return '—';
-    }
-    
-    const k = key.toLowerCase();
-    
-    if (k.includes('category')) {
-        return refDict.categories[val] || val;
-    }
-    if (k.includes('location')) {
-        return refDict.locations[val] || val;
-    }
-    if (k.includes('vendor')) {
-        return refDict.vendors[val] || val;
-    }
-    if (k.includes('owner')) {
-        return refDict.owners[val] || val;
-    }
-    if (k.includes('po_id') || k === 'poid') {
-        return refDict.purchase_orders[val] || val;
-    }
-    
-    return val;
-}
-
-// ─── DIFF HTML GENERATOR ────────────────────────────────────────────────────
-function buildDiffHtml(action, changes) {
-    const before = changes.before ?? {};
-    const after  = changes.after ?? {};
-
-    if (action === 'UPDATE') {
-        const allKeys = Array.from(new Set([
-            ...Object.keys(before),
-            ...Object.keys(after)
-        ]));
-
-        if (!allKeys.length) {
-            return `<div class="diff-title">No details recorded.</div>`;
-        }
-        
-        const oldRows = allKeys.map(k => {
-            const oldRaw    = getOldValue(before, k);
-            const newRaw    = after[k] !== undefined ? after[k] : oldRaw;
-            const isChanged = String(oldRaw) !== String(newRaw);
-            
-            const valClass = isChanged ? 'diff-val text-red' : 'diff-val';
-            const rowClass = isChanged 
-                ? 'diff-row diff-row--old-changed' 
-                : 'diff-row';
-            
-            const fKey = escapeHtml(formatKey(k));
-            const fVal = escapeHtml(formatVal(k, oldRaw));
-            
-            return `
-                <div class="${rowClass}">
-                    <span class="diff-key">${fKey}</span>
-                    <span class="${valClass}">${fVal}</span>
-                </div>`;
-        }).join('');
-
-        const newRows = allKeys.map(k => {
-            const oldRaw    = getOldValue(before, k);
-            const newRaw    = after[k] !== undefined ? after[k] : oldRaw;
-            const isChanged = String(oldRaw) !== String(newRaw);
-            
-            const valClass = isChanged ? 'diff-val text-green' : 'diff-val';
-            const rowClass = isChanged 
-                ? 'diff-row diff-row--new-changed' 
-                : 'diff-row';
-            
-            const fKey = escapeHtml(formatKey(k));
-            const fVal = escapeHtml(formatVal(k, newRaw));
-            
-            return `
-                <div class="${rowClass}">
-                    <span class="diff-key">${fKey}</span>
-                    <span class="${valClass}">${fVal}</span>
-                </div>`;
-        }).join('');
-
-        return `
-            <div class="diff-grid">
-                <div class="diff-box diff-old">
-                    <div class="diff-title">Previous Values</div>
-                    ${oldRows}
-                </div>
-                <div class="diff-box diff-new">
-                    <div class="diff-title">New Values</div>
-                    ${newRows}
-                </div>
-            </div>`;
-    }
-
-    if (action === 'INSERT') {
-        const keys = Object.keys(after);
-        const rows = keys.map(k => {
-            const fKey = escapeHtml(formatKey(k));
-            const fVal = escapeHtml(formatVal(k, after[k]));
-            
-            return `
-                <div class="diff-row">
-                    <span class="diff-key">${fKey}</span>
-                    <span class="diff-val text-green">${fVal}</span>
-                </div>`;
-        }).join('');
-
-        return `
-            <div class="diff-single">
-                <div class="diff-box diff-new">
-                    <div class="diff-title">Data Inserted</div>
-                    ${rows}
-                </div>
-            </div>`;
-    }
-
-    if (action === 'DELETE') {
-        const keys = Object.keys(before);
-        const rows = keys.map(k => {
-            const fKey = escapeHtml(formatKey(k));
-            const fVal = escapeHtml(formatVal(k, before[k]));
-            
-            return `
-                <div class="diff-row">
-                    <span class="diff-key">${fKey}</span>
-                    <span class="diff-val text-red">${fVal}</span>
-                </div>`;
-        }).join('');
-
-        return `
-            <div class="diff-single">
-                <div class="diff-box diff-old">
-                    <div class="diff-title">Data Deleted</div>
-                    ${rows}
-                </div>
-            </div>`;
-    }
-
-    return '';
-}
-
-// ─── DATA PARSING & SENTENCE CONSTRUCTION ───────────────────────────────────
-function parseChanges(changesJson) {
-    if (!changesJson) {
-        return {};
-    }
-
-    try {
-        if (typeof changesJson === 'string') {
-            return JSON.parse(changesJson);
-        }
-        return changesJson;
-    } catch (e) {
-        return {};
-    }
-}
-
-function getRawIdentifier(tableName, changes) {
-    const data = { ...(changes.before ?? {}), ...(changes.after ?? {}) };
-    
-    if (tableName === 'users') { 
-        return data.username ?? ''; 
-    }
-    if (tableName === 'assets') { 
-        return data.serial_number ?? ''; 
-    }
-    if (tableName === 'purchase_orders') { 
-        return data.po_number ?? ''; 
-    }
-    
-    return data.name ?? '';
-}
-
-function getRecordIdentifier(tableName, changes, recordId) {
-    const data = { ...(changes.before ?? {}), ...(changes.after ?? {}) };
-    let name   = '';
-
-    if (tableName === 'users') {
-        name = data.username;
-    } else if (tableName === 'assets') {
-        name = data.serial_number;
-    } else if (tableName === 'purchase_orders') {
-        name = data.po_number;
-    } else {
-        name = data.name; 
-    }
-
-    if (name) {
-        return `'<b>${escapeHtml(name)}</b>' (ID: ${recordId})`;
-    }
-    
-    return `record <b>#${recordId}</b>`;
-}
-
+// ─── DESCRIPTION BUILDER ─────────────────────────────────────────
 function buildAuditDesc(entry, changes) {
-    const user  = `<b>${escapeHtml(entry.username ?? 'System')}</b>`;
-    const table = `<b>${escapeHtml(entry.table_name)}</b>`;
+    const user  =
+        `<b>${escapeHtml(entry.username ?? 'System')}</b>`;
+    const table =
+        `<b>${escapeHtml(entry.table_name)}</b>`;
 
-    // Backup / restore events — use the nested event field
     if (
         entry.action === 'BACKUP' ||
         entry.action === 'RESTORE'
@@ -620,17 +303,18 @@ function buildAuditDesc(entry, changes) {
         const tbs  = changes.after?.tables ?? [];
 
         const evLabel = {
-            'backup_created':      '🗄️ Created backup',
-            'restore_from_server': '🔁 Restored from server file',
-            'restore_from_upload': '🔁 Restored from uploaded file',
-        }[ev] ?? ev;
+            backup_created:
+                '🗄️ Created backup',
+            restore_from_server:
+                '🔁 Restored from server file',
+            restore_from_upload:
+                '🔁 Restored from uploaded file',
+        }[ev] ?? escapeHtml(ev);
 
-        const tbStr = tbs.length
-            ? ` (tables: ${tbs.join(', ')})`
-            : '';
+        const tbStr  = tbs.length
+            ? ` (tables: ${tbs.join(', ')})` : '';
         const fileStr = file
-            ? ` — <code>${escapeHtml(file)}</code>`
-            : '';
+            ? ` — <code>${escapeHtml(file)}</code>` : '';
 
         return `${user} ${evLabel}${fileStr}${tbStr}`;
     }
@@ -640,39 +324,80 @@ function buildAuditDesc(entry, changes) {
     );
 
     if (entry.action === 'INSERT') {
-        return `${user} added a new ${table} ${idStr}`;
+        return `${user} added a new ${table} record ${idStr}`;
     }
 
     if (entry.action === 'DELETE') {
-        const action = changes.after?.action ?? 'deleted';
-        return `${user} ${escapeHtml(action)} ${table} ${idStr}`;
+        return `${user} deleted ${table} ${idStr}`;
     }
 
     // UPDATE
+    const event = changes.after?.event;
+    if (event?.startsWith('restored_from_audit_')) {
+        const srcId = event.replace('restored_from_audit_', '');
+        return `${user} restored ${table} ${idStr} `
+            + `(from audit #${srcId})`;
+    }
+
     const afterKeys = Object.keys(changes.after ?? {});
     if (afterKeys.length) {
         const changedStr = escapeHtml(
             afterKeys.map(k => formatKey(k)).join(', ')
         );
-        return `${user} updated [${changedStr}] on ${table} ${idStr}`;
+        return `${user} updated [${changedStr}] `
+            + `on ${table} ${idStr}`;
     }
 
     return `${user} updated ${table} ${idStr}`;
 }
 
-// ─── EXPORT TO EXCEL ────────────────────────────────────────────────────────
-function exportAuditToExcel() {
-    const actionEl = document.getElementById('filter_action');
-    const tableEl  = document.getElementById('filter_table');
+function parseChanges(raw) {
+    if (!raw) {
+        return {};
+    }
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return {};
+    }
+}
 
-    const action    = actionEl?.value ?? '';
-    const tableName = tableEl?.value ?? '';
+function getRecordIdentifier(table, changes, recordId) {
+    const data = {
+        ...(changes.before ?? {}),
+        ...(changes.after  ?? {}),
+    };
+    const label =
+        data.name          ??
+        data.po_number     ??
+        data.serial_number ??
+        data.username      ??
+        `#${recordId}`;
 
-    const params = new URLSearchParams({
-        action:     action,
-        table_name: tableName,
-        export:     true
+    return `<code>${escapeHtml(String(label))}</code>`;
+}
+
+function formatKey(key) {
+    return key
+        .replace(/_id$/, '')
+        .replace(/_/g, ' ')
+        .replace(/^\w/, c => c.toUpperCase());
+}
+
+function clearAuditFilters() {
+    [
+        'audit_search', 'filter_action', 'filter_table',
+        'filter_user', 'filter_date_from', 'filter_date_to',
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = '';
+        }
     });
+    auditCurrentPage = 1;
+    applyAuditFilters();
+}
 
-    window.location.href = `/src/api/audit_logs.php?${params}`;
+function exportAuditLogs() {
+    window.location.href = '/src/api/audit_logs.php?export=true';
 }

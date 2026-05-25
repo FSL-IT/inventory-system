@@ -1,0 +1,36 @@
+/* assets/css/spa.css
+   Add to header.php after dashboard.css:
+   <link rel="stylesheet" href="/assets/css/spa.css">
+*/
+
+/* ── Content fade-in on navigation ──────────────────────────── */
+.main {
+    transition: opacity 0.15s ease;
+}
+
+.page-loading {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+/* ── Top progress bar while loading ─────────────────────────── */
+.nav-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: var(--accent);
+    z-index: 9999;
+    transition: width 0.3s ease, opacity 0.3s ease;
+    border-radius: 0 2px 2px 0;
+}
+
+.nav-progress.active {
+    width: 70%;
+}
+
+.nav-progress.done {
+    width: 100%;
+    opacity: 0;
+}
