@@ -1,53 +1,27 @@
 // assets/js/assets.js
 
-let allAssets      = [];
-let filteredAssets = [];
-let currentPage    = 1;
-let itemsPerPage   = 25;
-let currentSort    = 'a.created_at';
-let currentDir     = 'desc';
-let currentViewId  = null;
-let assetMode      = 'single';
-
-// ─── UTILITIES ────────────────────────────────────────────────────
-const safeSetVal = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.value = val;
-    }
-};
-
-const getVal = (id) =>
-    document.getElementById(id)?.value.trim() ?? '';
-
-function escapeHtml(str) {
-    if (!str) {
-        return '';
-    }
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
+var allAssets      = [];
+var filteredAssets = [];
+var currentPage    = 1;
+var itemsPerPage   = 25;
+var currentSort    = 'a.created_at';
+var currentDir     = 'desc';
+var assetViewId    = null; 
+var assetMode      = 'single';
 
 // ─── INIT ─────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+window.initAssets = function () {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get('search');
 
     if (urlSearch) {
-        const el = document.getElementById('asset_search');
-        if (el) {
-            el.value = urlSearch;
-        }
+        safeSetVal('asset_search', urlSearch);
     }
 
     fetchInitialAssets();
     populateAssetFormDropdowns();
     setupImportDropZone();
-});
+};
 
 // ─── EVENT HANDLERS ───────────────────────────────────────────────
 function onViewClick(e, id) {
@@ -68,6 +42,10 @@ function onDeleteClick(e, id, serial) {
 // ─── FETCH ────────────────────────────────────────────────────────
 async function fetchInitialAssets() {
     const tbody = document.getElementById('assets_body');
+    if (!tbody) {
+        return; // SAFEGUARD: Exit if navigated away
+    }
+
     tbody.innerHTML = `
         <tr>
             <td colspan="9" class="cell-date"
@@ -130,15 +108,12 @@ function updateSortIcons() {
         el.className = 'bi bi-arrow-down-up sort-icon';
     });
 
-    const active = document.getElementById(
-        `sort_${currentSort}`
-    );
+    const active = document.getElementById(`sort_${currentSort}`);
     if (active) {
         const dirClass = currentDir === 'asc'
             ? 'bi-sort-up'
             : 'bi-sort-down';
-        active.className =
-            `bi ${dirClass} sort-icon sort-active`;
+        active.className = `bi ${dirClass} sort-icon sort-active`;
     }
 }
 
@@ -160,14 +135,10 @@ function applyClientFilters() {
             (a.vendor_name &&
              a.vendor_name.toLowerCase().includes(search));
 
-        const matchStatus = !status ||
-            String(a.status) === status;
-        const matchCat  = !catId ||
-            String(a.category_id) === catId;
-        const matchLoc  = !locId ||
-            String(a.location_id) === locId;
-        const matchOwn  = !ownId ||
-            String(a.owner_id) === ownId;
+        const matchStatus = !status || String(a.status) === status;
+        const matchCat = !catId || String(a.category_id) === catId;
+        const matchLoc = !locId || String(a.location_id) === locId;
+        const matchOwn = !ownId || String(a.owner_id) === ownId;
 
         return matchSearch && matchStatus &&
                matchCat && matchLoc && matchOwn;
@@ -190,15 +161,11 @@ function applyClientFilters() {
         let valA = a[jsSortKey] || '';
         let valB = b[jsSortKey] || '';
 
-        if (typeof valA === 'string') {
-            valA = valA.toLowerCase();
-        }
-        if (typeof valB === 'string') {
-            valB = valB.toLowerCase();
-        }
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
 
-        if (valA < valB) { return currentDir === 'asc' ? -1 : 1; }
-        if (valA > valB) { return currentDir === 'asc' ? 1 : -1; }
+        if (valA < valB) return currentDir === 'asc' ? -1 : 1;
+        if (valA > valB) return currentDir === 'asc' ? 1 : -1;
         return 0;
     });
 
@@ -212,8 +179,7 @@ window.changeClientPage = function (page) {
 
 function renderCurrentPage() {
     const totalItems = filteredAssets.length;
-    const totalPages =
-        Math.ceil(totalItems / itemsPerPage) || 1;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
     if (currentPage > totalPages) {
         currentPage = totalPages;
@@ -241,9 +207,7 @@ function renderCurrentPage() {
 
 function renderCounter(pg) {
     const el = document.getElementById('asset_counter');
-    if (!el || !pg) {
-        return;
-    }
+    if (!el || !pg) return;
 
     if (!pg.total) {
         el.textContent = 'No results';
@@ -256,9 +220,11 @@ function renderCounter(pg) {
 }
 
 // ─── TABLE RENDER ─────────────────────────────────────────────────
-// Delete button shown for ALL roles (not admin-only)
 function renderAssetTable(assets) {
     const tbody = document.getElementById('assets_body');
+    if (!tbody) {
+        return; // SAFEGUARD
+    }
 
     if (!assets.length) {
         tbody.innerHTML = `
@@ -268,9 +234,6 @@ function renderAssetTable(assets) {
                         <div class="empty-state__icon">📦</div>
                         <div class="empty-state__title">
                             No assets found
-                        </div>
-                        <div class="empty-state__desc">
-                            Try adjusting your search or filters.
                         </div>
                     </div>
                 </td>
@@ -282,11 +245,8 @@ function renderAssetTable(assets) {
         const safeSn = escapeHtml(a.serial_number);
 
         return `
-            <tr class="clickable-row"
-                    onclick="viewAsset(${a.id})">
-                <td>
-                    <span class="serial-chip">${safeSn}</span>
-                </td>
+            <tr class="clickable-row" onclick="viewAsset(${a.id})">
+                <td><span class="serial-chip">${safeSn}</span></td>
                 <td>${escapeHtml(a.description)}</td>
                 <td>
                     <span class="tag tag-category">
@@ -330,8 +290,8 @@ function renderAssetTable(assets) {
 
 // ─── VIEW MODAL ───────────────────────────────────────────────────
 async function viewAsset(id) {
-    currentViewId = id;
-    const asset   = allAssets.find(x => x.id === id);
+    assetViewId = id;
+    const asset = allAssets.find(x => x.id === id);
 
     if (asset) {
         renderViewModal(asset);
@@ -343,14 +303,19 @@ async function viewAsset(id) {
 }
 
 function renderViewModal(a) {
-    const titleEl = document.getElementById('view_asset_title');
-    titleEl.textContent = `📦 ${a.description}`;
+    // DRY Principle: Use safeSetText instead of direct assignment
+    safeSetText('view_asset_title', `📦 ${a.description}`);
+
+    const bodyEl = document.getElementById('view_asset_body');
+    if (!bodyEl) {
+        return; // SAFEGUARD
+    }
 
     const dateEndorsed = a.date_endorsed
         ? formatDate(a.date_endorsed)
         : '⏳ Pending';
 
-    document.getElementById('view_asset_body').innerHTML = `
+    bodyEl.innerHTML = `
         <div class="modal-section-title">
             Purchase Order Info
         </div>
@@ -439,17 +404,13 @@ function renderViewModal(a) {
 
 function editAssetFromView() {
     closeModal('view_asset');
-    openEditAsset(currentViewId);
+    openEditAsset(assetViewId);
 }
 
 async function loadTransferHistory(assetId) {
-    const section = document.getElementById(
-        'view_transfer_section'
-    );
+    const section = document.getElementById('view_transfer_section');
     const body    = document.getElementById('view_transfer_body');
-    if (!section || !body) {
-        return;
-    }
+    if (!section || !body) return;
 
     try {
         const res = await apiFetch(
@@ -464,45 +425,33 @@ async function loadTransferHistory(assetId) {
 
         section.style.display = '';
         body.innerHTML = rows.map(r => {
-            const locChange =
-                (r.from_location || r.to_location)
-                ? `<span style="font-size:11px;
-                               color:var(--white-3)">
+            const locChange = (r.from_location || r.to_location)
+                ? `<span style="font-size:11px;color:var(--white-3)">
                        📍 ${escapeHtml(r.from_location ?? '—')}
                        → ${escapeHtml(r.to_location ?? '—')}
-                   </span>`
-                : '';
+                   </span>` : '';
 
-            const ownChange =
-                (r.from_owner || r.to_owner)
-                ? `<span style="font-size:11px;
-                               color:var(--white-3)">
+            const ownChange = (r.from_owner || r.to_owner)
+                ? `<span style="font-size:11px;color:var(--white-3)">
                        👤 ${escapeHtml(r.from_owner ?? '—')}
                        → ${escapeHtml(r.to_owner ?? '—')}
-                   </span>`
-                : '';
+                   </span>` : '';
 
             const note = r.notes
                 ? `<span class="cell-date"
-                           style="font-size:11px;
-                                  font-style:italic">
+                           style="font-size:11px;font-style:italic">
                        "${escapeHtml(r.notes)}"
-                   </span>`
-                : '';
+                   </span>` : '';
 
             return `
                 <div class="activity-item">
                     <div class="activity-avatar">
-                        ${
-                            (r.transferred_by ?? '?')[0]
-                                .toUpperCase()
-                        }
+                        ${(r.transferred_by ?? '?')[0].toUpperCase()}
                     </div>
                     <div style="display:flex;
-                                flex-direction:column;
-                                gap:2px;flex:1">
-                        <div style="display:flex;gap:8px;
-                                    flex-wrap:wrap">
+                                flex-direction:column;gap:2px;flex:1">
+                        <div style="display:flex;
+                                    gap:8px;flex-wrap:wrap">
                             ${locChange}
                             ${ownChange}
                         </div>
@@ -522,8 +471,8 @@ async function loadTransferHistory(assetId) {
 
 // ─── ADD / EDIT ───────────────────────────────────────────────────
 function openAddAsset() {
-    document.getElementById('asset_modal_title').textContent =
-        '📦 Add New Asset';
+    // DRY Principle: Use safeSetText instead of direct assignment
+    safeSetText('asset_modal_title', '📦 Add New Asset');
 
     [
         'asset_edit_id', 'asset_serial', 'asset_desc',
@@ -532,7 +481,6 @@ function openAddAsset() {
         'asset_status',
     ].forEach(id => safeSetVal(id, ''));
 
-    // Reset searchable selects
     resetSearchableSelect('asset_category', '— Select Category —');
     resetSearchableSelect('asset_location', '— Select Location —');
     resetSearchableSelect('asset_owner', '— Select Owner —');
@@ -557,8 +505,8 @@ function openEditAsset(id) {
         return;
     }
 
-    document.getElementById('asset_modal_title').textContent =
-        '✏️ Edit Asset';
+    // DRY Principle: Use safeSetText instead of direct assignment
+    safeSetText('asset_modal_title', '✏️ Edit Asset');
 
     safeSetVal('asset_edit_id', id);
     safeSetVal('asset_serial',  a.serial_number);
@@ -568,19 +516,9 @@ function openEditAsset(id) {
     safeSetVal('asset_vendor',  a.vendor_name ?? '');
     safeSetVal('asset_remarks', a.remarks     ?? '');
 
-    // Set searchable selects
-    setSearchableSelectValue(
-        'asset_category',
-        a.category_id ?? ''
-    );
-    setSearchableSelectValue(
-        'asset_location',
-        a.location_id ?? ''
-    );
-    setSearchableSelectValue(
-        'asset_owner',
-        a.owner_id ?? ''
-    );
+    setSearchableSelectValue('asset_category', a.category_id ?? '');
+    setSearchableSelectValue('asset_location', a.location_id ?? '');
+    setSearchableSelectValue('asset_owner',    a.owner_id ?? '');
 
     clearAllFieldErrors();
 
@@ -597,10 +535,7 @@ function openEditAsset(id) {
 
 // ─── FIELD VALIDATION ─────────────────────────────────────────────
 function clearFieldError(fieldId) {
-    const errEl = document.getElementById(`err_${fieldId}`);
-    if (errEl) {
-        errEl.textContent = '';
-    }
+    safeSetText(`err_${fieldId}`, '');
     const el = document.getElementById(fieldId);
     if (el) {
         el.classList.remove('has-error');
@@ -617,12 +552,8 @@ function clearAllFieldErrors() {
 }
 
 function showFieldError(fieldId, msg) {
-    const errEl = document.getElementById(`err_${fieldId}`);
-    const el    = document.getElementById(fieldId);
-
-    if (errEl) {
-        errEl.textContent = msg;
-    }
+    safeSetText(`err_${fieldId}`, msg);
+    const el = document.getElementById(fieldId);
     if (el) {
         el.classList.add('has-error');
     }
@@ -642,16 +573,13 @@ function validateAssetForm(isBulk = false) {
     if (!isBulk) {
         const serial = getVal('asset_serial');
         if (!serial) {
-            showFieldError('asset_serial', 'Serial number is required.');
+            showFieldError('asset_serial', 'Required.');
             isValid = false;
         }
     } else {
         const raw = getVal('asset_serials_bulk');
         if (!parseSerialInput(raw).length) {
-            showFieldError(
-                'asset_serials_bulk',
-                'Enter at least one serial number.'
-            );
+            showFieldError('asset_serials_bulk', 'Required.');
             isValid = false;
         }
     }
@@ -689,28 +617,17 @@ async function saveAsset() {
         return;
     }
 
-    if (!validateAssetForm(false)) {
-        return;
-    }
-
-    const serial     = getVal('asset_serial');
-    const desc       = getVal('asset_desc');
-    const categoryId = getVal('asset_category');
-    const status     = getVal('asset_status');
-    const poId       = getVal('asset_po');
-    const locationId = getVal('asset_location');
-    const ownerId    = getVal('asset_owner');
-    const remarks    = getVal('asset_remarks');
+    if (!validateAssetForm(false)) return;
 
     const payload = {
-        serial_number: serial,
-        description:   desc,
-        category_id:   categoryId,
-        status,
-        po_id:         poId        || null,
-        location_id:   locationId,
-        owner_id:      ownerId,
-        remarks:       remarks     || '',
+        serial_number: getVal('asset_serial'),
+        description:   getVal('asset_desc'),
+        category_id:   getVal('asset_category'),
+        status:        getVal('asset_status'),
+        po_id:         getVal('asset_po') || null,
+        location_id:   getVal('asset_location'),
+        owner_id:      getVal('asset_owner'),
+        remarks:       getVal('asset_remarks') || '',
     };
 
     const isEdit = !!id;
@@ -734,29 +651,17 @@ async function saveAsset() {
 }
 
 async function saveBulkAssets() {
-    if (!validateAssetForm(true)) {
-        return;
-    }
-
-    const raw        = getVal('asset_serials_bulk');
-    const desc       = getVal('asset_desc');
-    const categoryId = getVal('asset_category');
-    const status     = getVal('asset_status');
-    const poId       = getVal('asset_po');
-    const locationId = getVal('asset_location');
-    const ownerId    = getVal('asset_owner');
-    const remarks    = getVal('asset_remarks');
-    const serials    = parseSerialInput(raw);
+    if (!validateAssetForm(true)) return;
 
     const payload = {
-        serials,
-        description:  desc,
-        category_id:  categoryId,
-        status,
-        po_id:        poId        || null,
-        location_id:  locationId,
-        owner_id:     ownerId,
-        remarks:      remarks     || '',
+        serials:      parseSerialInput(getVal('asset_serials_bulk')),
+        description:  getVal('asset_desc'),
+        category_id:  getVal('asset_category'),
+        status:       getVal('asset_status'),
+        po_id:        getVal('asset_po') || null,
+        location_id:  getVal('asset_location'),
+        owner_id:     getVal('asset_owner'),
+        remarks:      getVal('asset_remarks') || '',
     };
 
     try {
@@ -766,9 +671,9 @@ async function saveBulkAssets() {
         );
 
         closeModal('add_asset');
-
         const { inserted, skipped } = res.data;
         let   msg = `${inserted} asset(s) created.`;
+        
         if (skipped.length) {
             msg += ` ${skipped.length} skipped (duplicates).`;
         }
@@ -804,38 +709,34 @@ function deleteAsset(id, serial) {
 // ─── MODE TOGGLE ──────────────────────────────────────────────────
 function setAssetMode(mode) {
     assetMode = mode;
+    const isBulk = mode === 'bulk';
 
-    const isBulk      = mode === 'bulk';
-    const singleField = document.getElementById(
-        'field_single_serial'
-    );
-    const bulkField   = document.getElementById(
-        'field_bulk_serials'
-    );
+    const singleField = document.getElementById('field_single_serial');
+    const bulkField   = document.getElementById('field_bulk_serials');
     const hintEl      = document.getElementById('asset_mode_hint');
     const saveLabel   = document.getElementById('asset_save_label');
     const btnSingle   = document.getElementById('btn_mode_single');
     const btnBulk     = document.getElementById('btn_mode_bulk');
 
-    if (singleField) {
-        singleField.style.display = isBulk ? 'none' : '';
-    }
-    if (bulkField) {
-        bulkField.style.display = isBulk ? '' : 'none';
-    }
+    if (singleField) singleField.style.display = isBulk ? 'none' : '';
+    if (bulkField) bulkField.style.display = isBulk ? '' : 'none';
+    
     if (hintEl) {
         hintEl.textContent = isBulk
             ? 'Paste multiple serials — one per line'
             : 'Single serial entry';
     }
+    
     if (saveLabel) {
         saveLabel.textContent = isBulk ? 'Save All' : 'Save Asset';
     }
+    
     if (btnSingle) {
         btnSingle.className = isBulk
             ? 'btn btn-secondary btn-sm'
             : 'btn btn-primary btn-sm';
     }
+    
     if (btnBulk) {
         btnBulk.className = isBulk
             ? 'btn btn-primary btn-sm'
@@ -847,19 +748,14 @@ function setAssetMode(mode) {
 
 function showModeToggle(isVisible) {
     const el = document.getElementById('asset_mode_toggle');
-    if (el) {
-        el.style.display = isVisible ? '' : 'none';
-    }
+    if (el) el.style.display = isVisible ? '' : 'none';
 }
 
 function updateBulkCount() {
     const countEl = document.getElementById('bulk_sn_count');
-    if (!countEl) {
-        return;
-    }
-    const n = parseSerialInput(
-        getVal('asset_serials_bulk')
-    ).length;
+    if (!countEl) return;
+    
+    const n = parseSerialInput(getVal('asset_serials_bulk')).length;
     countEl.textContent =
         `${n} serial number${n !== 1 ? 's' : ''} detected`;
 }
@@ -881,7 +777,6 @@ async function onPoChange(selectEl) {
         return;
     }
 
-    // Fill vendor name from PO select option data attribute
     const opt = selectEl.options[selectEl.selectedIndex];
     if (opt?.dataset?.vendorName) {
         safeSetVal('asset_vendor', opt.dataset.vendorName);
@@ -898,51 +793,38 @@ async function onPoChange(selectEl) {
 }
 
 function applyPoHints(hints) {
-    if (!hints) {
-        return;
-    }
-
+    if (!hints) return;
     const filled = [];
 
     if (hints.vendor_name) {
         safeSetVal('asset_vendor', hints.vendor_name);
     }
-
     if (hints.location_id) {
-        setSearchableSelectValue(
-            'asset_location', hints.location_id
-        );
+        setSearchableSelectValue('asset_location', hints.location_id);
         filled.push('Location');
     }
-
     if (hints.owner_id) {
         setSearchableSelectValue('asset_owner', hints.owner_id);
         filled.push('Process Owner');
     }
-
     if (hints.category_id) {
-        setSearchableSelectValue(
-            'asset_category', hints.category_id
-        );
+        setSearchableSelectValue('asset_category', hints.category_id);
         filled.push('Category');
     }
-
     if (hints.description) {
         safeSetVal('asset_desc', hints.description);
         filled.push('Description');
     }
 
-    if (filled.length) {
-        showPoAutofillHint(filled);
-    }
+    if (filled.length) showPoAutofillHint(filled);
 }
 
 function showPoAutofillHint(fields) {
     const wrap = document.getElementById('po_autofill_hint');
     const msg  = document.getElementById('po_autofill_msg');
-    if (!wrap || !msg) {
-        return;
-    }
+    
+    if (!wrap || !msg) return;
+    
     msg.textContent =
         `Auto-filled from PO history: ${fields.join(', ')}. `
         + 'You can override any field.';
@@ -951,9 +833,7 @@ function showPoAutofillHint(fields) {
 
 function hidePoAutofillHint() {
     const wrap = document.getElementById('po_autofill_hint');
-    if (wrap) {
-        wrap.style.display = 'none';
-    }
+    if (wrap) wrap.style.display = 'none';
 }
 
 // ─── DROPDOWNS ────────────────────────────────────────────────────
@@ -1008,10 +888,7 @@ async function populateSearchableSelectFromApi(
             fieldId, items, valKey, lblKey, placeholder
         );
     } catch (err) {
-        console.error(
-            `populateSearchableSelectFromApi(${fieldId}) error:`,
-            err
-        );
+        console.error('populateSearchableSelectFromApi error:', err);
     }
 }
 
@@ -1019,9 +896,7 @@ async function populateSelect(
     selId, url, valKey, lblKey, extra = null
 ) {
     const el = document.getElementById(selId);
-    if (!el) {
-        return;
-    }
+    if (!el) return;
 
     try {
         const data  = await apiFetch(`${url}?per_page=500`);
@@ -1033,10 +908,8 @@ async function populateSelect(
             opt.textContent = item[lblKey];
 
             if (extra?.dataKey) {
-                opt.dataset[extra.dataAttr] =
-                    item[extra.dataKey] ?? '';
+                opt.dataset[extra.dataAttr] = item[extra.dataKey] ?? '';
             }
-
             el.appendChild(opt);
         });
     } catch (err) {
@@ -1055,30 +928,19 @@ async function exportToExcel() {
         search:      getVal('asset_search'),
     });
 
-    window.location.href =
-        `/src/api/import_export.php?${params}`;
+    window.location.href = `/src/api/import_export.php?${params}`;
 }
 
 // ─── IMPORT ───────────────────────────────────────────────────────
-let importFile = null;
+var importFile = null;
 
 function openImportModal() {
     importFile = null;
     safeSetVal('import_file', '');
+    safeSetText('import_zone_label', 'Drop your .xlsx file here');
 
-    const zoneLabel = document.getElementById(
-        'import_zone_label'
-    );
-    if (zoneLabel) {
-        zoneLabel.textContent = 'Drop your .xlsx file here';
-    }
-
-    const submitBtn = document.getElementById(
-        'import_submit_btn'
-    );
-    if (submitBtn) {
-        submitBtn.disabled = true;
-    }
+    const submitBtn = document.getElementById('import_submit_btn');
+    if (submitBtn) submitBtn.disabled = true;
 
     showImportStep('upload');
     openModal('import_assets');
@@ -1086,20 +948,12 @@ function openImportModal() {
 
 function showImportStep(step) {
     ['upload', 'progress', 'results'].forEach(s => {
-        const el = document.getElementById(
-            `import_step_${s}`
-        );
-        if (el) {
-            el.style.display = s === step ? '' : 'none';
-        }
+        const el = document.getElementById(`import_step_${s}`);
+        if (el) el.style.display = s === step ? '' : 'none';
     });
 
-    const footer = document.getElementById(
-        'import_modal_footer'
-    );
-    if (!footer) {
-        return;
-    }
+    const footer = document.getElementById('import_modal_footer');
+    if (!footer) return;
 
     if (step === 'results') {
         footer.innerHTML = `
@@ -1124,9 +978,7 @@ function showImportStep(step) {
 
 function onImportFileSelected(input) {
     const file = input.files[0];
-    if (!file) {
-        return;
-    }
+    if (!file) return;
 
     if (!file.name.endsWith('.xlsx')) {
         showToast('Only .xlsx files are accepted.', 'error');
@@ -1139,29 +991,19 @@ function onImportFileSelected(input) {
         ? (file.size / 1048576).toFixed(1) + ' MB'
         : (file.size / 1024).toFixed(0) + ' KB';
 
-    const zoneLabel = document.getElementById(
-        'import_zone_label'
+    safeSetText(
+        'import_zone_label', 
+        `✓ ${file.name} (${sizeStr})`
     );
-    if (zoneLabel) {
-        zoneLabel.textContent =
-            `✓ ${file.name} (${sizeStr})`;
-    }
 
-    const submitBtn = document.getElementById(
-        'import_submit_btn'
-    );
-    if (submitBtn) {
-        submitBtn.disabled = false;
-    }
+    const submitBtn = document.getElementById('import_submit_btn');
+    if (submitBtn) submitBtn.disabled = false;
 }
 
 function setupImportDropZone() {
     const zone = document.getElementById('import_drop_zone');
     const inp  = document.getElementById('import_file');
-
-    if (!zone || !inp) {
-        return;
-    }
+    if (!zone || !inp) return;
 
     zone.addEventListener('dragover', e => {
         e.preventDefault();
@@ -1177,9 +1019,7 @@ function setupImportDropZone() {
         zone.classList.remove('dragover');
 
         const f = e.dataTransfer.files[0];
-        if (!f) {
-            return;
-        }
+        if (!f) return;
 
         const dt = new DataTransfer();
         dt.items.add(f);
@@ -1189,9 +1029,7 @@ function setupImportDropZone() {
 }
 
 async function submitImport() {
-    if (!importFile) {
-        return;
-    }
+    if (!importFile) return;
     showImportStep('progress');
 
     const fd = new FormData();
@@ -1202,15 +1040,12 @@ async function submitImport() {
             '/src/api/import_export.php?action=import',
             {
                 method:  'POST',
-                headers: {
-                    'X-CSRF-Token': getCsrfToken(),
-                },
+                headers: { 'X-CSRF-Token': getCsrfToken() },
                 body: fd,
             }
         );
 
         const json = await res.json();
-
         if (!json.success && !json.data) {
             throw new Error(json.message ?? 'Import failed.');
         }
@@ -1218,9 +1053,7 @@ async function submitImport() {
         renderImportResults(json.data);
         showImportStep('results');
 
-        if (json.data.success > 0) {
-            fetchInitialAssets();
-        }
+        if (json.data.success > 0) fetchInitialAssets();
     } catch (err) {
         showImportStep('upload');
         showToast(err.message ?? 'Import failed.', 'error');
@@ -1290,10 +1123,7 @@ function renderImportResults(r) {
         );
     }
 
-    if (
-        !infDupes.length && !dbDupes.length &&
-        !errors.length && inserted > 0
-    ) {
+    if (!infDupes.length && !dbDupes.length && !errors.length && inserted > 0) {
         html += `
             <div style="text-align:center;padding:8px 0;
                         font-size:13px;color:var(--green)">
@@ -1301,9 +1131,8 @@ function renderImportResults(r) {
             </div>`;
     }
 
-    document.getElementById(
-        'import_results_body'
-    ).innerHTML = html;
+    const bodyEl = document.getElementById('import_results_body');
+    if (bodyEl) bodyEl.innerHTML = html;
 }
 
 function buildResultSection(

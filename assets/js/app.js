@@ -41,6 +41,31 @@ async function apiFetch(url, options = {}) {
     return data;
 }
 
+// ─── GLOBAL DOM UTILITIES ─────────────────────────────────────────
+function getVal(id) {
+    return document.getElementById(id)?.value.trim() ?? '';
+}
+
+function safeSetVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+}
+
+function safeSetText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+}
+
+function toggleClass(id, className, force) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle(className, force);
+}
+
+function escapeJsStr(str) {
+    if (!str) return '';
+    return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
 // ─── TOAST ────────────────────────────────────────────────────────
 function showToast(msg, type = 'info') {
     const iconMap = {
@@ -49,9 +74,7 @@ function showToast(msg, type = 'info') {
     };
 
     const container = document.getElementById('toast_container');
-    if (!container) {
-        return;
-    }
+    if (!container) return;
 
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
@@ -133,9 +156,7 @@ function debounce(fn, delay = 350) {
 // ─── PAGINATION ───────────────────────────────────────────────────
 function renderPagination(containerId, pagination, loadFn) {
     const container = document.getElementById(containerId);
-    if (!container || !pagination) {
-        return;
-    }
+    if (!container || !pagination) return;
 
     const { page, total, per_page } = pagination;
     const totalPages =
@@ -201,9 +222,7 @@ function statusTag(status) {
 
 // ─── FORMAT DATE ──────────────────────────────────────────────────
 function formatDate(dateStr) {
-    if (!dateStr) {
-        return '—';
-    }
+    if (!dateStr) return '—';
     return new Date(dateStr).toLocaleDateString('en-PH', {
         year: 'numeric', month: 'short', day: 'numeric',
     });
@@ -222,18 +241,13 @@ function globalSearch(value) {
     }
 
     const searchMap = [
-        { match: 'assets',
-          id:    'asset_search' },
-        { match: 'purchase_orders',
-          id:    'po_search' },
-        { match: 'audit_logs',
-          id:    'audit_search' },
+        { match: 'assets',          id: 'asset_search' },
+        { match: 'purchase_orders', id: 'po_search' },
+        { match: 'audit_logs',      id: 'audit_search' },
     ];
 
     for (const { match, id } of searchMap) {
-        if (!path.includes(match)) {
-            continue;
-        }
+        if (!path.includes(match)) continue;
         const el = document.getElementById(id);
         if (el) {
             el.value = value;
@@ -242,10 +256,8 @@ function globalSearch(value) {
         break;
     }
 
-    // For ref-table pages, delegate to RefTable search
     if (window._refTable) {
-        const refSearch =
-            document.getElementById('ref_search');
+        const refSearch = document.getElementById('ref_search');
         if (refSearch) {
             refSearch.value = value;
             refSearch.dispatchEvent(
@@ -257,11 +269,8 @@ function globalSearch(value) {
 
 // ─────────────────────────────────────────────────────────────────
 // SPA — DYNAMIC CONTENT LOADING
-// Intercepts sidebar clicks, swaps only #main_content.
-// Sidebar / header / footer never reload.
 // ─────────────────────────────────────────────────────────────────
 
-// Maps URL fragment → JS filename
 const PAGE_JS_MAP = {
     dashboard:       'dashboard.js',
     assets:          'assets.js',
@@ -276,10 +285,8 @@ const PAGE_JS_MAP = {
     backup:          'backup.js',
 };
 
-// Tracks scripts already injected — prevents re-declaration errors
 const loadedScripts = new Set();
 
-// ── Navigate to a page without full reload ────────────────────────
 async function navigateTo(url, pushState = true) {
     setActiveNav(url);
     closeSidebar();
@@ -297,9 +304,7 @@ async function navigateTo(url, pushState = true) {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
 
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const html = await res.text();
         const doc  = new DOMParser()
@@ -311,20 +316,14 @@ async function navigateTo(url, pushState = true) {
             return;
         }
 
-        // Update CSRF token if refreshed
-        const newCsrf = doc.querySelector(
-            'meta[name="csrf-token"]'
-        );
+        const newCsrf = doc.querySelector('meta[name="csrf-token"]');
         if (newCsrf) {
             const meta = document.querySelector(
                 'meta[name="csrf-token"]'
             );
-            if (meta) {
-                meta.content = newCsrf.content;
-            }
+            if (meta) meta.content = newCsrf.content;
         }
 
-        // Swap content
         mainEl.innerHTML = newMain.innerHTML;
         mainEl.classList.remove('page-loading');
 
@@ -337,23 +336,17 @@ async function navigateTo(url, pushState = true) {
             document.title = newTitle.textContent;
         }
 
-        // Run inline <script> blocks from the new page
-        // (e.g. IS_ADMIN = true; AUDIT_TABLES = [...])
         newMain.querySelectorAll('script:not([src])')
             .forEach(s => {
                 try {
                     // eslint-disable-next-line no-new-func
                     new Function(s.textContent)();
                 } catch (e) {
-                    // Non-fatal — inline script may already exist
+                    // Non-fatal
                 }
             });
 
-        // Load the page JS module only once
         await loadPageScript(url);
-
-        // Re-initialise page data after a short tick
-        // so the DOM is fully settled
         setTimeout(() => initPageModule(url), 20);
 
     } catch (err) {
@@ -363,126 +356,69 @@ async function navigateTo(url, pushState = true) {
     }
 }
 
-// ── Load a page JS file — only once per script ────────────────────
+// SMART SCRIPT INJECTION - Checks the DOM to prevent duplicate loads
+async function injectScript(src) {
+    const existing = Array.from(document.querySelectorAll('script'))
+        .find(s => s.src.includes(src));
+        
+    if (existing) {
+        return Promise.resolve(); // Script is already on the page
+    }
+    
+    return new Promise(resolve => {
+        const script   = document.createElement('script');
+        script.src     = src;
+        script.onload  = resolve;
+        script.onerror = resolve; 
+        document.head.appendChild(script);
+    });
+}
+
 async function loadPageScript(url) {
+    const refPages = [
+        'vendors', 'locations', 'process_owners', 'categories'
+    ];
+    
+    // Auto-load RefTable dependency for reference data pages
+    if (refPages.some(p => url.includes(p))) {
+        if (!loadedScripts.has('ref_table.js')) {
+            await injectScript('/assets/js/ref_table.js');
+            loadedScripts.add('ref_table.js');
+        }
+    }
+
     const jsFile = resolvePageJs(url);
     if (!jsFile || loadedScripts.has(jsFile)) {
         return;
     }
 
-    return new Promise(resolve => {
-        const script   = document.createElement('script');
-        script.src     = `/assets/js/${jsFile}`;
-        script.onload  = () => {
-            loadedScripts.add(jsFile);
-            resolve();
-        };
-        script.onerror = () => resolve(); // non-fatal
-        document.head.appendChild(script);
-    });
+    await injectScript(`/assets/js/${jsFile}`);
+    loadedScripts.add(jsFile);
 }
 
 function resolvePageJs(url) {
     for (const [fragment, file] of Object.entries(PAGE_JS_MAP)) {
-        if (url.includes(fragment)) {
-            return file;
-        }
+        if (url.includes(fragment)) return file;
     }
     return null;
 }
 
-// ── Re-initialise the correct page module after content swap ──────
 function initPageModule(url) {
     setActiveNav(url);
 
-    // Reference Data pages (vendors, locations, etc.) all use
-    // window._refTable. Re-fire the DOMContentLoaded equivalent
-    // by dispatching a custom event that ref-table pages listen to.
-    const refPages = [
-        'vendors', 'locations', 'process_owners', 'categories',
-    ];
-    const isRefPage = refPages.some(p => url.includes(p));
-
-    if (isRefPage) {
-        // DOMContentLoaded already fired — the RefTable
-        // constructor runs inside that listener, so _refTable
-        // was never created on SPA navigation.
-        // Manually dispatch a new DOMContentLoaded-equivalent:
-        document.dispatchEvent(new Event('DOMContentLoaded'));
-        return;
-    }
-
-    // Explicit init map for all other pages
+    // Clean explicit init map
     const initMap = {
-        dashboard: () => {
-            if (typeof loadDashboard === 'function') {
-                loadDashboard();
-            }
-        },
-        assets: () => {
-            if (typeof fetchInitialAssets === 'function') {
-                fetchInitialAssets();
-            }
-            if (typeof populateAssetFormDropdowns === 'function') {
-                populateAssetFormDropdowns();
-            }
-            if (typeof setupImportDropZone === 'function') {
-                setupImportDropZone();
-            }
-        },
-        purchase_orders: () => {
-            if (typeof fetchInitialPOs === 'function') {
-                fetchInitialPOs();
-            }
-            if (typeof populatePoVendorDropdown === 'function') {
-                populatePoVendorDropdown();
-            }
-            if (typeof populatePoFormVendors === 'function') {
-                populatePoFormVendors();
-            }
-            if (typeof populatePoCategoryFilter === 'function') {
-                populatePoCategoryFilter();
-            }
-            if (typeof populatePoOwnerFilter === 'function') {
-                populatePoOwnerFilter();
-            }
-            if (typeof populatePoFiscalYearFilter === 'function') {
-                populatePoFiscalYearFilter();
-            }
-        },
-        reports: () => {
-            if (typeof loadReport === 'function') {
-                loadReport('by_location');
-            }
-        },
-        audit_logs: () => {
-            // Ensure AUDIT_TABLES is defined before audit_logs.js
-            // tries to use it (it may come from a PHP inline script)
-            if (typeof window.AUDIT_TABLES === 'undefined') {
-                window.AUDIT_TABLES = [];
-            }
-            if (typeof loadRefData === 'function') {
-                loadRefData().then(() => {
-                    if (typeof fetchInitialAuditLogs === 'function') {
-                        fetchInitialAuditLogs();
-                    }
-                });
-            } else if (
-                typeof fetchInitialAuditLogs === 'function'
-            ) {
-                fetchInitialAuditLogs();
-            }
-        },
-        users: () => {
-            if (typeof loadUsers === 'function') {
-                loadUsers();
-            }
-        },
-        backup: () => {
-            if (typeof loadBackupList === 'function') {
-                loadBackupList();
-            }
-        },
+        dashboard:       () => window.loadDashboard?.(),
+        assets:          () => window.initAssets?.(),
+        purchase_orders: () => window.initPOs?.(),
+        reports:         () => window.loadReport?.('by_location'),
+        audit_logs:      () => window.initAuditLogs?.(),
+        users:           () => window.initUsers?.(),
+        backup:          () => window.loadBackupList?.(),
+        vendors:         () => window.initVendors?.(),
+        locations:       () => window.initLocations?.(),
+        process_owners:  () => window.initProcessOwners?.(),
+        categories:      () => window.initCategories?.(),
     };
 
     for (const [fragment, fn] of Object.entries(initMap)) {
@@ -493,7 +429,6 @@ function initPageModule(url) {
     }
 }
 
-// ── Intercept sidebar clicks ──────────────────────────────────────
 function bindSidebarLinks() {
     document.querySelectorAll('.nav-item[href]')
         .forEach(link => {
@@ -505,38 +440,34 @@ function bindSidebarLinks() {
 function handleNavClick(e) {
     const href = this.getAttribute('href');
     if (
-        !href ||
-        href.startsWith('http') ||
-        href.includes('/auth/') ||
-        href.startsWith('#')
-    ) {
-        return;
-    }
+        !href || href.startsWith('http') ||
+        href.includes('/auth/') || href.startsWith('#')
+    ) return;
+    
     e.preventDefault();
     navigateTo(href);
 }
 
-// ── Browser back / forward ────────────────────────────────────────
 window.addEventListener('popstate', e => {
     const url = e.state?.url || window.location.pathname;
     navigateTo(url, false);
 });
 
-// ─── BOOT ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     setActiveNav();
     bindSidebarLinks();
 
-    // Mark the initial page's script as already loaded
     const jsFile = resolvePageJs(window.location.pathname);
     if (jsFile) {
         loadedScripts.add(jsFile);
     }
 
-    // Seed history for popstate to work on first back press
+    const refPages = ['vendors', 'locations', 'process_owners', 'categories'];
+    if (refPages.some(p => window.location.pathname.includes(p))) {
+        loadedScripts.add('ref_table.js');
+    }
+
     history.replaceState(
-        { url: window.location.href },
-        '',
-        window.location.href
+        { url: window.location.href }, '', window.location.href
     );
 });

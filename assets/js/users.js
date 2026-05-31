@@ -1,48 +1,8 @@
 // assets/js/users.js
 
-document.addEventListener('DOMContentLoaded', loadUsers);
-
-// ─── UTILITIES ──────────────────────────────────────────────────────────────
-function escapeHtml(str) {
-    if (!str) {
-        return '';
-    }
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-function escapeJsStr(str) {
-    if (!str) {
-        return '';
-    }
-    return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
-}
-
-const getVal = (id) => document.getElementById(id)?.value.trim() ?? '';
-
-const safeSetVal = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.value = val;
-    }
-};
-
-const safeSetText = (id, text) => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.textContent = text;
-    }
-};
-
-const toggleClass = (id, className, force) => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.classList.toggle(className, force);
-    }
+// ─── INIT ─────────────────────────────────────────────────────────
+window.initUsers = function() {
+    loadUsers();
 };
 
 // ─── EVENT HANDLERS ─────────────────────────────────────────────────────────

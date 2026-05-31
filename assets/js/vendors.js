@@ -1,6 +1,6 @@
 // assets/js/vendors.js
 
-document.addEventListener('DOMContentLoaded', () => {
+window.initVendors = function() {
     window._refTable = new RefTable({
         apiUrl:      '/src/api/vendors.php',
         tbodyId:     'vendors_body',
@@ -16,19 +16,23 @@ document.addEventListener('DOMContentLoaded', () => {
         ],
         renderRow: (v) => `
             <tr>
-                <td style="font-weight:600">${v.name}</td>
+                <td style="font-weight:600">${escapeHtml(v.name)}</td>
                 <td>
                     <span class="tag" style="background:var(--blue-dim);color:var(--blue-tag)">
                         ${v.po_count ?? 0} PO${v.po_count != 1 ? 's' : ''}
                     </span>
                 </td>
-                <td style="font-size:12px;color:var(--white-3)">${formatDate(v.created_at)}</td>
+                <td style="font-size:12px;color:var(--white-3)">
+                    ${formatDate(v.created_at)}
+                </td>
                 <td>
                     <div class="table-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="openEditVendor(${v.id}, '${escHtml(v.name)}')">
+                        <button class="btn btn-secondary btn-sm" 
+                            onclick="openEditVendor(${v.id}, '${escapeJsStr(v.name)}')">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteVendor(${v.id}, '${escHtml(v.name)}')">
+                        <button class="btn btn-danger btn-sm" 
+                            onclick="deleteVendor(${v.id}, '${escapeJsStr(v.name)}')">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -36,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>`,
     });
     window._refTable.init();
-});
+};
 
 // Wire topbar global search into local search field
 function loadVendors(page = 1) {
@@ -62,7 +66,10 @@ async function saveVendor() {
     const id   = document.getElementById('vendor_edit_id').value;
     const name = document.getElementById('vendor_name').value.trim();
 
-    if (!name) { showToast('Vendor name is required.', 'error'); return; }
+    if (!name) { 
+        showToast('Vendor name is required.', 'error'); 
+        return; 
+    }
 
     const isEdit = !!id;
     try {
@@ -88,8 +95,4 @@ function deleteVendor(id, name) {
             showToast(err.message, 'error');
         }
     });
-}
-
-function escHtml(s) {
-    return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
