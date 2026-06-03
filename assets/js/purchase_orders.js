@@ -42,7 +42,7 @@ function onEndorseClick(e, id) {
 
 async function fetchInitialPOs() {
     const tbody = document.getElementById('po_body');
-    if (!tbody) return; // SAFEGUARD: Exit if user navigated away
+    if (!tbody) return;
 
     tbody.innerHTML = `
         <tr>
@@ -199,32 +199,113 @@ function buildAgeTag(po) {
 
 function renderPoTable(pos) {
     const tbody = document.getElementById('po_body');
-    if (!tbody) return; // SAFEGUARD: Exit if user navigated away
  
     if (!pos.length) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="bi bi-file-earmark-x empty-state__icon"></i><div class="empty-state__title">No purchase orders found</div></div></td></tr>`;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8">
+                    <div class="empty-state">
+                        <i class="bi bi-file-earmark-x
+                                  empty-state__icon"></i>
+                        <div class="empty-state__title">
+                            No purchase orders found
+                        </div>
+                    </div>
+                </td>
+            </tr>`;
         return;
     }
  
+    const isAdmin = typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
+ 
     tbody.innerHTML = pos.map(p => {
         const safePoNum = escapeHtml(p.po_number);
-        const fyTag = p.fiscal_year ? `<span class="tag" style="font-size:10px;padding:1px 6px;margin-top:3px">${escapeHtml(p.fiscal_year)}</span>` : '';
-        const endorsedCell = p.date_endorsed
-            ? `<span class="tag tag-active"><i class="bi bi-check-circle"></i> ${formatDate(p.date_endorsed)}</span>`
-            : `<div style="display:flex;flex-direction:column;gap:4px"><span class="tag tag-repair"><i class="bi bi-clock"></i> Pending</span>${buildAgeTag(p)}</div>`;
  
-        const endorseBtn = !p.date_endorsed ? `<button class="btn btn-secondary btn-sm" onclick="onEndorseClick(event, ${p.id})" title="Mark endorsed today"><i class="bi bi-pen-fill"></i></button>` : '';
-        const deleteBtn = `<button class="btn btn-danger btn-sm" onclick="onDeleteClick(event, ${p.id}, '${safePoNum}')" title="Delete PO"><i class="bi bi-trash"></i></button>`;
+        const fyTag = p.fiscal_year
+            ? `<span class="tag"
+                     style="font-size:10px;
+                            padding:1px 6px;
+                            margin-top:3px">
+                   ${escapeHtml(p.fiscal_year)}
+               </span>`
+            : '';
+ 
+        const endorsedCell = p.date_endorsed
+            ? `<span class="tag tag-active">
+                   <i class="bi bi-check-circle"></i>
+                   ${formatDate(p.date_endorsed)}
+               </span>`
+            : `<div style="display:flex;
+                            flex-direction:column;gap:4px">
+                   <span class="tag tag-repair">
+                       <i class="bi bi-clock"></i> Pending
+                   </span>
+                   ${buildAgeTag(p)}
+               </div>`;
+ 
+        // Admin-only action buttons
+        const adminActions = isAdmin
+            ? `${!p.date_endorsed
+                ? `<button class="btn btn-secondary btn-sm"
+                           onclick="onEndorseClick(
+                               event, ${p.id}
+                           )"
+                           title="Mark endorsed today">
+                       <i class="bi bi-pen-fill"></i>
+                   </button>`
+                : ''}
+               <button class="btn btn-secondary btn-sm"
+                       onclick="onEditClick(event, ${p.id})"
+                       title="Edit PO">
+                   <i class="bi bi-pencil"></i>
+               </button>
+               <button class="btn btn-danger btn-sm"
+                       onclick="onDeleteClick(
+                           event, ${p.id}, '${safePoNum}'
+                       )"
+                       title="Delete PO">
+                   <i class="bi bi-trash"></i>
+               </button>`
+            : '';
  
         return `
-            <tr class="clickable-row" onclick="viewPO(${p.id})">
-                <td><div style="display:flex;flex-direction:column;gap:2px"><span class="cell-accent val-mono">${safePoNum}</span>${fyTag}</div></td>
-                <td class="cell-sm">${escapeHtml(p.vendor_name ?? '—')}</td>
-                <td><div class="table-actions">${buildCatChips(p.categories)}</div></td>
-                <td style="text-align:center"><span class="tag tag-deployed" style="cursor:pointer" onclick="event.stopPropagation();viewPO(${p.id})" title="View items">${escapeHtml(p.asset_count ?? 0)}</span></td>
-                <td class="cell-date">${formatDate(p.date_received)}</td>
+            <tr class="clickable-row"
+                    onclick="viewPO(${p.id})">
+                <td>
+                    <div style="display:flex;
+                                flex-direction:column;gap:2px">
+                        <span class="cell-accent val-mono">
+                            ${safePoNum}
+                        </span>
+                        ${fyTag}
+                    </div>
+                </td>
+                <td class="cell-sm">
+                    ${escapeHtml(p.vendor_name ?? '—')}
+                </td>
+                <td>
+                    <div class="table-actions">
+                        ${buildCatChips(p.categories)}
+                    </div>
+                </td>
+                <td style="text-align:center">
+                    <span class="tag tag-deployed"
+                            style="cursor:pointer"
+                            onclick="event.stopPropagation();
+                                     viewPO(${p.id})"
+                            title="View items">
+                        ${escapeHtml(p.asset_count ?? 0)}
+                    </span>
+                </td>
+                <td class="cell-date">
+                    ${formatDate(p.date_received)}
+                </td>
                 <td>${endorsedCell}</td>
-                <td><div class="table-actions">${endorseBtn}<button class="btn btn-secondary btn-sm" onclick="onEditClick(event, ${p.id})" title="Edit"><i class="bi bi-pencil"></i></button>${deleteBtn}</div></td>
+                <td>
+                    <div class="table-actions">
+                        ${adminActions}
+                    </div>
+                </td>
             </tr>`;
     }).join('');
 }
@@ -363,7 +444,6 @@ function deletePO(id, poNumber) {
             showToast('PO deleted.', 'success');
             fetchInitialPOs();
         } catch (err) {
-            // It's safe to ignore "Purchase order not found" if they double clicked
             if (!err.message.includes('not found')) {
                 showToast(err.message, 'error');
             }
@@ -446,4 +526,40 @@ async function submitPoImport() {
         showImportStep('upload');
         showToast(err.message ?? 'Import failed.', 'error');
     }
+}
+
+function openAddAssetFromPO() {
+    const po = allPOs.find(x => x.id === poViewId);
+    if (!po) {
+        showToast('Could not load PO data.', 'error');
+        return;
+    }
+ 
+    closeModal('view_po');
+ 
+    setTimeout(() => {
+        if (typeof openAddAsset === 'function') {
+            openAddAsset();
+        } else {
+            openModal('add_asset');
+        }
+ 
+        const poSelect = document.getElementById('asset_po');
+        if (poSelect) {
+            poSelect.value = po.id;
+ 
+            if (typeof onPoChange === 'function') {
+                onPoChange(poSelect);
+            }
+        }
+ 
+        const hint = document.getElementById('po_autofill_hint');
+        const msg  = document.getElementById('po_autofill_msg');
+        if (hint && msg) {
+            msg.textContent =
+                `Adding assets to PO: ${po.po_number}. `
+                + 'Location and owner have been pre-filled.';
+            hint.style.display = '';
+        }
+    }, 200);
 }

@@ -3,7 +3,7 @@
 
 require_once __DIR__ . '/../../src/core/auth.php';
 requireLogin();
-$pageTitle = 'Inventory';
+$pageTitle = 'Asset Inventory';
 $pageJs    = 'assets.js';
 include __DIR__ . '/shared/header.php';
 include __DIR__ . '/shared/sidebar.php';
@@ -15,10 +15,11 @@ include __DIR__ . '/shared/sidebar.php';
 
 <div class="main" id="main_content">
     <div class="topbar">
-        <button class="topbar__toggle" onclick="toggleSidebar()">
+        <button class="topbar__toggle"
+                onclick="toggleSidebar()">
             <i class="bi bi-list"></i>
         </button>
-        <div class="topbar__title">Inventory Search</div>
+        <div class="topbar__title">Asset Inventory</div>
         <div class="topbar__search">
             <i class="bi bi-search topbar__search-icon"></i>
             <input type="text" id="global_search"
@@ -30,26 +31,39 @@ include __DIR__ . '/shared/sidebar.php';
     <div class="content">
         <div class="page-header">
             <div class="page-header__left">
-                <div class="page-header__title">Inventory Search</div>
+                <div class="page-header__title">
+                    Asset Inventory
+                </div>
                 <div class="page-header__desc">
                     Search and manage all received PO assets
                 </div>
             </div>
-            <div class="page-header__right" id="inventory_admin_actions">
-                <?php if (isAdmin()): ?>
-                <button class="btn btn-secondary" 
+            <div class="page-header__right">
+                <!-- Export: all roles -->
+                <button class="btn btn-secondary"
                         onclick="exportToExcel()">
-                    <i class="bi bi-file-earmark-excel"></i> Export Excel
+                    <i class="bi bi-file-earmark-excel"></i>
+                    Export Excel
                 </button>
-                <button class="btn btn-secondary" 
+
+                <!-- Import: all roles (client requirement) -->
+                <button class="btn btn-secondary"
                         onclick="openImportModal()">
-                    <i class="bi bi-file-earmark-arrow-up"></i> Import Excel
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    Import Excel
                 </button>
-                <?php endif; ?>
-                <button class="btn btn-primary" 
+
+                <!--
+                    Add Asset: admin only.
+                    Users add assets via the PO Tracker modal
+                    ("Add Assets to this PO" button).
+                -->
+                <?php if (isAdmin()): ?>
+                <button class="btn btn-primary"
                         onclick="openAddAsset()">
                     <i class="bi bi-plus-lg"></i> Add Asset
                 </button>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -60,7 +74,8 @@ include __DIR__ . '/shared/sidebar.php';
                         placeholder="Serial #, PO, desc, vendor..."
                         oninput="debouncedLoadAssets()">
             </div>
-            <select class="filter-select" id="filter_status" 
+
+            <select class="filter-select" id="filter_status"
                     onchange="debouncedLoadAssets()">
                 <option value="">All Statuses</option>
                 <option value="active">Active</option>
@@ -70,31 +85,38 @@ include __DIR__ . '/shared/sidebar.php';
                 <option value="retired">Retired</option>
                 <option value="lost">Lost</option>
             </select>
-            <select class="filter-select" id="filter_category" 
+
+            <select class="filter-select" id="filter_category"
                     onchange="debouncedLoadAssets()">
                 <option value="">All Categories</option>
             </select>
-            <select class="filter-select" id="filter_location" 
+
+            <select class="filter-select" id="filter_location"
                     onchange="debouncedLoadAssets()">
                 <option value="">All Locations</option>
             </select>
-            <select class="filter-select" id="filter_owner" 
+
+            <select class="filter-select" id="filter_owner"
                     onchange="debouncedLoadAssets()">
                 <option value="">All Owners</option>
             </select>
-            <div style="display:flex;align-items:center;gap:8px;
-                        margin-left:auto">
-                <span id="asset_counter" 
-                        style="font-size:12px;color:var(--white-4);
+
+            <div style="display:flex;align-items:center;
+                        gap:8px;margin-left:auto">
+                <span id="asset_counter"
+                        style="font-size:12px;
+                               color:var(--white-4);
                                white-space:nowrap"></span>
-                <select class="filter-select" id="asset_per_page" 
+                <select class="filter-select"
+                        id="asset_per_page"
                         onchange="onPerPageChange()">
                     <option value="25">25 / page</option>
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>
                 </select>
-                <button class="btn btn-secondary btn-sm" 
-                        onclick="clearAssetFilters()" title="Clear filters">
+                <button class="btn btn-secondary btn-sm"
+                        onclick="clearAssetFilters()"
+                        title="Clear filters">
                     <i class="bi bi-x-circle"></i>
                 </button>
             </div>
@@ -102,59 +124,88 @@ include __DIR__ . '/shared/sidebar.php';
 
         <div class="table-wrapper">
             <div class="table-scroll">
-                <table class="data-table" id="assets_table">
+                <table class="data-table">
                     <thead>
                         <tr>
-                            <th class="sortable-th" 
-                                    onclick="sortAssets('a.serial_number')">
-                                Serial # 
-                                <i class="bi bi-arrow-down-up sort-icon" 
-                                        id="sort_a.serial_number"></i>
+                            <th class="sortable-th"
+                                    onclick="sortAssets(
+                                        'a.serial_number'
+                                    )">
+                                Serial Number
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
+                                        id="sort_a.serial_number">
+                                </i>
                             </th>
-                            <th class="sortable-th" 
-                                    onclick="sortAssets('a.description')">
-                                Description 
-                                <i class="bi bi-arrow-down-up sort-icon" 
-                                        id="sort_a.description"></i>
+                            <th class="sortable-th"
+                                    onclick="sortAssets(
+                                        'a.description'
+                                    )">
+                                Description
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
+                                        id="sort_a.description">
+                                </i>
                             </th>
-                            <th class="sortable-th" 
+                            <th class="sortable-th"
                                     onclick="sortAssets('c.name')">
-                                Category 
-                                <i class="bi bi-arrow-down-up sort-icon" 
+                                Category
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
                                         id="sort_c.name"></i>
                             </th>
-                            <th>PO Number</th>
-                            <th class="sortable-th" 
+                            <th class="sortable-th"
+                                    onclick="sortAssets(
+                                        'po.po_number'
+                                    )">
+                                PO Number
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
+                                        id="sort_po.po_number">
+                                </i>
+                            </th>
+                            <th class="sortable-th"
                                     onclick="sortAssets('l.name')">
-                                Location 
-                                <i class="bi bi-arrow-down-up sort-icon" 
+                                Location
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
                                         id="sort_l.name"></i>
                             </th>
-                            <th class="sortable-th" 
+                            <th class="sortable-th"
                                     onclick="sortAssets('o.name')">
-                                Process Owner 
-                                <i class="bi bi-arrow-down-up sort-icon" 
+                                Process Owner
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
                                         id="sort_o.name"></i>
                             </th>
-                            <th class="sortable-th" 
-                                    onclick="sortAssets('a.status')">
-                                Status 
-                                <i class="bi bi-arrow-down-up sort-icon" 
-                                        id="sort_a.status"></i>
+                            <th class="sortable-th"
+                                    onclick="sortAssets(
+                                        'a.status'
+                                    )">
+                                Status
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
+                                        id="sort_a.status">
+                                </i>
                             </th>
-                            <th class="sortable-th" 
-                                    onclick="sortAssets('po.date_received')">
-                                Date Received 
-                                <i class="bi bi-arrow-down-up sort-icon" 
-                                        id="sort_po.date_received"></i>
+                            <th class="sortable-th"
+                                    onclick="sortAssets(
+                                        'po.date_received'
+                                    )">
+                                Date Received
+                                <i class="bi bi-arrow-down-up
+                                          sort-icon"
+                                        id="sort_po.date_received">
+                                </i>
                             </th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="assets_body">
                         <tr>
-                            <td colspan="9" 
-                                    style="text-align:center;padding:30px;
+                            <td colspan="9"
+                                    style="text-align:center;
+                                           padding:30px;
                                            color:var(--white-4)">
                                 Loading assets...
                             </td>
@@ -163,7 +214,9 @@ include __DIR__ . '/shared/sidebar.php';
                 </table>
             </div>
         </div>
-        <div class="pagination-bar" id="assets_pagination"></div>
+
+        <div class="pagination-bar"
+                id="assets_pagination"></div>
     </div>
 </div>
 

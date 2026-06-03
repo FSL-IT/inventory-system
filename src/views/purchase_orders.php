@@ -10,12 +10,14 @@ include __DIR__ . '/shared/sidebar.php';
 ?>
 
 <script>
-    const IS_ADMIN = <?php echo isAdmin() ? 'true' : 'false'; ?>;
+    const IS_ADMIN =
+        <?php echo isAdmin() ? 'true' : 'false'; ?>;
 </script>
 
 <div class="main" id="main_content">
     <div class="topbar">
-        <button class="topbar__toggle" onclick="toggleSidebar()">
+        <button class="topbar__toggle"
+                onclick="toggleSidebar()">
             <i class="bi bi-list"></i>
         </button>
         <div class="topbar__title">PO Tracker</div>
@@ -32,8 +34,8 @@ include __DIR__ . '/shared/sidebar.php';
             <div class="page-header__left">
                 <div class="page-header__title">PO Tracker</div>
                 <div class="page-header__desc">
-                    All purchase orders with endorsement status
-                    and linked assets per category
+                    All purchase orders — the source of all
+                    asset inventory records
                 </div>
             </div>
             <div class="page-header__right">
@@ -48,6 +50,7 @@ include __DIR__ . '/shared/sidebar.php';
                     <i class="bi bi-file-earmark-excel"></i>
                     Export Excel
                 </button>
+                <!-- New PO: admin only -->
                 <?php if (isAdmin()): ?>
                 <button class="btn btn-primary"
                         onclick="openAddPO()">
@@ -80,7 +83,8 @@ include __DIR__ . '/shared/sidebar.php';
                 <option value="">All Process Owners</option>
             </select>
 
-            <select class="filter-select" id="filter_fiscal_year"
+            <select class="filter-select"
+                    id="filter_fiscal_year"
                     onchange="debouncedApplyPoFilters()">
                 <option value="">All Fiscal Years</option>
             </select>
@@ -191,6 +195,14 @@ include __DIR__ . '/shared/sidebar.php';
 </div>
 
 <?php include __DIR__ . '/shared/modals/modal_po.php'; ?>
+
+<!--
+    modal_asset included here so "Add Assets to this PO"
+    button in the view PO modal can open the add asset form
+    without navigating away from the PO Tracker page.
+-->
+<?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
+
 <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
 <?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 <?php include __DIR__ . '/shared/footer.php'; ?>

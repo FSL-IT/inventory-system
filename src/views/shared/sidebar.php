@@ -4,8 +4,7 @@
 $currentUser = htmlspecialchars($_SESSION['username'] ?? '');
 $currentRole = htmlspecialchars($_SESSION['role']     ?? 'user');
 $roleLabel   = $currentRole === 'admin'
-    ? 'Administrator'
-    : 'IT Staff';
+    ? 'Administrator' : 'IT Staff';
 $avatarChar  = strtoupper(substr($currentUser, 0, 1));
 ?>
 
@@ -25,10 +24,12 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
             <?= $avatarChar ?>
         </div>
         <div class="role-badge__info">
-            <div class="role-badge__username" id="sidebar_user">
+            <div class="role-badge__username"
+                    id="sidebar_user">
                 <?= $currentUser ?>
             </div>
-            <div class="role-badge__role" id="sidebar_role">
+            <div class="role-badge__role"
+                    id="sidebar_role">
                 <?= $roleLabel ?>
             </div>
         </div>
@@ -36,7 +37,7 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
 
     <div class="sidebar-nav" id="sidebar_nav">
 
-        <!-- ── MAIN (all roles) ────────────────────────────────── -->
+        <!-- ── MAIN — all roles ──────────────────────────── -->
         <div class="nav-section-label">Main</div>
 
         <a class="nav-item"
@@ -46,6 +47,16 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
                 <i class="bi bi-speedometer2"></i>
             </span>
             <span class="nav-item__label">Dashboard</span>
+        </a>
+
+        <!-- PO Tracker FIRST — it is the mother of assets -->
+        <a class="nav-item"
+                href="/src/views/purchase_orders.php"
+                id="nav-purchase_orders">
+            <span class="nav-item__icon">
+                <i class="bi bi-file-earmark-text"></i>
+            </span>
+            <span class="nav-item__label">PO Tracker</span>
         </a>
 
         <a class="nav-item"
@@ -60,15 +71,6 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
         </a>
 
         <a class="nav-item"
-                href="/src/views/purchase_orders.php"
-                id="nav-purchase_orders">
-            <span class="nav-item__icon">
-                <i class="bi bi-file-earmark-text"></i>
-            </span>
-            <span class="nav-item__label">PO Tracker</span>
-        </a>
-
-        <a class="nav-item"
                 href="/src/views/reports.php"
                 id="nav-reports">
             <span class="nav-item__icon">
@@ -77,7 +79,7 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
             <span class="nav-item__label">Reports</span>
         </a>
 
-        <!-- ── ADMIN ONLY ───────────────────────────────────────── -->
+        <!-- ── ADMIN ONLY ────────────────────────────────── -->
         <?php if (isAdmin()): ?>
 
         <div class="nav-section-label">Reference Data</div>
@@ -106,7 +108,9 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
             <span class="nav-item__icon">
                 <i class="bi bi-person-workspace"></i>
             </span>
-            <span class="nav-item__label">Process Owners</span>
+            <span class="nav-item__label">
+                Process Owners
+            </span>
         </a>
 
         <div class="nav-section-label">Administration</div>
@@ -128,7 +132,9 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
             <span class="nav-item__icon">
                 <i class="bi bi-people"></i>
             </span>
-            <span class="nav-item__label">User Management</span>
+            <span class="nav-item__label">
+                User Management
+            </span>
         </a>
 
         <a class="nav-item"
@@ -137,7 +143,9 @@ $avatarChar  = strtoupper(substr($currentUser, 0, 1));
             <span class="nav-item__icon">
                 <i class="bi bi-clock-history"></i>
             </span>
-            <span class="nav-item__label">Activity History</span>
+            <span class="nav-item__label">
+                Activity History
+            </span>
         </a>
 
         <a class="nav-item"

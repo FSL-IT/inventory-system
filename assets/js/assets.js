@@ -221,11 +221,10 @@ function renderCounter(pg) {
 
 // ─── TABLE RENDER ─────────────────────────────────────────────────
 function renderAssetTable(assets) {
-    const tbody = document.getElementById('assets_body');
-    if (!tbody) {
-        return; // SAFEGUARD
-    }
-
+    const tbody  = document.getElementById('assets_body');
+    const isAdmin =
+        typeof IS_ADMIN !== 'undefined' && IS_ADMIN;
+ 
     if (!assets.length) {
         tbody.innerHTML = `
             <tr>
@@ -235,18 +234,35 @@ function renderAssetTable(assets) {
                         <div class="empty-state__title">
                             No assets found
                         </div>
+                        <div class="empty-state__desc">
+                            Try adjusting your search or filters.
+                        </div>
                     </div>
                 </td>
             </tr>`;
         return;
     }
-
+ 
     tbody.innerHTML = assets.map(a => {
         const safeSn = escapeHtml(a.serial_number);
-
+ 
+        // Delete only for admin
+        const deleteBtn = isAdmin
+            ? `<button class="btn btn-danger btn-sm"
+                       onclick="onDeleteClick(
+                           event, ${a.id}, '${safeSn}'
+                       )"
+                       title="Delete Asset">
+                   <i class="bi bi-trash"></i>
+               </button>`
+            : '';
+ 
         return `
-            <tr class="clickable-row" onclick="viewAsset(${a.id})">
-                <td><span class="serial-chip">${safeSn}</span></td>
+            <tr class="clickable-row"
+                    onclick="viewAsset(${a.id})">
+                <td>
+                    <span class="serial-chip">${safeSn}</span>
+                </td>
                 <td>${escapeHtml(a.description)}</td>
                 <td>
                     <span class="tag tag-category">
@@ -275,13 +291,7 @@ function renderAssetTable(assets) {
                                 title="Edit Asset">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-danger btn-sm"
-                                onclick="onDeleteClick(
-                                    event, ${a.id}, '${safeSn}'
-                                )"
-                                title="Delete Asset">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        ${deleteBtn}
                     </div>
                 </td>
             </tr>`;
@@ -504,10 +514,10 @@ function openEditAsset(id) {
         showToast('Could not load asset for editing.', 'error');
         return;
     }
-
-    // DRY Principle: Use safeSetText instead of direct assignment
-    safeSetText('asset_modal_title', '✏️ Edit Asset');
-
+ 
+    document.getElementById('asset_modal_title')
+        .textContent = '✏️ Edit Asset';
+ 
     safeSetVal('asset_edit_id', id);
     safeSetVal('asset_serial',  a.serial_number);
     safeSetVal('asset_desc',    a.description);
@@ -515,18 +525,26 @@ function openEditAsset(id) {
     safeSetVal('asset_po',      a.po_id       ?? '');
     safeSetVal('asset_vendor',  a.vendor_name ?? '');
     safeSetVal('asset_remarks', a.remarks     ?? '');
-
-    setSearchableSelectValue('asset_category', a.category_id ?? '');
-    setSearchableSelectValue('asset_location', a.location_id ?? '');
-    setSearchableSelectValue('asset_owner',    a.owner_id ?? '');
-
+ 
+    setSearchableSelectValue(
+        'asset_category', a.category_id ?? ''
+    );
+    setSearchableSelectValue(
+        'asset_location', a.location_id ?? ''
+    );
+    setSearchableSelectValue(
+        'asset_owner', a.owner_id ?? ''
+    );
+ 
     clearAllFieldErrors();
-
+ 
     const serialEl = document.getElementById('asset_serial');
     if (serialEl) {
-        serialEl.setAttribute('readonly', true);
+        serialEl.removeAttribute('readonly');
+        serialEl.title =
+            'You can correct a mis-typed serial number here.';
     }
-
+ 
     hidePoAutofillHint();
     showModeToggle(false);
     setAssetMode('single');

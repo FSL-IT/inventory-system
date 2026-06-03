@@ -15,7 +15,9 @@ $method = $_SERVER['REQUEST_METHOD'];
 $id     = getQueryInt('id');
 $action = $_GET['action'] ?? '';
 
-if ($method === 'GET' && $id) {
+if ($method === 'GET' && $id && $action === 'transfers') {
+    fetchTransfers($id);
+} elseif ($method === 'GET' && $id) {
     fetchSingleAsset($id);
 } elseif ($method === 'GET') {
     fetchAssets();
@@ -35,6 +37,34 @@ if ($method === 'GET' && $id) {
     sendError('Method not allowed.', 405);
 }
 
+// ─── TRANSFERS ───────────────────────────────────────────────────
+function fetchTransfers(int $assetId): void
+{
+    $pdo  = getDbConnection();
+    $stmt = $pdo->prepare('
+        SELECT
+            at.transferred_at,
+            at.notes,
+            u.username           AS transferred_by,
+            fl.name              AS from_location,
+            tl.name              AS to_location,
+            fo.name              AS from_owner,
+            too.name             AS to_owner
+        FROM asset_transfers at
+        LEFT JOIN users          u   ON at.transferred_by   = u.id
+        LEFT JOIN locations      fl  ON at.from_location_id = fl.id
+        LEFT JOIN locations      tl  ON at.to_location_id   = tl.id
+        LEFT JOIN process_owners fo  ON at.from_owner_id    = fo.id
+        LEFT JOIN process_owners too ON at.to_owner_id      = too.id
+        WHERE at.asset_id = :asset_id
+        ORDER BY at.transferred_at DESC
+        LIMIT 20
+    ');
+    $stmt->execute([':asset_id' => $assetId]);
+    sendSuccess($stmt->fetchAll());
+}
+
+// ─── FETCH SINGLE ────────────────────────────────────────────────
 function fetchSingleAsset(int $id): void
 {
     $pdo  = getDbConnection();
@@ -74,18 +104,19 @@ function fetchSingleAsset(int $id): void
     sendSuccess($row);
 }
 
+// ─── FETCH LIST ──────────────────────────────────────────────────
 function fetchAssets(): void
 {
     $pdo     = getDbConnection();
     $perPage = getQueryInt('per_page', 10000);
 
-    $whereClause = 'WHERE a.deleted_at IS NULL';
+    $total = (int) $pdo
+        ->query(
+            'SELECT COUNT(*) FROM assets WHERE deleted_at IS NULL'
+        )
+        ->fetchColumn();
 
-    $countSql  = "SELECT COUNT(*) FROM assets a {$whereClause}";
-    $countStmt = $pdo->query($countSql);
-    $total     = (int) $countStmt->fetchColumn();
-
-    $sql = "
+    $stmt = $pdo->prepare('
         SELECT
             a.id, a.serial_number, a.description,
             a.status, a.remarks,
@@ -108,23 +139,23 @@ function fetchAssets(): void
         LEFT JOIN process_owners  o  ON a.owner_id     = o.id
         LEFT JOIN purchase_orders po ON a.po_id        = po.id
         LEFT JOIN vendors         v  ON po.vendor_id   = v.id
-        {$whereClause}
+        WHERE a.deleted_at IS NULL
         ORDER BY a.created_at DESC
         LIMIT :limit
-    ";
-
-    $stmt = $pdo->prepare($sql);
+    ');
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $stmt->execute();
 
     sendPaginated($stmt->fetchAll(), $total, 1, $perPage);
 }
 
+// ─── CREATE ──────────────────────────────────────────────────────
 function createAsset(): void
 {
     $body   = json_decode(file_get_contents('php://input'), true);
     $errors = validateRequired(
-        ['serial_number', 'description', 'category_id'],
+        ['serial_number', 'description', 'category_id',
+         'location_id', 'owner_id'],
         $body
     );
 
@@ -135,13 +166,11 @@ function createAsset(): void
     $serial     = sanitizeString($body['serial_number']);
     $desc       = sanitizeString($body['description']);
     $categoryId = (int) $body['category_id'];
+    $locationId = (int) $body['location_id'];
+    $ownerId    = (int) $body['owner_id'];
     $status     = sanitizeString($body['status'] ?? 'active');
-    $locationId = !empty($body['location_id'])
-        ? (int) $body['location_id'] : null;
-    $ownerId    = !empty($body['owner_id'])
-        ? (int) $body['owner_id']    : null;
     $poId       = !empty($body['po_id'])
-        ? (int) $body['po_id']       : null;
+        ? (int) $body['po_id'] : null;
     $remarks    = sanitizeString($body['remarks'] ?? '');
 
     if (!validateEnum($status, ASSET_STATUSES)) {
@@ -180,47 +209,46 @@ function createAsset(): void
     $newId = (int) $pdo->lastInsertId();
     logAudit($_SESSION['user_id'], 'INSERT', 'assets', $newId, [
         'before' => [],
-        'after'  => compact('serial', 'desc', 'status', 'categoryId'),
+        'after'  => compact(
+            'serial', 'desc', 'status', 'categoryId'
+        ),
     ]);
 
     sendSuccess(['id' => $newId], 'Asset created successfully.');
 }
 
-/**
- * Bulk insert: accepts an array of serial numbers that all share the
- * same description, category, status, po, location, owner, remarks.
- * Returns counts of inserted vs skipped (duplicate) rows.
- */
+// ─── BULK CREATE ─────────────────────────────────────────────────
 function bulkCreateAssets(): void
 {
-    $body = json_decode(file_get_contents('php://input'), true);
-
+    $body    = json_decode(file_get_contents('php://input'), true);
     $serials = $body['serials'] ?? [];
+
     if (!is_array($serials) || !$serials) {
         sendError('serials array is required.', 422);
     }
 
-    $desc       = sanitizeString($body['description'] ?? '');
-    $categoryId = (int) ($body['category_id'] ?? 0);
-    $status     = sanitizeString($body['status'] ?? 'active');
-    $locationId = !empty($body['location_id'])
-        ? (int) $body['location_id'] : null;
-    $ownerId    = !empty($body['owner_id'])
-        ? (int) $body['owner_id']    : null;
+    $desc       = sanitizeString($body['description']  ?? '');
+    $categoryId = (int) ($body['category_id']          ?? 0);
+    $locationId = (int) ($body['location_id']          ?? 0);
+    $ownerId    = (int) ($body['owner_id']             ?? 0);
+    $status     = sanitizeString($body['status']       ?? 'active');
     $poId       = !empty($body['po_id'])
-        ? (int) $body['po_id']       : null;
-    $remarks    = sanitizeString($body['remarks'] ?? '');
+        ? (int) $body['po_id'] : null;
+    $remarks    = sanitizeString($body['remarks']      ?? '');
 
-    if (!$desc || !$categoryId) {
-        sendError('description and category_id are required.', 422);
+    if (!$desc || !$categoryId || !$locationId || !$ownerId) {
+        sendError(
+            'description, category, location, and owner '
+            . 'are required.',
+            422
+        );
     }
 
     if (!validateEnum($status, ASSET_STATUSES)) {
         sendError('Invalid status value.', 422);
     }
 
-    $pdo = getDbConnection();
-
+    $pdo      = getDbConnection();
     $dupCheck = $pdo->prepare(
         'SELECT id FROM assets WHERE serial_number = :sn LIMIT 1'
     );
@@ -279,6 +307,7 @@ function bulkCreateAssets(): void
     );
 }
 
+// ─── UPDATE ──────────────────────────────────────────────────────
 function updateAsset(int $id): void
 {
     if (!$id) {
@@ -297,7 +326,9 @@ function updateAsset(int $id): void
         sendError('Asset not found.', 404);
     }
 
-    $body       = json_decode(file_get_contents('php://input'), true);
+    $body       = json_decode(
+        file_get_contents('php://input'), true
+    );
     $serial     = sanitizeString(
         $body['serial_number'] ?? $old['serial_number']
     );
@@ -315,13 +346,35 @@ function updateAsset(int $id): void
     $poId       = isset($body['po_id'])
         ? ((int) $body['po_id'] ?: null)
         : $old['po_id'];
-    $remarks    = sanitizeString($body['remarks'] ?? $old['remarks']);
+    $remarks    = sanitizeString(
+        $body['remarks'] ?? $old['remarks']
+    );
+    $transferNote = sanitizeString(
+        $body['transfer_note'] ?? ''
+    );
 
     if (!validateEnum($status, ASSET_STATUSES)) {
         sendError('Invalid status value.', 422);
     }
 
-    $stmt = $pdo->prepare('
+    // Duplicate serial check — only if serial is being changed
+    if ($serial !== $old['serial_number']) {
+        $dupChk = $pdo->prepare(
+            'SELECT id FROM assets
+             WHERE serial_number = :sn
+               AND id != :id
+             LIMIT 1'
+        );
+        $dupChk->execute([':sn' => $serial, ':id' => $id]);
+        if ($dupChk->fetch()) {
+            sendError(
+                'Serial number already exists on another asset.',
+                409
+            );
+        }
+    }
+
+    $upd = $pdo->prepare('
         UPDATE assets SET
             serial_number = :sn,
             description   = :desc,
@@ -333,7 +386,7 @@ function updateAsset(int $id): void
             status        = :status
         WHERE id = :id
     ');
-    $stmt->execute([
+    $upd->execute([
         ':sn'       => $serial,
         ':desc'     => $desc,
         ':po_id'    => $poId,
@@ -345,6 +398,33 @@ function updateAsset(int $id): void
         ':id'       => $id,
     ]);
 
+    // Log transfer if location or owner changed
+    $locationChanged =
+        (int) $old['location_id'] !== (int) $locationId;
+    $ownerChanged    =
+        (int) $old['owner_id']    !== (int) $ownerId;
+
+    if ($locationChanged || $ownerChanged) {
+        $ins = $pdo->prepare('
+            INSERT INTO asset_transfers
+                (asset_id, from_owner_id, to_owner_id,
+                 from_location_id, to_location_id,
+                 transferred_by, notes)
+            VALUES
+                (:asset_id, :from_owner, :to_owner,
+                 :from_loc, :to_loc, :by, :notes)
+        ');
+        $ins->execute([
+            ':asset_id'   => $id,
+            ':from_owner' => $old['owner_id'],
+            ':to_owner'   => $ownerId,
+            ':from_loc'   => $old['location_id'],
+            ':to_loc'     => $locationId,
+            ':by'         => $_SESSION['user_id'],
+            ':notes'      => $transferNote ?: null,
+        ]);
+    }
+
     logAudit($_SESSION['user_id'], 'UPDATE', 'assets', $id, [
         'before' => $old,
         'after'  => compact(
@@ -355,6 +435,7 @@ function updateAsset(int $id): void
     sendSuccess([], 'Asset updated successfully.');
 }
 
+// ─── DELETE ──────────────────────────────────────────────────────
 function deleteAsset(int $id): void
 {
     if (!$id) {
@@ -378,7 +459,6 @@ function deleteAsset(int $id): void
             'DELETE FROM assets WHERE id = :id'
         );
         $del->execute([':id' => $id]);
-        $action = 'DELETE (hard)';
     } else {
         $del = $pdo->prepare(
             "UPDATE assets
@@ -386,12 +466,11 @@ function deleteAsset(int $id): void
              WHERE id = :id"
         );
         $del->execute([':id' => $id]);
-        $action = 'DELETE (soft)';
     }
 
     logAudit($_SESSION['user_id'], 'DELETE', 'assets', $id, [
         'before' => $asset,
-        'after'  => ['action' => $action],
+        'after'  => [],
     ]);
 
     sendSuccess([], 'Asset deleted successfully.');

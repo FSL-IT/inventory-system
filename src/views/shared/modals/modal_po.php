@@ -1,3 +1,6 @@
+<?php // src/views/shared/modals/modal_po.php ?>
+
+<!-- ── ADD / EDIT PO MODAL ───────────────────────────────────── -->
 <div class="modal-overlay" id="modal-add_po">
     <div class="modal" style="max-width:600px">
         <div class="modal-header">
@@ -18,7 +21,7 @@
                     <span style="color:var(--red)">*</span>
                 </label>
                 <input type="text" id="po_number"
-                        placeholder="e.g. PO-2026-001">
+                        placeholder="e.g. 7100/NT/FY25/94426">
             </div>
 
             <div class="form-field">
@@ -56,8 +59,9 @@
     </div>
 </div>
 
+<!-- ── VIEW PO MODAL ─────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-view_po">
-    <div class="modal" style="max-width:780px">
+    <div class="modal" style="max-width:820px">
         <div class="modal-header">
             <div class="modal-title" id="view_po_title">
                 PO Detail
@@ -69,16 +73,33 @@
         </div>
 
         <div class="modal-body">
-
-            <!-- PO header summary (vendor, dates) -->
-            <div class="modal-section-title">Purchase Order Info</div>
+            <div class="modal-section-title">
+                Purchase Order Info
+            </div>
             <div id="view_po_summary"></div>
 
-            <!-- Excel-style breakdown: one row per category/description -->
             <div class="modal-section-title"
-                    style="margin-top:20px">
-                Items (per Category)
+                    style="margin-top:20px;
+                           display:flex;
+                           align-items:center;
+                           justify-content:space-between">
+                <span>Items (per Category)</span>
+                <!--
+                    "Add Assets to this PO" button.
+                    Shown for ALL roles — clicking opens the
+                    add_asset modal pre-filled with this PO.
+                    The button is the entry point for the
+                    new PO-first asset-adding flow.
+                -->
+                <button class="btn btn-primary btn-sm"
+                        id="po_add_assets_btn"
+                        onclick="openAddAssetFromPO()"
+                        style="font-size:12px">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Assets to this PO
+                </button>
             </div>
+
             <div class="table-wrapper" style="margin-top:8px">
                 <div class="table-scroll">
                     <table class="data-table">
@@ -87,7 +108,7 @@
                                 <th>Category</th>
                                 <th>Description</th>
                                 <th style="text-align:center">
-                                    Quantity
+                                    Qty
                                 </th>
                                 <th>Center Location</th>
                                 <th>Process Owner</th>
@@ -107,7 +128,6 @@
                     </table>
                 </div>
             </div>
-
         </div>
 
         <div class="modal-footer">
@@ -115,10 +135,17 @@
                     onclick="closeModal('view_po')">
                 Close
             </button>
-            <button class="btn btn-secondary" id="view_po_edit_btn"
+            <!--
+                Edit PO — admin only at PHP level;
+                for user role this button is hidden
+            -->
+            <?php if (isAdmin()): ?>
+            <button class="btn btn-secondary"
+                    id="view_po_edit_btn"
                     onclick="editPoFromView()">
-                <i class="bi bi-pencil"></i> Edit
+                <i class="bi bi-pencil"></i> Edit PO
             </button>
+            <?php endif; ?>
         </div>
     </div>
 </div>

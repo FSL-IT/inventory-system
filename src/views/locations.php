@@ -64,8 +64,6 @@ include __DIR__ . '/shared/sidebar.php';
     </div>
 </div>
 
-<script src="/assets/js/ref_table.js"></script>
-<script src="/assets/js/locations.js"></script>
 
 <?php include __DIR__ . '/shared/modals/modal_location.php'; ?>
 <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
