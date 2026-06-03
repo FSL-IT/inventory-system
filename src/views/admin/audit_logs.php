@@ -18,12 +18,6 @@ include __DIR__ . '/../shared/sidebar.php';
             <i class="bi bi-list"></i>
         </button>
         <div class="topbar__title">Activity History</div>
-        <div class="topbar__search">
-            <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="global_search"
-                    placeholder="Search..."
-                    oninput="globalSearch(this.value)">
-        </div>
     </div>
 
     <div class="content">
@@ -33,42 +27,57 @@ include __DIR__ . '/../shared/sidebar.php';
                     Activity History
                 </div>
                 <div class="page-header__desc">
-                    Full audit log of all asset modifications
-                    and admin actions
+                    Complete audit trail of all system actions
                 </div>
             </div>
-            <div class="page-header__right">
-                <!-- Export Excel removed per client request -->
-                <select class="filter-select"
-                        id="filter_action"
-                        onchange="debouncedLoadAuditLogs()">
-                    <option value="">All Actions</option>
-                    <option value="INSERT">INSERT</option>
-                    <option value="UPDATE">UPDATE</option>
-                    <option value="DELETE">DELETE</option>
-                    <option value="BACKUP">BACKUP</option>
-                    <option value="RESTORE">RESTORE</option>
-                </select>
-                <select class="filter-select"
-                        id="filter_table"
-                        onchange="debouncedLoadAuditLogs()">
-                    <option value="">All Tables</option>
-                    <option value="assets">assets</option>
-                    <option value="purchase_orders">
-                        purchase_orders
-                    </option>
-                    <option value="categories">categories</option>
-                    <option value="vendors">vendors</option>
-                    <option value="locations">locations</option>
-                    <option value="process_owners">
-                        process_owners
-                    </option>
-                    <option value="users">users</option>
-                    <option value="backup">backup</option>
-                </select>
+        </div>
+
+        <!-- Search + filters in the toolbar like all other pages -->
+        <div class="table-toolbar">
+            <div class="search-field" style="max-width:280px">
+                <i class="bi bi-search"></i>
+                <input type="text" id="audit_search"
+                        placeholder="Search activity..."
+                        oninput="debouncedLoadAuditLogs()">
+            </div>
+
+            <select class="filter-select" id="filter_action"
+                    onchange="debouncedLoadAuditLogs()">
+                <option value="">All Actions</option>
+                <option value="INSERT">INSERT</option>
+                <option value="UPDATE">UPDATE</option>
+                <option value="DELETE">DELETE</option>
+                <option value="BACKUP">BACKUP</option>
+                <option value="RESTORE">RESTORE</option>
+            </select>
+
+            <select class="filter-select" id="filter_table"
+                    onchange="debouncedLoadAuditLogs()">
+                <option value="">All Tables</option>
+                <option value="assets">assets</option>
+                <option value="purchase_orders">
+                    purchase_orders
+                </option>
+                <option value="categories">categories</option>
+                <option value="vendors">vendors</option>
+                <option value="locations">locations</option>
+                <option value="process_owners">
+                    process_owners
+                </option>
+                <option value="users">users</option>
+                <option value="backup">backup</option>
+            </select>
+
+            <div style="margin-left:auto;display:flex;
+                        align-items:center;gap:8px">
+                <span id="audit_counter"
+                        style="font-size:12px;
+                               color:var(--white-4);
+                               white-space:nowrap"></span>
                 <button class="btn btn-secondary btn-sm"
-                        onclick="clearAuditFilters()">
-                    <i class="bi bi-x-circle"></i> Clear
+                        onclick="clearAuditFilters()"
+                        title="Clear filters">
+                    <i class="bi bi-x-circle"></i>
                 </button>
             </div>
         </div>
@@ -89,15 +98,14 @@ include __DIR__ . '/../shared/sidebar.php';
     </div>
 </div>
 
-<?php
-// Audit detail modal is OUTSIDE #main_content intentionally
-// so SPA navigation does not destroy it
-?>
+<!--
+    Modal is OUTSIDE #main_content so SPA navigation
+    does not destroy it during content swap.
+-->
 <div class="modal-overlay" id="modal-audit_detail">
-    <div class="modal modal-lg">
+    <div class="modal" style="max-width:680px">
         <div class="modal-header">
-            <div class="modal-title"
-                    id="audit_modal_title">
+            <div class="modal-title" id="audit_modal_title">
                 Activity Details
             </div>
             <button class="modal-close"
