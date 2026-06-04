@@ -96,31 +96,27 @@ include __DIR__ . '/../shared/sidebar.php';
                     id="audit_pagination"></div>
         </div>
     </div>
-</div>
 
-<!--
-    Modal is OUTSIDE #main_content so SPA navigation
-    does not destroy it during content swap.
--->
-<div class="modal-overlay" id="modal-audit_detail">
-    <div class="modal" style="max-width:680px">
-        <div class="modal-header">
-            <div class="modal-title" id="audit_modal_title">
-                Activity Details
+    <div class="modal-overlay" id="modal-audit_detail">
+        <div class="modal" style="max-width:680px">
+            <div class="modal-header">
+                <div class="modal-title" id="audit_modal_title">
+                    Activity Details
+                </div>
+                <button type="button" class="modal-close"
+                        onclick="closeModal('audit_detail')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
-            <button class="modal-close"
-                    onclick="closeModal('audit_detail')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="modal-body"
-                id="audit_modal_body">
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary"
-                    onclick="closeModal('audit_detail')">
-                Close
-            </button>
+            <div class="modal-body"
+                    id="audit_modal_body">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('audit_detail')">
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 </div>

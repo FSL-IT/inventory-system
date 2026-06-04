@@ -857,7 +857,8 @@
                 populateSearchableSelectFromApi(
                     'asset_po',
                     '/src/api/purchase_orders.php',
-                    'id', 'po_number', '— Select PO —'
+                    'id', 'po_number', '— Select PO —',
+                    { formatMeta: formatPoSelectMeta }
                 ),
                 populateSearchableSelectFromApi(
                     'asset_category',
@@ -897,15 +898,27 @@
         ]);
     }
 
+    function formatPoSelectMeta(item) {
+        let parts = [];
+        if (item.vendor_name) parts.push(item.vendor_name);
+        if (item.date_received) {
+            parts.push(formatDate(item.date_received));
+        }
+        if (item.asset_count > 0) {
+            parts.push(`${item.asset_count} asset(s)`);
+        }
+        return parts.join(' · ');
+    }
+
     async function populateSearchableSelectFromApi(
-        fieldId, url, valKey, lblKey, placeholder
+        fieldId, url, valKey, lblKey, placeholder, extraOptions = {}
     ) {
         try {
             let data  = await apiFetch(`${url}?per_page=5000`);
             let items = data.data ?? [];
             if (typeof populateSearchableSelect === 'function') {
                 populateSearchableSelect(
-                    fieldId, items, valKey, lblKey, placeholder
+                    fieldId, items, valKey, lblKey, placeholder, extraOptions
                 );
             }
         } catch (err) {}

@@ -58,7 +58,7 @@
         }
     }
 
-    let debouncedApplyPoFilters = debounce(function () {
+    window.debouncedApplyPoFilters = debounce(function () {
         poCurrentPage = 1;
         applyClientPoFilters();
     }, 350);

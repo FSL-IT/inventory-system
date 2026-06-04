@@ -789,7 +789,7 @@
 
 .activity-action {
     font-size: 12px;
-    color: var(--white-2);
+    color: #000000;
 }
 
 .activity-time {
@@ -809,7 +809,7 @@
 
 .cat-bar-label {
     width: 100px;
-    color: var(--white-2);
+    color: #000000;
     font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
@@ -834,7 +834,7 @@
 .cat-bar-count {
     width: 40px;
     text-align: right;
-    color: var(--white-3);
+    color: #000000;
     font-weight: 600;
 }
 
@@ -861,7 +861,7 @@
 
 .status-name {
     flex: 1;
-    color: var(--white-2);
+    color: #000000;
 }
 
 .status-count {

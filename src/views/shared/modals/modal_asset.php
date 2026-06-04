@@ -7,6 +7,7 @@
                 📦 Add New Asset
             </div>
             <button class="modal-close"
+                    type="button"
                     onclick="window.closeModal('add_asset')">
                 <i class="bi bi-x-lg"></i>
             </button>
@@ -17,12 +18,12 @@
 
             <div id="asset_mode_toggle"
                     style="display:flex;gap:8px;margin-bottom:16px">
-                <button id="btn_mode_single"
+                <button type="button" id="btn_mode_single"
                         class="btn btn-primary btn-sm"
                         onclick="window.setAssetMode('single')">
                     <i class="bi bi-upc-scan"></i> Single
                 </button>
-                <button id="btn_mode_bulk"
+                <button type="button" id="btn_mode_bulk"
                         class="btn btn-secondary btn-sm"
                         onclick="window.setAssetMode('bulk')">
                     <i class="bi bi-list-ul"></i> Bulk
@@ -34,36 +35,46 @@
             </div>
 
             <div class="modal-section-title">Purchase Order</div>
-            
+
             <div class="field-grid">
                 <div class="form-field">
-                    <label for="asset_po">PO Number</label>
+                    <label id="label_asset_po_field" for="trigger_asset_po">
+                        PO Number
+                    </label>
                     <div class="searchable-select-wrap" id="wrap_asset_po">
-                        <div class="searchable-select-trigger"
+                        <button type="button"
+                                class="searchable-select-trigger"
                                 id="trigger_asset_po"
+                                aria-labelledby="label_asset_po_field"
                                 onclick="toggleSearchableSelect('asset_po')">
                             <span id="label_asset_po">— Select PO —</span>
-                            <i class="bi bi-chevron-down"></i>
-                        </div>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
                         <div class="searchable-select-dropdown"
                                 id="dropdown_asset_po"
+                                role="listbox"
                                 style="display:none">
-                            <input type="text"
-                                    class="searchable-select-search"
-                                    placeholder="Search POs..."
-                                    oninput="filterSearchableSelect(
-                                        'asset_po', this.value
-                                    )"
-                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-search-wrap">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="text"
+                                        class="searchable-select-search"
+                                        placeholder="Type to search PO or vendor..."
+                                        autocomplete="off"
+                                        aria-label="Search purchase orders"
+                                        oninput="filterSearchableSelect(
+                                            'asset_po', this.value
+                                        )"
+                                        onclick="event.stopPropagation()">
+                            </div>
                             <div class="searchable-select-options"
                                     id="options_asset_po">
                             </div>
                         </div>
-                        <input type="hidden" id="asset_po" 
+                        <input type="hidden" id="asset_po"
                                onchange="window.onPoChange(this.value)">
                     </div>
                 </div>
-                
+
                 <div class="form-field">
                     <label for="asset_vendor">Vendor (via PO)</label>
                     <input type="text" id="asset_vendor"
@@ -100,7 +111,7 @@
                     <textarea id="asset_serials_bulk"
                             placeholder="5CD432D87V&#10;5CD432D888"
                             style="min-height:120px;font-family:monospace;"
-                            oninput="window.updateBulkCount(); 
+                            oninput="window.updateBulkCount();
                                      window.clearFieldError('asset_serials_bulk')">
                     </textarea>
                     <span id="bulk_sn_count" class="cell-date"
@@ -123,31 +134,41 @@
                             oninput="window.clearFieldError('asset_desc')">
                     <span class="field-error" id="err_asset_desc"></span>
                 </div>
-                
+
                 <div class="form-field">
-                    <label for="asset_category">
+                    <label id="label_asset_category_field"
+                            for="trigger_asset_category">
                         Category
                         <span class="field-required">*</span>
                     </label>
-                    <div class="searchable-select-wrap" id="wrap_asset_category">
-                        <div class="searchable-select-trigger"
+                    <div class="searchable-select-wrap"
+                            id="wrap_asset_category">
+                        <button type="button"
+                                class="searchable-select-trigger"
                                 id="trigger_asset_category"
+                                aria-labelledby="label_asset_category_field"
                                 onclick="toggleSearchableSelect('asset_category')">
                             <span id="label_asset_category">
                                 — Select Category —
                             </span>
-                            <i class="bi bi-chevron-down"></i>
-                        </div>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
                         <div class="searchable-select-dropdown"
                                 id="dropdown_asset_category"
+                                role="listbox"
                                 style="display:none">
-                            <input type="text"
-                                    class="searchable-select-search"
-                                    placeholder="Search..."
-                                    oninput="filterSearchableSelect(
-                                        'asset_category', this.value
-                                    )"
-                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-search-wrap">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="text"
+                                        class="searchable-select-search"
+                                        placeholder="Search categories..."
+                                        autocomplete="off"
+                                        aria-label="Search categories"
+                                        oninput="filterSearchableSelect(
+                                            'asset_category', this.value
+                                        )"
+                                        onclick="event.stopPropagation()">
+                            </div>
                             <div class="searchable-select-options"
                                     id="options_asset_category">
                             </div>
@@ -164,7 +185,7 @@
                     Status
                     <span class="field-required">*</span>
                 </label>
-                <select id="asset_status" 
+                <select id="asset_status"
                         onchange="window.clearFieldError('asset_status')">
                     <option value="">— Select Status —</option>
                     <option value="active">Active</option>
@@ -195,29 +216,39 @@
 
             <div class="field-grid">
                 <div class="form-field">
-                    <label for="asset_location">
+                    <label id="label_asset_location_field"
+                            for="trigger_asset_location">
                         Location
                         <span class="field-required">*</span>
                     </label>
-                    <div class="searchable-select-wrap" id="wrap_asset_location">
-                        <div class="searchable-select-trigger"
+                    <div class="searchable-select-wrap"
+                            id="wrap_asset_location">
+                        <button type="button"
+                                class="searchable-select-trigger"
                                 id="trigger_asset_location"
+                                aria-labelledby="label_asset_location_field"
                                 onclick="toggleSearchableSelect('asset_location')">
                             <span id="label_asset_location">
                                 — Select Location —
                             </span>
-                            <i class="bi bi-chevron-down"></i>
-                        </div>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
                         <div class="searchable-select-dropdown"
                                 id="dropdown_asset_location"
+                                role="listbox"
                                 style="display:none">
-                            <input type="text"
-                                    class="searchable-select-search"
-                                    placeholder="Search..."
-                                    oninput="filterSearchableSelect(
-                                        'asset_location', this.value
-                                    )"
-                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-search-wrap">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="text"
+                                        class="searchable-select-search"
+                                        placeholder="Search locations..."
+                                        autocomplete="off"
+                                        aria-label="Search locations"
+                                        oninput="filterSearchableSelect(
+                                            'asset_location', this.value
+                                        )"
+                                        onclick="event.stopPropagation()">
+                            </div>
                             <div class="searchable-select-options"
                                     id="options_asset_location">
                             </div>
@@ -227,31 +258,40 @@
                     <span class="field-error"
                             id="err_asset_location"></span>
                 </div>
-                
+
                 <div class="form-field">
-                    <label for="asset_owner">
+                    <label id="label_asset_owner_field"
+                            for="trigger_asset_owner">
                         Process Owner
                         <span class="field-required">*</span>
                     </label>
                     <div class="searchable-select-wrap" id="wrap_asset_owner">
-                        <div class="searchable-select-trigger"
+                        <button type="button"
+                                class="searchable-select-trigger"
                                 id="trigger_asset_owner"
+                                aria-labelledby="label_asset_owner_field"
                                 onclick="toggleSearchableSelect('asset_owner')">
                             <span id="label_asset_owner">
                                 — Select Owner —
                             </span>
-                            <i class="bi bi-chevron-down"></i>
-                        </div>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
                         <div class="searchable-select-dropdown"
                                 id="dropdown_asset_owner"
+                                role="listbox"
                                 style="display:none">
-                            <input type="text"
-                                    class="searchable-select-search"
-                                    placeholder="Search..."
-                                    oninput="filterSearchableSelect(
-                                        'asset_owner', this.value
-                                    )"
-                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-search-wrap">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input type="text"
+                                        class="searchable-select-search"
+                                        placeholder="Search process owners..."
+                                        autocomplete="off"
+                                        aria-label="Search process owners"
+                                        oninput="filterSearchableSelect(
+                                            'asset_owner', this.value
+                                        )"
+                                        onclick="event.stopPropagation()">
+                            </div>
                             <div class="searchable-select-options"
                                     id="options_asset_owner">
                             </div>
@@ -264,17 +304,17 @@
 
             <div class="form-field">
                 <label for="asset_remarks">Remarks</label>
-                <textarea id="asset_remarks" 
+                <textarea id="asset_remarks"
                         placeholder="Optional: condition, marks..."></textarea>
             </div>
         </div>
 
         <div class="modal-footer">
-            <button class="btn btn-secondary"
+            <button type="button" class="btn btn-secondary"
                     onclick="window.closeModal('add_asset')">
                 Cancel
             </button>
-            <button class="btn btn-primary" id="asset_save_btn"
+            <button type="button" class="btn btn-primary" id="asset_save_btn"
                     onclick="window.saveAsset()">
                 <i class="bi bi-floppy"></i>
                 <span id="asset_save_label">Save Asset</span>

@@ -1,33 +1,44 @@
-/* assets/css/searchable_select.css
-   Link in header.php after forms.css:
-   <link rel="stylesheet"
-         href="/assets/css/searchable_select.css">
-*/
+/* assets/css/searchable_select.css */
 
-/* ── Wrapper ─────────────────────────────────────────────────── */
 .searchable-select-wrap {
     position: relative;
 }
 
-/* ── Trigger (looks like a native select) ────────────────────── */
+button.searchable-select-trigger {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 .searchable-select-trigger {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     padding: 0 12px;
     height: 40px;
-    background: var(--navy-3);
+    width: 100%;
+    background: var(--navy-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--white-3);
     cursor: pointer;
     font-size: 13px;
-    transition: border-color 0.15s;
+    font-family: var(--font-body);
+    transition: border-color 0.15s, box-shadow 0.15s;
     user-select: none;
+    text-align: left;
 }
 
 .searchable-select-trigger:hover {
     border-color: var(--border-2);
+    color: var(--white-2);
+}
+
+.searchable-select-trigger:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 .searchable-select-trigger.open {
@@ -50,7 +61,14 @@
     color: var(--white);
 }
 
-/* ── Dropdown panel ──────────────────────────────────────────── */
+.searchable-select-trigger span:first-child {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .searchable-select-dropdown {
     position: absolute;
     top: calc(100% + 4px);
@@ -60,20 +78,42 @@
     border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
     z-index: 1000;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-/* ── Search input inside dropdown ────────────────────────────── */
+.searchable-select-dropdown--portal {
+    right: auto;
+}
+
+.searchable-select-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    background: var(--navy-4);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.searchable-select-search-wrap .bi-search {
+    font-size: 12px;
+    color: var(--white-4);
+    flex-shrink: 0;
+}
+
 .searchable-select-search {
     display: block;
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--navy-4);
+    flex: 1;
+    min-width: 0;
+    padding: 10px 0;
+    background: transparent;
     border: none;
-    border-bottom: 1px solid var(--border);
     color: var(--white);
     font-size: 13px;
+    font-family: var(--font-body);
     outline: none;
 }
 
@@ -81,14 +121,15 @@
     color: var(--white-5);
 }
 
-/* ── Options list ────────────────────────────────────────────── */
 .searchable-select-options {
-    max-height: 200px;
+    max-height: 220px;
     overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .searchable-select-options::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
 }
 
 .searchable-select-options::-webkit-scrollbar-thumb {
@@ -96,24 +137,45 @@
     border-radius: 4px;
 }
 
-/* ── Each option ─────────────────────────────────────────────── */
 .searchable-option {
-    padding: 9px 12px;
+    padding: 10px 12px;
     font-size: 13px;
     color: var(--white-3);
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.1s, color 0.1s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.searchable-option:hover {
+.searchable-option-label {
+    color: var(--white);
+    line-height: 1.3;
+}
+
+.searchable-option-meta {
+    font-size: 11px;
+    color: var(--white-4);
+    line-height: 1.3;
+}
+
+.searchable-option:hover,
+.searchable-option.highlighted {
     background: var(--navy-4);
+    color: var(--white);
+}
+
+.searchable-option.highlighted .searchable-option-label {
     color: var(--white);
 }
 
 .searchable-option.selected {
     background: var(--accent-dim);
+}
+
+.searchable-option.selected .searchable-option-label {
     color: var(--accent);
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .searchable-option.hidden {
@@ -121,18 +183,16 @@
 }
 
 .searchable-option-empty {
-    padding: 12px;
+    padding: 16px 12px;
     font-size: 12px;
     color: var(--white-5);
     text-align: center;
 }
 
-/* ── Error state on trigger ──────────────────────────────────── */
 .searchable-select-trigger.has-error {
     border-color: var(--red);
 }
 
-/* ── Per-field error text ────────────────────────────────────── */
 .field-error {
     display: block;
     font-size: 11px;
@@ -144,4 +204,9 @@
 .field-required {
     color: var(--red);
     margin-left: 2px;
+}
+
+/* Asset modal: avoid clipping while a list is open */
+#modal-add_asset .modal-body.searchable-select-open {
+    overflow: visible;
 }
