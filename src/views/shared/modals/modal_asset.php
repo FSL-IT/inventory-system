@@ -7,7 +7,7 @@
                 📦 Add New Asset
             </div>
             <button class="modal-close"
-                    onclick="closeModal('add_asset')">
+                    onclick="window.closeModal('add_asset')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
@@ -15,18 +15,16 @@
         <div class="modal-body">
             <input type="hidden" id="asset_edit_id" value="">
 
-            <!-- Mode toggle (add only) -->
             <div id="asset_mode_toggle"
-                    style="display:flex;gap:8px;
-                           margin-bottom:16px">
+                    style="display:flex;gap:8px;margin-bottom:16px">
                 <button id="btn_mode_single"
                         class="btn btn-primary btn-sm"
-                        onclick="setAssetMode('single')">
+                        onclick="window.setAssetMode('single')">
                     <i class="bi bi-upc-scan"></i> Single
                 </button>
                 <button id="btn_mode_bulk"
                         class="btn btn-secondary btn-sm"
-                        onclick="setAssetMode('bulk')">
+                        onclick="window.setAssetMode('bulk')">
                     <i class="bi bi-list-ul"></i> Bulk
                 </button>
                 <span id="asset_mode_hint" class="cell-date"
@@ -35,32 +33,45 @@
                 </span>
             </div>
 
-            <!-- Purchase Order -->
-            <div class="modal-section-title">
-                Purchase Order
-            </div>
+            <div class="modal-section-title">Purchase Order</div>
+            
             <div class="field-grid">
                 <div class="form-field">
                     <label for="asset_po">PO Number</label>
-                    <select id="asset_po"
-                            onchange="onPoChange(this)">
-                        <option value="">— Select PO —</option>
-                    </select>
+                    <div class="searchable-select-wrap" id="wrap_asset_po">
+                        <div class="searchable-select-trigger"
+                                id="trigger_asset_po"
+                                onclick="toggleSearchableSelect('asset_po')">
+                            <span id="label_asset_po">— Select PO —</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                        <div class="searchable-select-dropdown"
+                                id="dropdown_asset_po"
+                                style="display:none">
+                            <input type="text"
+                                    class="searchable-select-search"
+                                    placeholder="Search POs..."
+                                    oninput="filterSearchableSelect(
+                                        'asset_po', this.value
+                                    )"
+                                    onclick="event.stopPropagation()">
+                            <div class="searchable-select-options"
+                                    id="options_asset_po">
+                            </div>
+                        </div>
+                        <input type="hidden" id="asset_po" 
+                               onchange="window.onPoChange(this.value)">
+                    </div>
                 </div>
+                
                 <div class="form-field">
-                    <label for="asset_vendor">
-                        Vendor (via PO)
-                    </label>
+                    <label for="asset_vendor">Vendor (via PO)</label>
                     <input type="text" id="asset_vendor"
-                            placeholder="Auto-filled from PO"
-                            readonly>
+                            placeholder="Auto-filled from PO" readonly>
                 </div>
             </div>
 
-            <!-- Asset Information -->
-            <div class="modal-section-title">
-                Asset Information
-            </div>
+            <div class="modal-section-title">Asset Information</div>
 
             <div id="field_single_serial">
                 <div class="form-field">
@@ -70,7 +81,7 @@
                     </label>
                     <input type="text" id="asset_serial"
                             placeholder="e.g. 5CD432D87V"
-                            oninput="clearFieldError('asset_serial')">
+                            oninput="window.clearFieldError('asset_serial')">
                     <span class="field-error"
                             id="err_asset_serial"></span>
                 </div>
@@ -82,20 +93,15 @@
                         Serial Numbers
                         <span class="field-required">*</span>
                         <span class="cell-date"
-                                style="font-weight:400;
-                                       text-transform:none">
-                            — one per line or comma-separated
+                                style="font-weight:400;text-transform:none">
+                            — one per line
                         </span>
                     </label>
                     <textarea id="asset_serials_bulk"
                             placeholder="5CD432D87V&#10;5CD432D888"
-                            style="min-height:120px;
-                                   font-family:monospace;
-                                   font-size:12px"
-                            oninput="updateBulkCount();
-                                     clearFieldError(
-                                         'asset_serials_bulk'
-                                     )">
+                            style="min-height:120px;font-family:monospace;"
+                            oninput="window.updateBulkCount(); 
+                                     window.clearFieldError('asset_serials_bulk')">
                     </textarea>
                     <span id="bulk_sn_count" class="cell-date"
                             style="font-size:11px;margin-top:2px">
@@ -113,24 +119,20 @@
                         <span class="field-required">*</span>
                     </label>
                     <input type="text" id="asset_desc"
-                            placeholder="e.g. HP ProBook 440 G11"
-                            oninput="clearFieldError('asset_desc')">
-                    <span class="field-error"
-                            id="err_asset_desc"></span>
+                            placeholder="e.g. HP ProBook"
+                            oninput="window.clearFieldError('asset_desc')">
+                    <span class="field-error" id="err_asset_desc"></span>
                 </div>
+                
                 <div class="form-field">
                     <label for="asset_category">
                         Category
                         <span class="field-required">*</span>
                     </label>
-                    <!-- Searchable dropdown wrapper -->
-                    <div class="searchable-select-wrap"
-                            id="wrap_asset_category">
+                    <div class="searchable-select-wrap" id="wrap_asset_category">
                         <div class="searchable-select-trigger"
                                 id="trigger_asset_category"
-                                onclick="toggleSearchableSelect(
-                                    'asset_category'
-                                )">
+                                onclick="toggleSearchableSelect('asset_category')">
                             <span id="label_asset_category">
                                 — Select Category —
                             </span>
@@ -157,14 +159,13 @@
                 </div>
             </div>
 
-            <!-- Status — mandatory, no default -->
             <div class="form-field">
                 <label for="asset_status">
                     Status
                     <span class="field-required">*</span>
                 </label>
-                <select id="asset_status"
-                        onchange="clearFieldError('asset_status')">
+                <select id="asset_status" 
+                        onchange="window.clearFieldError('asset_status')">
                     <option value="">— Select Status —</option>
                     <option value="active">Active</option>
                     <option value="deployed">Deployed</option>
@@ -173,21 +174,16 @@
                     <option value="retired">Retired</option>
                     <option value="lost">Lost</option>
                 </select>
-                <span class="field-error"
-                        id="err_asset_status"></span>
+                <span class="field-error" id="err_asset_status"></span>
             </div>
 
-            <!-- Location & Assignment -->
-            <div class="modal-section-title">
-                Location &amp; Assignment
-            </div>
+            <div class="modal-section-title">Location &amp; Assignment</div>
 
-            <!-- Auto-fill hint -->
             <div id="po_autofill_hint"
                     style="display:none;margin-bottom:12px">
                 <div class="info-field"
-                        style="border-left:3px solid
-                               var(--accent);padding:8px 12px">
+                        style="border-left:3px solid var(--accent);
+                               padding:8px 12px">
                     <div class="val" style="font-size:12px">
                         <i class="bi bi-magic"
                                 style="color:var(--accent);
@@ -200,16 +196,13 @@
             <div class="field-grid">
                 <div class="form-field">
                     <label for="asset_location">
-                        Center / Location
+                        Location
                         <span class="field-required">*</span>
                     </label>
-                    <div class="searchable-select-wrap"
-                            id="wrap_asset_location">
+                    <div class="searchable-select-wrap" id="wrap_asset_location">
                         <div class="searchable-select-trigger"
                                 id="trigger_asset_location"
-                                onclick="toggleSearchableSelect(
-                                    'asset_location'
-                                )">
+                                onclick="toggleSearchableSelect('asset_location')">
                             <span id="label_asset_location">
                                 — Select Location —
                             </span>
@@ -234,18 +227,16 @@
                     <span class="field-error"
                             id="err_asset_location"></span>
                 </div>
+                
                 <div class="form-field">
                     <label for="asset_owner">
                         Process Owner
                         <span class="field-required">*</span>
                     </label>
-                    <div class="searchable-select-wrap"
-                            id="wrap_asset_owner">
+                    <div class="searchable-select-wrap" id="wrap_asset_owner">
                         <div class="searchable-select-trigger"
                                 id="trigger_asset_owner"
-                                onclick="toggleSearchableSelect(
-                                    'asset_owner'
-                                )">
+                                onclick="toggleSearchableSelect('asset_owner')">
                             <span id="label_asset_owner">
                                 — Select Owner —
                             </span>
@@ -267,66 +258,26 @@
                         </div>
                         <input type="hidden" id="asset_owner">
                     </div>
-                    <span class="field-error"
-                            id="err_asset_owner"></span>
+                    <span class="field-error" id="err_asset_owner"></span>
                 </div>
             </div>
 
-            <!-- Remarks — plain textarea per client request -->
             <div class="form-field">
                 <label for="asset_remarks">Remarks</label>
-                <textarea id="asset_remarks"
-                        placeholder="Optional: condition, marks, notes...">
-                </textarea>
+                <textarea id="asset_remarks" 
+                        placeholder="Optional: condition, marks..."></textarea>
             </div>
-
         </div>
 
         <div class="modal-footer">
             <button class="btn btn-secondary"
-                    onclick="closeModal('add_asset')">
+                    onclick="window.closeModal('add_asset')">
                 Cancel
             </button>
             <button class="btn btn-primary" id="asset_save_btn"
-                    onclick="saveAsset()">
+                    onclick="window.saveAsset()">
                 <i class="bi bi-floppy"></i>
                 <span id="asset_save_label">Save Asset</span>
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- View Modal -->
-<div class="modal-overlay" id="modal-view_asset">
-    <div class="modal" style="max-width:700px">
-        <div class="modal-header">
-            <div class="modal-title" id="view_asset_title">
-                Asset Detail
-            </div>
-            <button class="modal-close"
-                    onclick="closeModal('view_asset')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div id="view_asset_body"></div>
-            <div id="view_transfer_section"
-                    style="display:none;margin-top:20px">
-                <div class="modal-section-title">
-                    Transfer History
-                </div>
-                <div id="view_transfer_body"></div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary"
-                    onclick="closeModal('view_asset')">
-                Close
-            </button>
-            <button class="btn btn-secondary"
-                    id="view_asset_edit_btn"
-                    onclick="editAssetFromView()">
-                <i class="bi bi-pencil"></i> Edit
             </button>
         </div>
     </div>

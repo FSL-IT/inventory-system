@@ -16,8 +16,6 @@ require_once __DIR__ . '/../helpers/import_helper.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $action = getQueryString('action');
 
-// Export: all logged-in users can export
-// Import: admin only (modifies data)
 if (in_array($action, ['export', 'export_po_tracker', 'template'], true)) {
     requireLogin();
 } else {
@@ -112,16 +110,28 @@ function handleImport(): void
         header('Content-Type: application/json');
         sendError('Only .xlsx files are accepted.', 422);
     }
-
-    $result = importFromExcel(
-        $file['tmp_name'],
-        $_SESSION['user_id']
-    );
-
-    $total   = $result['success'] + $result['failed'];
-    $message = "{$result['success']} added, "
-        . "{$result['failed']} skipped of {$total} rows.";
-
-    header('Content-Type: application/json');
-    sendSuccess($result, $message);
+    
+    try {
+        $result = importFromExcel(
+            $file['tmp_name'],
+            $_SESSION['user_id']
+        );
+        
+        $total   = $result['success'] + $result['failed'];
+        $message = "{$result['success']} added, "
+            . "{$result['failed']} skipped of {$total} rows.";
+    
+        header('Content-Type: application/json');
+        sendSuccess($result, $message);
+    } catch (Throwable $e) {
+        $errorMsg = $e->getMessage();
+        
+        // Ensure SQL Duplicate key errors are translated.
+        if (str_contains($errorMsg, 'Duplicate entry')) {
+            $errorMsg = 'Failed to import. One or more records already exist.';
+        }
+        
+        header('Content-Type: application/json');
+        sendError($errorMsg, 500);
+    }
 }

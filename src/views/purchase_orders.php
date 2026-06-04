@@ -192,17 +192,12 @@ include __DIR__ . '/shared/sidebar.php';
 
         <div class="pagination-bar" id="po_pagination"></div>
     </div>
+
+    <?php include __DIR__ . '/shared/modals/modal_po.php'; ?>
+    <?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
+    <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
+    <?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 </div>
 
-<?php include __DIR__ . '/shared/modals/modal_po.php'; ?>
 
-<!--
-    modal_asset included here so "Add Assets to this PO"
-    button in the view PO modal can open the add asset form
-    without navigating away from the PO Tracker page.
--->
-<?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
-
-<?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
-<?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 <?php include __DIR__ . '/shared/footer.php'; ?>

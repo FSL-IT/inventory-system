@@ -28,7 +28,7 @@ include __DIR__ . '/shared/sidebar.php';
             </div>
             <div class="page-header__right">
                 <button class="btn btn-primary"
-                        onclick="openAddVendor()">
+                        onclick="window.openAddVendor()">
                     <i class="bi bi-plus-lg"></i> Add Vendor
                 </button>
             </div>
@@ -65,8 +65,9 @@ include __DIR__ . '/shared/sidebar.php';
         <div id="vendor_pagination"
                 class="pagination-bar"></div>
     </div>
+
+    <?php include __DIR__ . '/shared/modals/modal_vendor.php'; ?>
+    <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
 </div>
 
-<?php include __DIR__ . '/shared/modals/modal_vendor.php'; ?>
-<?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
 <?php include __DIR__ . '/shared/footer.php'; ?>

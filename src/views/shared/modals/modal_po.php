@@ -1,6 +1,5 @@
 <?php // src/views/shared/modals/modal_po.php ?>
 
-<!-- ── ADD / EDIT PO MODAL ───────────────────────────────────── -->
 <div class="modal-overlay" id="modal-add_po">
     <div class="modal" style="max-width:600px">
         <div class="modal-header">
@@ -8,58 +7,73 @@
                 📋 New Purchase Order
             </div>
             <button class="modal-close"
-                    onclick="closeModal('add_po')">
+                    onclick="window.closeModal('add_po')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
+        
         <div class="modal-body">
-            <input type="hidden" id="po_edit_id" value="">
+            <form id="po_form" onsubmit="event.preventDefault();">
+                <input type="hidden" id="po_edit_id" value="">
 
-            <div class="form-field">
-                <label for="po_number">
-                    PO Number
-                    <span style="color:var(--red)">*</span>
-                </label>
-                <input type="text" id="po_number"
-                        placeholder="e.g. 7100/NT/FY25/94426">
-            </div>
-
-            <div class="form-field">
-                <label for="po_vendor">Vendor</label>
-                <select id="po_vendor">
-                    <option value="">— Select Vendor —</option>
-                </select>
-            </div>
-
-            <div class="field-grid">
                 <div class="form-field">
-                    <label for="po_date_received">
-                        Date Received
+                    <label for="po_number">
+                        PO Number
+                        <span style="color:var(--red)">*</span>
                     </label>
-                    <input type="date" id="po_date_received">
+                    <input type="text" 
+                            id="po_number"
+                            placeholder="e.g. 7100/NT/FY25/94426" 
+                            required>
                 </div>
+
                 <div class="form-field">
-                    <label for="po_date_endorsed">
-                        Date Endorsed by Admin
-                    </label>
-                    <input type="date" id="po_date_endorsed">
+                    <label for="po_vendor">Vendor</label>
+                    <select id="po_vendor">
+                        <option value="">— Select Vendor —</option>
+                    </select>
                 </div>
-            </div>
+
+                <div class="field-grid">
+                    <div class="form-field">
+                        <label for="po_date_received">
+                            Date Received
+                        </label>
+                        <input type="date" id="po_date_received">
+                    </div>
+                    <div class="form-field">
+                        <label for="po_date_endorsed">
+                            Date Endorsed by Admin
+                        </label>
+                        <input type="date" id="po_date_endorsed">
+                    </div>
+                </div>
+            </form>
         </div>
-        <div class="modal-footer">
+        
+        <div class="modal-footer" 
+                style="display:flex; justify-content:space-between">
             <button class="btn btn-secondary"
-                    onclick="closeModal('add_po')">
+                    onclick="window.closeModal('add_po')">
                 Cancel
             </button>
-            <button class="btn btn-primary" id="po_save_btn"
-                    onclick="savePO()">
-                <i class="bi bi-floppy"></i> Save PO
-            </button>
+            <div style="display:flex; gap:8px">
+                <button class="btn btn-secondary" 
+                        id="btn_save_po"
+                        onclick="window.savePO(false)">
+                    <i class="bi bi-floppy"></i> Save PO
+                </button>
+                <button class="btn btn-primary" 
+                        id="btn_save_po_next"
+                        onclick="window.savePO(true)">
+                    Save &amp; Add Assets 
+                    <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- ── VIEW PO MODAL ─────────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-view_po">
     <div class="modal" style="max-width:820px">
         <div class="modal-header">
@@ -67,7 +81,7 @@
                 PO Detail
             </div>
             <button class="modal-close"
-                    onclick="closeModal('view_po')">
+                    onclick="window.closeModal('view_po')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
@@ -84,16 +98,10 @@
                            align-items:center;
                            justify-content:space-between">
                 <span>Items (per Category)</span>
-                <!--
-                    "Add Assets to this PO" button.
-                    Shown for ALL roles — clicking opens the
-                    add_asset modal pre-filled with this PO.
-                    The button is the entry point for the
-                    new PO-first asset-adding flow.
-                -->
+                
                 <button class="btn btn-primary btn-sm"
                         id="po_add_assets_btn"
-                        onclick="openAddAssetFromPO()"
+                        onclick="window.openAddAssetFromPO()"
                         style="font-size:12px">
                     <i class="bi bi-plus-lg"></i>
                     Add Assets to this PO
@@ -132,17 +140,13 @@
 
         <div class="modal-footer">
             <button class="btn btn-secondary"
-                    onclick="closeModal('view_po')">
+                    onclick="window.closeModal('view_po')">
                 Close
             </button>
-            <!--
-                Edit PO — admin only at PHP level;
-                for user role this button is hidden
-            -->
             <?php if (isAdmin()): ?>
             <button class="btn btn-secondary"
                     id="view_po_edit_btn"
-                    onclick="editPoFromView()">
+                    onclick="window.editPoFromView()">
                 <i class="bi bi-pencil"></i> Edit PO
             </button>
             <?php endif; ?>

@@ -23,8 +23,6 @@ $csrfToken = generateCsrfToken();
     <link rel="stylesheet" href="/assets/css/dashboard.css">
     <link rel="stylesheet" href="/assets/css/reports.css">
     <link rel="stylesheet" href="/assets/css/spa.css">
-    <link rel="stylesheet"
-            href="/assets/css/searchable_select.css">
     <link rel="stylesheet" href="/assets/css/responsive.css">
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap"
             rel="stylesheet">

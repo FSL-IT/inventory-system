@@ -9,11 +9,12 @@ include __DIR__ . '/shared/header.php';
 include __DIR__ . '/shared/sidebar.php';
 ?>
 
-<script>
-    const IS_ADMIN = <?php echo isAdmin() ? 'true' : 'false'; ?>;
-</script>
-
 <div class="main" id="main_content">
+    
+    <script>
+        window.IS_ADMIN = <?php echo isAdmin() ? 'true' : 'false'; ?>;
+    </script>
+
     <div class="topbar">
         <button class="topbar__toggle"
                 onclick="toggleSidebar()">
@@ -24,7 +25,7 @@ include __DIR__ . '/shared/sidebar.php';
             <i class="bi bi-search topbar__search-icon"></i>
             <input type="text" id="global_search"
                     placeholder="Search serial #, PO, description..."
-                    oninput="globalSearch(this.value)">
+                    oninput="window.globalSearch(this.value)">
         </div>
     </div>
 
@@ -39,28 +40,21 @@ include __DIR__ . '/shared/sidebar.php';
                 </div>
             </div>
             <div class="page-header__right">
-                <!-- Export: all roles -->
                 <button class="btn btn-secondary"
-                        onclick="exportToExcel()">
+                        onclick="window.exportToExcel()">
                     <i class="bi bi-file-earmark-excel"></i>
                     Export Excel
                 </button>
 
-                <!-- Import: all roles (client requirement) -->
                 <button class="btn btn-secondary"
-                        onclick="openImportModal()">
+                        onclick="window.openImportModal()">
                     <i class="bi bi-file-earmark-arrow-up"></i>
                     Import Excel
                 </button>
 
-                <!--
-                    Add Asset: admin only.
-                    Users add assets via the PO Tracker modal
-                    ("Add Assets to this PO" button).
-                -->
                 <?php if (isAdmin()): ?>
                 <button class="btn btn-primary"
-                        onclick="openAddAsset()">
+                        onclick="window.openAddAsset()">
                     <i class="bi bi-plus-lg"></i> Add Asset
                 </button>
                 <?php endif; ?>
@@ -72,11 +66,11 @@ include __DIR__ . '/shared/sidebar.php';
                 <i class="bi bi-search"></i>
                 <input type="text" id="asset_search"
                         placeholder="Serial #, PO, desc, vendor..."
-                        oninput="debouncedLoadAssets()">
+                        oninput="window.debouncedLoadAssets()">
             </div>
 
             <select class="filter-select" id="filter_status"
-                    onchange="debouncedLoadAssets()">
+                    onchange="window.debouncedLoadAssets()">
                 <option value="">All Statuses</option>
                 <option value="active">Active</option>
                 <option value="deployed">Deployed</option>
@@ -87,17 +81,17 @@ include __DIR__ . '/shared/sidebar.php';
             </select>
 
             <select class="filter-select" id="filter_category"
-                    onchange="debouncedLoadAssets()">
+                    onchange="window.debouncedLoadAssets()">
                 <option value="">All Categories</option>
             </select>
 
             <select class="filter-select" id="filter_location"
-                    onchange="debouncedLoadAssets()">
+                    onchange="window.debouncedLoadAssets()">
                 <option value="">All Locations</option>
             </select>
 
             <select class="filter-select" id="filter_owner"
-                    onchange="debouncedLoadAssets()">
+                    onchange="window.debouncedLoadAssets()">
                 <option value="">All Owners</option>
             </select>
 
@@ -109,13 +103,13 @@ include __DIR__ . '/shared/sidebar.php';
                                white-space:nowrap"></span>
                 <select class="filter-select"
                         id="asset_per_page"
-                        onchange="onPerPageChange()">
+                        onchange="window.onPerPageChange()">
                     <option value="25">25 / page</option>
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>
                 </select>
                 <button class="btn btn-secondary btn-sm"
-                        onclick="clearAssetFilters()"
+                        onclick="window.clearAssetFilters()"
                         title="Clear filters">
                     <i class="bi bi-x-circle"></i>
                 </button>
@@ -128,7 +122,7 @@ include __DIR__ . '/shared/sidebar.php';
                     <thead>
                         <tr>
                             <th class="sortable-th"
-                                    onclick="sortAssets(
+                                    onclick="window.sortAssets(
                                         'a.serial_number'
                                     )">
                                 Serial Number
@@ -138,7 +132,7 @@ include __DIR__ . '/shared/sidebar.php';
                                 </i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="sortAssets(
+                                    onclick="window.sortAssets(
                                         'a.description'
                                     )">
                                 Description
@@ -148,14 +142,14 @@ include __DIR__ . '/shared/sidebar.php';
                                 </i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="sortAssets('c.name')">
+                                    onclick="window.sortAssets('c.name')">
                                 Category
                                 <i class="bi bi-arrow-down-up
                                           sort-icon"
                                         id="sort_c.name"></i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="sortAssets(
+                                    onclick="window.sortAssets(
                                         'po.po_number'
                                     )">
                                 PO Number
@@ -165,21 +159,21 @@ include __DIR__ . '/shared/sidebar.php';
                                 </i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="sortAssets('l.name')">
+                                    onclick="window.sortAssets('l.name')">
                                 Location
                                 <i class="bi bi-arrow-down-up
                                           sort-icon"
                                         id="sort_l.name"></i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="sortAssets('o.name')">
+                                    onclick="window.sortAssets('o.name')">
                                 Process Owner
                                 <i class="bi bi-arrow-down-up
                                           sort-icon"
                                         id="sort_o.name"></i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="sortAssets(
+                                    onclick="window.sortAssets(
                                         'a.status'
                                     )">
                                 Status
@@ -189,7 +183,7 @@ include __DIR__ . '/shared/sidebar.php';
                                 </i>
                             </th>
                             <th class="sortable-th"
-                                    onclick="sortAssets(
+                                    onclick="window.sortAssets(
                                         'po.date_received'
                                     )">
                                 Date Received
@@ -215,12 +209,12 @@ include __DIR__ . '/shared/sidebar.php';
             </div>
         </div>
 
-        <div class="pagination-bar"
-                id="assets_pagination"></div>
+        <div class="pagination-bar" id="assets_pagination"></div>
     </div>
+
+    <?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
+    <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
+    <?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 </div>
 
-<?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
-<?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
-<?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 <?php include __DIR__ . '/shared/footer.php'; ?>

@@ -8,11 +8,14 @@ require_once __DIR__ . '/../core/response.php';
 require_once __DIR__ . '/../core/validator.php';
 require_once __DIR__ . '/../helpers/audit_helper.php';
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
+
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->safeLoad();
 
 requireRole('admin');
-
 
 if (!defined('BACKUP_TABLES')) {
     define('BACKUP_TABLES', ['purchase_orders', 'assets']);
@@ -46,10 +49,8 @@ if ($method === 'POST' && $action === 'backup') {
 // ─── BACKUP DIR HELPER ───────────────────────────────────────────
 function getBackupDir(): string
 {
-    $path = rtrim(
-        $_ENV['BACKUP_PATH'] ?? 'storage/backups', '/'
-    );
-    $dir = str_starts_with($path, '/')
+    $path = rtrim($_ENV['BACKUP_PATH'] ?? 'storage/backups', '/');
+    $dir  = str_starts_with($path, '/')
         ? $path
         : __DIR__ . "/../../{$path}";
 
@@ -60,115 +61,81 @@ function getBackupDir(): string
     return $dir;
 }
 
-// ─── CREATE ──────────────────────────────────────────────────────
+// ─── CREATE EXCEL BACKUP ─────────────────────────────────────────
 function createBackup(): void
 {
-    try {
-        $dir       = getBackupDir();
-        $timestamp = date('Ymd_His');
-        $filename  = "fsl_backup_{$timestamp}.sql";
-        $filePath  = "{$dir}/{$filename}";
+    $dir       = getBackupDir();
+    $timestamp = date('Ymd_His');
+    $filename  = "fsl_backup_{$timestamp}.xlsx";
+    $filePath  = "{$dir}/{$filename}";
 
-        $pdo = getDbConnection();
-        $sql = generateSqlDump($pdo);
-
-        if (file_put_contents($filePath, $sql) === false) {
-            sendError('Could not write backup file.', 500);
-        }
-
-        $size = filesize($filePath);
-
-        logAudit($_SESSION['user_id'], 'BACKUP', 'backup', 0, [
-            'before' => [],
-            'after'  => [
-                'event'  => 'backup_created',
-                'file'   => $filename,
-                'tables' => BACKUP_TABLES,
-                'size'   => $size,
-            ],
-        ]);
-
-        sendSuccess([
-            'filename' => $filename,
-            'size'     => $size,
-            'tables'   => BACKUP_TABLES,
-        ], 'Backup created successfully.');
-
-    } catch (Throwable $e) {
-        sendError('Backup failed: ' . $e->getMessage(), 500);
-    }
-}
-
-// ─── GENERATE SQL DUMP ───────────────────────────────────────────
-function generateSqlDump(PDO $pdo): string
-{
-    @ini_set('memory_limit', '512M');
-    @ini_set('max_execution_time', '300');
-
-    $dbName = $_ENV['DB_NAME'] ?? 'fsl_inventory';
-
-    $out  = "-- FSL Inventory SQL Backup\n";
-    $out .= "-- Generated : " . date('Y-m-d H:i:s') . "\n";
-    $out .= "-- Database  : {$dbName}\n";
-    $out .= "-- Tables    : "
-        . implode(', ', BACKUP_TABLES) . "\n\n";
-    $out .= "SET FOREIGN_KEY_CHECKS=0;\n";
-    $out .= "SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n";
-    $out .= "SET NAMES utf8mb4;\n\n";
+    $pdo         = getDbConnection();
+    $spreadsheet = new Spreadsheet();
+    $sheetIndex  = 0;
 
     foreach (BACKUP_TABLES as $table) {
-        $q = "`{$table}`";
+        if ($sheetIndex > 0) {
+            $spreadsheet->createSheet();
+        }
+        
+        $spreadsheet->setActiveSheetIndex($sheetIndex);
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle($table);
 
-        $createRow = $pdo
-            ->query("SHOW CREATE TABLE {$q}")
-            ->fetch(PDO::FETCH_NUM);
+        $stmt = $pdo->query("SELECT * FROM `{$table}`");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $out .= "DROP TABLE IF EXISTS {$q};\n";
-        $out .= $createRow[1] . ";\n\n";
-
-        $chunkSize = 500;
-        $offset    = 0;
-        $colList   = null;
-
-        while (true) {
-            $rows = $pdo->query(
-                "SELECT * FROM {$q}"
-                . " LIMIT {$chunkSize} OFFSET {$offset}"
-            )->fetchAll(PDO::FETCH_ASSOC);
-
-            if (empty($rows)) {
-                break;
-            }
-
-            if ($colList === null) {
-                $colList = implode(', ', array_map(
-                    fn ($c) => "`{$c}`",
-                    array_keys($rows[0])
-                ));
-            }
-
-            foreach ($rows as $row) {
-                $vals = array_map(function ($v) use ($pdo) {
-                    return $v === null
-                        ? 'NULL'
-                        : $pdo->quote((string) $v);
-                }, array_values($row));
-
-                $out .= "INSERT INTO {$q} ({$colList}) VALUES ("
-                    . implode(', ', $vals) . ");\n";
-            }
-
-            $offset += $chunkSize;
-            if (count($rows) < $chunkSize) {
-                break;
-            }
+        if (empty($rows)) {
+            $sheetIndex++;
+            continue;
         }
 
-        $out .= "\n";
+        $headers = array_keys($rows[0]);
+        $col     = 'A';
+        
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . '1', $header);
+            $col++;
+        }
+
+        $rowNum = 2;
+        foreach ($rows as $row) {
+            $col = 'A';
+            foreach ($row as $val) {
+                $sheet->setCellValue($col . $rowNum, $val);
+                $col++;
+            }
+            $rowNum++;
+        }
+        $sheetIndex++;
     }
 
-    $out .= "SET FOREIGN_KEY_CHECKS=1;\n";
-    return $out;
+    $writer = new Xlsx($spreadsheet);
+    
+    try {
+        $writer->save($filePath);
+    } catch (Throwable $e) {
+        sendError('Backup failed: ' . $e->getMessage(), 500);
+        return;
+    }
+
+    $size = filesize($filePath);
+
+    logAudit($_SESSION['user_id'], 'BACKUP', 'backup', 0, [
+        'before' => [],
+        'after'  => [
+            'event'  => 'backup_created',
+            'file'   => $filename,
+            'tables' => BACKUP_TABLES,
+            'size'   => $size,
+        ],
+    ]);
+
+    sendSuccess([
+        'filename' => $filename,
+        'size'     => $size,
+        'tables'   => BACKUP_TABLES,
+    ], 'Backup created successfully.');
 }
 
 // ─── RESTORE FROM UPLOAD ─────────────────────────────────────────
@@ -176,22 +143,23 @@ function restoreBackup(): void
 {
     if (empty($_FILES['backup_file'])) {
         sendError('No file uploaded.', 422);
+        return;
     }
 
     $file = $_FILES['backup_file'];
-    $ext  = strtolower(
-        pathinfo($file['name'], PATHINFO_EXTENSION)
-    );
+    $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
-    if ($ext !== 'sql') {
-        sendError('Only .sql files are allowed.', 422);
+    if ($ext !== 'xlsx') {
+        sendError('Only .xlsx files are allowed.', 422);
+        return;
     }
 
     if ($file['error'] !== UPLOAD_ERR_OK) {
         sendError('Upload error: ' . $file['error'], 422);
+        return;
     }
 
-    executeSqlFile($file['tmp_name']);
+    executeExcelRestore($file['tmp_name']);
 
     logAudit($_SESSION['user_id'], 'RESTORE', 'backup', 0, [
         'before' => [],
@@ -207,31 +175,29 @@ function restoreBackup(): void
 // ─── RESTORE FROM SERVER ─────────────────────────────────────────
 function restoreServerBackup(): void
 {
-    $body     = json_decode(
-        file_get_contents('php://input'), true
-    );
+    $body     = json_decode(file_get_contents('php://input'), true);
     $filename = $body['filename'] ?? '';
 
     if (!$filename) {
         sendError('No filename provided.', 422);
+        return;
     }
 
-    if (!preg_match('/^fsl_backup_[\d_]+\.sql$/', $filename)) {
+    if (!preg_match('/^fsl_backup_[\d_]+\.xlsx$/', $filename)) {
         sendError('Invalid backup filename.', 422);
+        return;
     }
 
     $dir         = getBackupDir();
     $filePath    = realpath("{$dir}/{$filename}");
     $expectedDir = realpath($dir);
 
-    if (
-        !$filePath ||
-        !str_starts_with($filePath, $expectedDir)
-    ) {
+    if (!$filePath || !str_starts_with($filePath, $expectedDir)) {
         sendError('Backup file not found.', 404);
+        return;
     }
 
-    executeSqlFile($filePath);
+    executeExcelRestore($filePath);
 
     logAudit($_SESSION['user_id'], 'RESTORE', 'backup', 0, [
         'before' => [],
@@ -244,126 +210,69 @@ function restoreServerBackup(): void
     sendSuccess([], 'Database restored successfully.');
 }
 
-// ─── EXECUTE SQL FILE ────────────────────────────────────────────
-function executeSqlFile(string $filePath): void
+// ─── EXECUTE EXCEL RESTORE ───────────────────────────────────────
+function executeExcelRestore(string $filePath): void
 {
-    $handle = fopen($filePath, 'r');
-    if (!$handle) {
-        sendError('Cannot open backup file.', 500);
+    $reader      = new XlsxReader();
+    $spreadsheet = null;
+    
+    try {
+        $spreadsheet = $reader->load($filePath);
+    } catch (Throwable $e) {
+        sendError('Failed to read Excel format.', 500);
+        return;
     }
 
-    @ini_set('memory_limit', '512M');
-    @ini_set('max_execution_time', '300');
+    $pdo = getDbConnection();
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     try {
-        $pdo = getDbConnection();
-        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-        $pdo->setAttribute(
-            PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION
-        );
+        $pdo->beginTransaction();
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
-        $pdo->exec('SET NAMES utf8mb4');
 
-        $buffer   = '';
-        $errors   = [];
-        $inString = false;
-        $strChar  = '';
-
-        while (!feof($handle)) {
-            $line = fgets($handle, 65536);
-            if ($line === false) {
-                break;
-            }
-
-            $line  = rtrim($line, "\r\n");
-            $ltrim = ltrim($line);
-
-            if (
-                !$inString &&
-                (str_starts_with($ltrim, '--') ||
-                 trim($line) === '')
-            ) {
+        foreach (BACKUP_TABLES as $table) {
+            $sheet = $spreadsheet->getSheetByName($table);
+            if (!$sheet) {
                 continue;
             }
-
-            for ($i = 0, $len = strlen($line); $i < $len; $i++) {
-                $ch = $line[$i];
-
-                if (
-                    !$inString &&
-                    ($ch === "'" || $ch === '"' || $ch === '`')
-                ) {
-                    $inString = true;
-                    $strChar  = $ch;
-                } elseif ($inString && $ch === $strChar) {
-                    if (
-                        isset($line[$i + 1]) &&
-                        $line[$i + 1] === $strChar
-                    ) {
-                        $buffer .= $ch;
-                        $i++;
-                    } else {
-                        $inString = false;
-                    }
-                } elseif ($inString && $ch === '\\') {
-                    $buffer .= $ch . ($line[$i + 1] ?? '');
-                    $i++;
-                    continue;
-                }
-
-                if (!$inString && $ch === ';') {
-                    $stmt   = trim($buffer);
-                    $buffer = '';
-
-                    if ($stmt !== '') {
-                        try {
-                            $pdo->exec($stmt);
-                        } catch (PDOException $e) {
-                            $errors[] = $e->getMessage();
-                        }
-                    }
-                } else {
-                    $buffer .= $ch;
-                }
+            
+            $pdo->exec("TRUNCATE TABLE `{$table}`");
+            
+            $rows = $sheet->toArray();
+            if (count($rows) <= 1) {
+                continue;
             }
-
-            if ($inString) {
-                $buffer .= "\n";
-            }
-        }
-
-        $stmt = trim($buffer);
-        if ($stmt !== '') {
-            try {
-                $pdo->exec($stmt);
-            } catch (PDOException $e) {
-                $errors[] = $e->getMessage();
+            
+            $headers      = array_shift($rows);
+            $colList      = implode(', ', array_map(
+                fn($c) => "`{$c}`", 
+                $headers
+            ));
+            
+            $placeholders = implode(', ', array_fill(
+                0, 
+                count($headers), 
+                '?'
+            ));
+            
+            $stmt = $pdo->prepare(
+                "INSERT INTO `{$table}` ({$colList}) " .
+                "VALUES ({$placeholders})"
+            );
+            
+            foreach ($rows as $row) {
+                $stmt->execute($row);
             }
         }
 
         $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
-        fclose($handle);
-
-        $fatal = array_filter(
-            $errors,
-            fn ($m) => !str_contains(
-                $m, 'Unknown system variable'
-            )
-        );
-
-        if (!empty($fatal)) {
-            sendError(
-                'Restore errors: '
-                . implode(' | ', array_slice(
-                    array_values($fatal), 0, 3
-                )),
-                500
-            );
-        }
-
-    } catch (Throwable $e) {
-        fclose($handle);
+        $pdo->commit();
+        
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
         sendError('Restore failed: ' . $e->getMessage(), 500);
+        return;
     }
 }
 
@@ -378,7 +287,7 @@ function downloadBackup(): void
         exit;
     }
 
-    if (!preg_match('/^fsl_backup_[\d_]+\.sql$/', $filename)) {
+    if (!preg_match('/^fsl_backup_[\d_]+\.xlsx$/', $filename)) {
         http_response_code(400);
         echo 'Invalid filename.';
         exit;
@@ -400,8 +309,7 @@ function downloadBackup(): void
 
     header('Content-Type: application/octet-stream');
     header(
-        'Content-Disposition: attachment; '
-        . 'filename="' . $filename . '"'
+        'Content-Disposition: attachment; filename="' . $filename . '"'
     );
     header('Content-Length: ' . filesize($filePath));
     readfile($filePath);
@@ -412,7 +320,7 @@ function downloadBackup(): void
 function listBackups(): void
 {
     $dir   = getBackupDir();
-    $files = glob("{$dir}/*.sql") ?: [];
+    $files = glob("{$dir}/*.xlsx") ?: [];
 
     $backups = array_map(fn ($f) => [
         'filename' => basename($f),

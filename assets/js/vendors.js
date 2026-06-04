@@ -1,6 +1,18 @@
 // assets/js/vendors.js
 
-window.initVendors = function() {
+// Make the initialization async to prevent race conditions
+window.initVendors = async function() {
+    
+    // Safety Check: Force-load RefTable if it's missing on hard-reload
+    if (typeof window.RefTable === 'undefined') {
+        if (typeof injectScript === 'function') {
+            await injectScript('/assets/js/ref_table.js');
+        } else {
+            console.error("Critical System Error: Missing ref_table.js");
+            return;
+        }
+    }
+
     window._refTable = new RefTable({
         apiUrl:      '/src/api/vendors.php',
         tbodyId:     'vendors_body',
@@ -42,27 +54,26 @@ window.initVendors = function() {
     window._refTable.init();
 };
 
-// Wire topbar global search into local search field
-function loadVendors(page = 1) {
+window.loadVendors = function (page = 1) {
     window._refTable.page = page;
     window._refTable.load();
-}
+};
 
-function openAddVendor() {
+window.openAddVendor = function () {
     document.getElementById('vendor_edit_id').value = '';
     document.getElementById('vendor_modal_title').textContent = '🏭 Add New Vendor';
     document.getElementById('vendor_name').value = '';
     openModal('add_vendor');
-}
+};
 
-function openEditVendor(id, name) {
+window.openEditVendor = function (id, name) {
     document.getElementById('vendor_edit_id').value = id;
     document.getElementById('vendor_modal_title').textContent = '✏️ Edit Vendor';
     document.getElementById('vendor_name').value = name;
     openModal('add_vendor');
-}
+};
 
-async function saveVendor() {
+window.saveVendor = async function () {
     const id   = document.getElementById('vendor_edit_id').value;
     const name = document.getElementById('vendor_name').value.trim();
 
@@ -73,7 +84,8 @@ async function saveVendor() {
 
     const isEdit = !!id;
     try {
-        await apiFetch(isEdit ? `/src/api/vendors.php?id=${id}` : '/src/api/vendors.php', {
+        let url = isEdit ? `/src/api/vendors.php?id=${id}` : '/src/api/vendors.php';
+        await apiFetch(url, {
             method: isEdit ? 'PUT' : 'POST',
             body:   JSON.stringify({ name }),
         });
@@ -83,10 +95,11 @@ async function saveVendor() {
     } catch (err) {
         showToast(err.message, 'error');
     }
-}
+};
 
-function deleteVendor(id, name) {
-    showConfirm('Delete Vendor', `Delete vendor "${name}"? This cannot be undone.`, async () => {
+window.deleteVendor = function (id, name) {
+    let msg = `Delete vendor "${name}"? This cannot be undone.`;
+    showConfirm('Delete Vendor', msg, async () => {
         try {
             await apiFetch(`/src/api/vendors.php?id=${id}`, { method: 'DELETE' });
             showToast('Vendor deleted.', 'success');
@@ -95,4 +108,4 @@ function deleteVendor(id, name) {
             showToast(err.message, 'error');
         }
     });
-}
+};
