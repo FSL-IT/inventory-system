@@ -1,9 +1,30 @@
 // assets/js/users.js
 
+let allUsers = [];
+
 // ─── INIT ─────────────────────────────────────────────────────────
 window.initUsers = function() {
+    if (typeof registerGlobalSearch === 'function') {
+        registerGlobalSearch(function (term) {
+            applyUserSearch(term);
+        });
+    }
     loadUsers();
 };
+
+function applyUserSearch(term) {
+    let q = (term || '').trim().toLowerCase();
+    if (!q) {
+        renderUserTable(allUsers);
+        return;
+    }
+    renderUserTable(
+        allUsers.filter(function (u) {
+            return (u.username || '').toLowerCase().includes(q)
+                || (u.role || '').toLowerCase().includes(q);
+        })
+    );
+}
 
 // ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
 function onEditClick(e, id, username, role) {
@@ -20,7 +41,9 @@ function onDeleteClick(e, id, username) {
 async function loadUsers() {
     try {
         const data = await apiFetch('/src/api/users.php');
-        renderUserTable(data.data);
+        allUsers = data.data || [];
+        let topSearch = document.getElementById('global_search');
+        applyUserSearch(topSearch ? topSearch.value : '');
     } catch (err) {
         showToast('Failed to load users.', 'error');
     }

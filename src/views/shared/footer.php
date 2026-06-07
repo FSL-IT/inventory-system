@@ -1,11 +1,14 @@
 <?php
 // src/views/shared/footer.php
 ?>
-        </div><!-- end content -->
-    </div><!-- end main -->
-</div><!-- end app-shell -->
+        </div>
+    </div>
+</div>
 
 <div class="toast-container" id="toast_container"></div>
+
+<?php include __DIR__ . '/modals/modal_confirm.php'; ?>
+<?php include __DIR__ . '/modals/modals_global.php'; ?>
 
 <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">

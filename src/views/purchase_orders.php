@@ -193,10 +193,6 @@ include __DIR__ . '/shared/sidebar.php';
         <div class="pagination-bar" id="po_pagination"></div>
     </div>
 
-    <?php include __DIR__ . '/shared/modals/modal_po.php'; ?>
-    <?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
-    <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
-    <?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 </div>
 
 

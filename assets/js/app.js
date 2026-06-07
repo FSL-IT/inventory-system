@@ -280,6 +280,19 @@ function formatDate(dateStr) {
     });
 }
 
+// ─── TOPBAR GLOBAL SEARCH (per-page handler) ─────────────────────
+let globalSearchHandler = null;
+
+window.registerGlobalSearch = function (fn) {
+    globalSearchHandler = typeof fn === 'function' ? fn : null;
+};
+
+window.globalSearch = function (term) {
+    if (globalSearchHandler) {
+        globalSearchHandler(term);
+    }
+};
+
 // ─── SPA ROUTING ──────────────────────────────────────────────────
 const PAGE_JS_MAP = {
     dashboard:       'dashboard.js',
@@ -300,6 +313,11 @@ const loadedScripts = new Set();
 async function navigateTo(url, pushState = true) {
     setActiveNav(url);
     closeSidebar();
+
+    if (typeof window.closeActiveSearchableSelect === 'function') {
+        window.closeActiveSearchableSelect();
+    }
+    registerGlobalSearch(null);
 
     let mainEl = document.getElementById('main_content');
     if (!mainEl) {
@@ -456,4 +474,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     history.replaceState({ url: window.location.href }, '', window.location.href);
+
+    setTimeout(function () {
+        initPageModule(window.location.pathname);
+    }, 0);
 });

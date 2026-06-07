@@ -121,4 +121,4 @@ include __DIR__ . '/../shared/sidebar.php';
     </div>
 </div>
 
-<?php include __DIR__ . '/../shared/footer.php'; ?>
+<?php include __DIR__ . '/../shared/footer.php'; ?>s

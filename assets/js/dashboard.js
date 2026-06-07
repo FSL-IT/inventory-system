@@ -3,6 +3,23 @@
 document.addEventListener('DOMContentLoaded', loadDashboard);
 
 async function loadDashboard() {
+    if (typeof registerGlobalSearch === 'function') {
+        registerGlobalSearch(function (term) {
+            let q = (term || '').trim();
+            if (!q) {
+                return;
+            }
+            let target =
+                '/src/views/assets.php?search=' +
+                encodeURIComponent(q);
+            if (typeof navigateTo === 'function') {
+                navigateTo(target);
+            } else {
+                window.location.href = target;
+            }
+        });
+    }
+
     try {
         const data  = await apiFetch('/src/api/dashboard.php');
         const stats = data.data;

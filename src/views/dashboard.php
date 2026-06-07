@@ -152,6 +152,4 @@ include __DIR__ . '/shared/sidebar.php';
     </div><!-- end content -->
 </div><!-- end main -->
 
-<?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
-<?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
 <?php include __DIR__ . '/shared/footer.php'; ?>

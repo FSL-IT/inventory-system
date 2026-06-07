@@ -22,16 +22,9 @@
         }
 
         fetchInitialAssets();
-        populateAssetFormDropdowns().then(function () {
-            
-            // Watch for changes on the hidden PO input natively
-            let poInput = document.getElementById('asset_po');
-            if (poInput) {
-                poInput.addEventListener('change', function () {
-                    window.onPoChange(this.value);
-                });
-            }
+        bindAssetPoChangeListener();
 
+        populateAssetFormDropdowns().then(function () {
             if (action === 'add_asset' && poId) {
                 window.openAddAsset();
                 setTimeout(function () {
@@ -46,7 +39,7 @@
                         msg.textContent = 
                             `Adding assets to PO: ${poNumber}. ` +
                             `Location and owner pre-filled.`;
-                        hint.style.display = '';
+                        hint.classList.remove('hidden');
                     }
                 }, 500);
             }
@@ -55,7 +48,27 @@
         if (typeof setupImportDropZone === 'function') {
             setupImportDropZone();
         }
+
+        if (typeof registerGlobalSearch === 'function') {
+            registerGlobalSearch(function (term) {
+                safeSetVal('asset_search', term);
+                if (typeof window.debouncedLoadAssets === 'function') {
+                    window.debouncedLoadAssets();
+                }
+            });
+        }
     };
+
+    function bindAssetPoChangeListener() {
+        let poInput = document.getElementById('asset_po');
+        if (!poInput || poInput.dataset.changeBound === '1') {
+            return;
+        }
+        poInput.dataset.changeBound = '1';
+        poInput.addEventListener('change', function () {
+            window.onPoChange(this.value);
+        });
+    }
 
     window.onAssetViewClick = function (e, id) {
         e.stopPropagation();
@@ -476,11 +489,11 @@
             let rows = res.data || [];
 
             if (!rows.length) {
-                section.style.display = 'none';
+                section.classList.add('hidden');
                 return;
             }
 
-            section.style.display = '';
+            section.classList.remove('hidden');
             body.innerHTML = rows.map(r => {
                 let locChange = (r.from_location || r.to_location)
                     ? `<span style="font-size:11px;color:var(--white-3)">
@@ -521,7 +534,7 @@
                     </div>`;
             }).join('');
         } catch (err) {
-            section.style.display = 'none';
+            section.classList.add('hidden');
         }
     }
 
@@ -742,29 +755,29 @@
         let btnSingle   = document.getElementById('btn_mode_single');
         let btnBulk     = document.getElementById('btn_mode_bulk');
 
-        if (singleField) singleField.style.display = isBulk ? 'none' : '';
-        if (bulkField) bulkField.style.display = isBulk ? '' : 'none';
-        
+        if (singleField) {
+            singleField.classList.toggle('hidden', isBulk);
+        }
+        if (bulkField) {
+            bulkField.classList.toggle('hidden', !isBulk);
+        }
+
         if (hintEl) {
             hintEl.textContent = isBulk
                 ? 'Paste multiple serials — one per line'
                 : 'Single serial entry';
         }
-        
+
         if (saveLabel) {
             saveLabel.textContent = isBulk ? 'Save All' : 'Save Asset';
         }
-        
+
         if (btnSingle) {
-            btnSingle.className = isBulk
-                ? 'btn btn-secondary btn-sm'
-                : 'btn btn-primary btn-sm';
+            btnSingle.classList.toggle('is-active', !isBulk);
         }
-        
+
         if (btnBulk) {
-            btnBulk.className = isBulk
-                ? 'btn btn-primary btn-sm'
-                : 'btn btn-secondary btn-sm';
+            btnBulk.classList.toggle('is-active', isBulk);
         }
 
         window.updateBulkCount();
@@ -772,7 +785,7 @@
 
     function showModeToggle(isVisible) {
         let el = document.getElementById('asset_mode_toggle');
-        if (el) el.style.display = isVisible ? '' : 'none';
+        if (el) el.classList.toggle('hidden', !isVisible);
     }
 
     window.updateBulkCount = function () {
@@ -843,12 +856,12 @@
         msg.textContent =
             `Auto-filled from PO history: ${fields.join(', ')}. `
             + 'You can override any field.';
-        wrap.style.display = '';
+        wrap.classList.remove('hidden');
     }
 
     function hidePoAutofillHint() {
         let wrap = document.getElementById('po_autofill_hint');
-        if (wrap) wrap.style.display = 'none';
+        if (wrap) wrap.classList.add('hidden');
     }
 
     async function populateAssetFormDropdowns() {

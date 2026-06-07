@@ -142,6 +142,12 @@ function toggleSearchableSelect(fieldId) {
     }
 }
 
+window.closeActiveSearchableSelect = function () {
+    if (activeSearchableSelect) {
+        closeSearchableSelect(activeSearchableSelect);
+    }
+};
+
 function closeSearchableSelect(fieldId) {
     let dropdown = document.getElementById(`dropdown_${fieldId}`);
     let trigger  = document.getElementById(`trigger_${fieldId}`);

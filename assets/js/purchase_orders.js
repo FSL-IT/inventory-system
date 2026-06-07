@@ -13,6 +13,12 @@
     let ENDORSE_WARN_DAYS = 3;
 
     window.initPOs = function () {
+        if (typeof registerGlobalSearch === 'function') {
+            registerGlobalSearch(function (term) {
+                safeSetVal('po_search', term);
+                debouncedApplyPoFilters();
+            });
+        }
         populatePoVendorDropdown();
         populatePoFormVendors();
         populatePoCategoryFilter();
@@ -713,11 +719,6 @@
             });
         } catch (err) {}
     }
-
-    window.globalSearch = function (term) {
-        safeSetVal('po_search', term);
-        debouncedApplyPoFilters();
-    };
 
     let poImportFile = null;
 

@@ -25,7 +25,7 @@ include __DIR__ . '/shared/sidebar.php';
             <i class="bi bi-search topbar__search-icon"></i>
             <input type="text" id="global_search"
                     placeholder="Search serial #, PO, description..."
-                    oninput="window.globalSearch(this.value)">
+                    oninput="globalSearch(this.value)">
         </div>
     </div>
 
@@ -212,9 +212,6 @@ include __DIR__ . '/shared/sidebar.php';
         <div class="pagination-bar" id="assets_pagination"></div>
     </div>
 
-    <?php include __DIR__ . '/shared/modals/modal_asset.php'; ?>
-    <?php include __DIR__ . '/shared/modals/modal_confirm.php'; ?>
-    <?php include __DIR__ . '/shared/modals/modal_import.php'; ?>
 </div>
 
 <?php include __DIR__ . '/shared/footer.php'; ?>

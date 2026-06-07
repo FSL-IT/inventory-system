@@ -72,5 +72,4 @@ include __DIR__ . '/../shared/sidebar.php';
 </div>
 
 <?php include __DIR__ . '/../shared/modals/modal_user.php'; ?>
-<?php include __DIR__ . '/../shared/modals/modal_confirm.php'; ?>
 <?php include __DIR__ . '/../shared/footer.php'; ?>
