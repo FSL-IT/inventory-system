@@ -115,6 +115,17 @@
     min-height: 72px;
 }
 
+/* Searchable select trigger matches other form controls */
+.form-field .searchable-select-wrap button.searchable-select-trigger {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    box-sizing: border-box;
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    color: var(--white-3);
+}
+
 /* Info field (read-only display) */
 .info-field {
     background: var(--navy-2);

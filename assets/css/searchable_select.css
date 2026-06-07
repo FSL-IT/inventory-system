@@ -2,12 +2,19 @@
 
 .searchable-select-wrap {
     position: relative;
+    width: 100%;
+}
+
+.form-field .searchable-select-wrap {
+    min-width: 0;
 }
 
 button.searchable-select-trigger {
     appearance: none;
     -webkit-appearance: none;
+    -moz-appearance: none;
     margin: 0;
+    box-sizing: border-box;
 }
 
 .searchable-select-trigger {

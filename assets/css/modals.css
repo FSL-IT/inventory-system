@@ -150,3 +150,232 @@
 .confirm-dialog__desc { font-size: 14px; line-height: 1.5; color: var(--white-3); margin-bottom: 28px; }
 .confirm-dialog__actions { display: flex; gap: 12px; justify-content: center; }
 .confirm-dialog__actions .btn { flex: 1; }
+
+/* ----- Asset add/edit modal ----- */
+#modal-add_asset .modal-asset {
+    max-width: 720px;
+}
+
+#modal-add_asset .asset-modal-body {
+    gap: 0;
+    padding: 24px 28px 28px;
+}
+
+#modal-add_asset .modal-section-title {
+    color: var(--white-2);
+    margin-bottom: 0;
+}
+
+#modal-add_asset .field-grid--flush {
+    margin-bottom: 0;
+}
+
+#modal-add_asset .form-field--compact {
+    margin-top: 2px;
+}
+
+#modal-add_asset .asset-field-hint {
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--white-4);
+    margin-left: 4px;
+}
+
+#modal-add_asset .asset-bulk-count {
+    font-size: 11px;
+    color: var(--white-4);
+    margin-top: 4px;
+}
+
+#modal-add_asset .po-autofill-icon {
+    color: var(--accent);
+    margin-right: 6px;
+}
+
+/* Segmented Single / Bulk control */
+#modal-add_asset .asset-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    color: var(--white-3);
+    background: transparent;
+    border: none;
+    border-radius: calc(var(--radius-sm) - 2px);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+#modal-add_asset .asset-mode-btn:hover {
+    color: var(--white-2);
+    background: var(--navy-5);
+}
+
+#modal-add_asset .asset-mode-btn.is-active {
+    color: var(--white);
+    background: var(--accent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+#modal-add_asset .asset-mode-btn.is-active:hover {
+    background: var(--accent);
+    color: var(--white);
+}
+
+/* Dark theme for searchable triggers (Bootstrap loads before this sheet) */
+#modal-add_asset .form-field .searchable-select-wrap button.searchable-select-trigger {
+    appearance: none;
+    -webkit-appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--white-3);
+    font-size: 13px;
+    font-family: var(--font-body);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+#modal-add_asset .form-field .searchable-select-wrap button.searchable-select-trigger:hover {
+    border-color: var(--border-2);
+    color: var(--white-2);
+}
+
+#modal-add_asset .form-field .searchable-select-wrap button.searchable-select-trigger:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+#modal-add_asset .form-field .searchable-select-wrap button.searchable-select-trigger.open,
+#modal-add_asset .form-field .searchable-select-wrap button.searchable-select-trigger.has-value {
+    color: var(--white);
+}
+
+#modal-add_asset .form-field .searchable-select-wrap button.searchable-select-trigger.open {
+    border-color: var(--accent);
+}
+
+#modal-add_asset .modal-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 22px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid var(--border);
+}
+
+#modal-add_asset .modal-form-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+#modal-add_asset .field-grid {
+    margin-bottom: 0;
+}
+
+#modal-add_asset .form-field input,
+#modal-add_asset .form-field select,
+#modal-add_asset .form-field textarea,
+#modal-add_asset .searchable-select-trigger {
+    width: 100%;
+    min-height: 40px;
+}
+
+#modal-add_asset .form-field select {
+    cursor: pointer;
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%237e8fa8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+#modal-add_asset .asset-mode-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--border);
+}
+
+#modal-add_asset .asset-mode-segmented {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: var(--navy-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+#modal-add_asset .asset-mode-segmented .btn {
+    margin: 0;
+    border: none;
+    box-shadow: none;
+}
+
+#modal-add_asset .asset-mode-segmented .btn-secondary {
+    background: transparent;
+    color: var(--white-3);
+}
+
+#modal-add_asset .asset-mode-segmented .btn-secondary:hover {
+    background: var(--navy-5);
+    color: var(--white-2);
+}
+
+#modal-add_asset .asset-mode-segmented .btn-primary {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+#modal-add_asset .asset-mode-hint {
+    font-size: 12px;
+    color: var(--white-4);
+    line-height: 1.4;
+}
+
+#modal-add_asset #asset_serials_bulk {
+    min-height: 120px;
+    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+#modal-add_asset #bulk_sn_count {
+    font-size: 11px;
+    color: var(--white-4);
+    margin-top: 4px;
+}
+
+#modal-add_asset .po-autofill-hint {
+    margin-top: -6px;
+}
+
+#modal-add_asset .po-autofill-hint .info-field {
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+}
+
+#modal-add_asset .po-autofill-hint .val {
+    font-size: 12px;
+    line-height: 1.45;
+}
