@@ -69,7 +69,6 @@ include __DIR__ . '/shared/sidebar.php';
         <div id="owner_pagination"
                 class="pagination-bar"></div>
     </div>
-    <?php include __DIR__ . '/shared/modals/modal_owner.php'; ?>
 </div>
 
 <?php include __DIR__ . '/shared/footer.php'; ?>

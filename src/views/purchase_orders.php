@@ -23,7 +23,7 @@ include __DIR__ . '/shared/sidebar.php';
         <div class="topbar__title">PO Tracker</div>
         <div class="topbar__search">
             <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="global_search"
+            <input type="text" id="topbar_search"
                     placeholder="Search PO number, vendor..."
                     oninput="globalSearch(this.value)">
         </div>

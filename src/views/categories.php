@@ -84,7 +84,6 @@ include __DIR__ . '/shared/sidebar.php';
         <div id="category_pagination"
                 class="pagination-bar"></div>
     </div>
-    <?php include __DIR__ . '/shared/modals/modal_category.php'; ?>
 </div>
 
 <?php include __DIR__ . '/shared/footer.php'; ?>

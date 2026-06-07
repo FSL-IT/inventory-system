@@ -19,7 +19,9 @@ include __DIR__ . '/../shared/sidebar.php';
         <div class="topbar__title">User Management</div>
         <div class="topbar__search">
             <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="global_search" placeholder="Search..." oninput="globalSearch(this.value)">
+            <input type="text" id="topbar_search"
+                    placeholder="Search users…"
+                    oninput="globalSearch(this.value)">
         </div>
         <div class="topbar__actions">
             <div class="icon-btn"
@@ -71,5 +73,4 @@ include __DIR__ . '/../shared/sidebar.php';
     </div>
 </div>
 
-<?php include __DIR__ . '/../shared/modals/modal_user.php'; ?>
 <?php include __DIR__ . '/../shared/footer.php'; ?>

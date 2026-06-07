@@ -42,7 +42,7 @@ async function loadUsers() {
     try {
         const data = await apiFetch('/src/api/users.php');
         allUsers = data.data || [];
-        let topSearch = document.getElementById('global_search');
+        let topSearch = document.getElementById('topbar_search');
         applyUserSearch(topSearch ? topSearch.value : '');
     } catch (err) {
         showToast('Failed to load users.', 'error');

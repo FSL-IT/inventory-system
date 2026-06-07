@@ -401,13 +401,19 @@ function initSearchableSelectTrigger(fieldId, placeholder) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    [
-        ['asset_po', '— Select PO —'],
-        ['asset_category', '— Select Category —'],
-        ['asset_location', '— Select Location —'],
-        ['asset_owner', '— Select Owner —'],
-    ].forEach(function (pair) {
+const SEARCHABLE_SELECT_FIELDS = [
+    ['asset_po', '— Select PO —'],
+    ['asset_category', '— Select Category —'],
+    ['asset_location', '— Select Location —'],
+    ['asset_owner', '— Select Owner —'],
+];
+
+window.initAllSearchableSelects = function () {
+    SEARCHABLE_SELECT_FIELDS.forEach(function (pair) {
         initSearchableSelectTrigger(pair[0], pair[1]);
     });
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    window.initAllSearchableSelects();
 });

@@ -759,6 +759,135 @@
     border-radius: 0 4px 4px 0;
 }
 
+/* Audit activity — list chips & detail modal */
+.audit-desc__main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.audit-change-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.audit-change-chips__label {
+    font-size: 11px;
+    color: var(--white-4);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.audit-change-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 999px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.audit-change-chip--lg {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+.audit-changes-summary {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--navy-4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.audit-changes-summary--info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--white-2);
+}
+
+.audit-changes-summary__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--white-2);
+    margin-bottom: 8px;
+}
+
+.audit-diff-wrap {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.diff-table .diff-row-changed {
+    background: rgba(59, 130, 246, 0.06);
+}
+
+.diff-table .diff-row-changed .diff-key {
+    color: var(--white);
+    font-weight: 600;
+}
+
+.diff-table .diff-row-unchanged {
+    opacity: 0.55;
+}
+
+.diff-key__icon {
+    font-size: 10px;
+    color: var(--accent);
+    margin-right: 2px;
+}
+
+.diff-cell--old {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.diff-cell--new {
+    background: rgba(34, 197, 94, 0.08);
+}
+
+.diff-val {
+    font-family: ui-monospace, 'Consolas', monospace;
+    font-size: 12px;
+    word-break: break-word;
+}
+
+.diff-val--old {
+    color: #fca5a5;
+    text-decoration: line-through;
+    text-decoration-color: rgba(239, 68, 68, 0.5);
+}
+
+.diff-val--new {
+    color: #86efac;
+    font-weight: 600;
+}
+
+.diff-empty {
+    color: var(--white-5);
+}
+
+.diff-changed {
+    color: #86efac;
+    font-weight: 600;
+}
+
+.audit-diff-empty {
+    text-align: center;
+    padding: 24px;
+    color: var(--white-4);
+    font-size: 13px;
+}
+
 /* ===== DASHBOARD WIDGETS (Restored) ===== */
 
 /* Activity feed */
@@ -789,7 +918,7 @@
 
 .activity-action {
     font-size: 12px;
-    color: #000000;
+    color: var(--white-2);
 }
 
 .activity-time {
@@ -809,7 +938,7 @@
 
 .cat-bar-label {
     width: 100px;
-    color: #000000;
+    color: var(--white-2);
     font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
@@ -834,7 +963,7 @@
 .cat-bar-count {
     width: 40px;
     text-align: right;
-    color: #000000;
+    color: var(--white-3);
     font-weight: 600;
 }
 
@@ -861,7 +990,7 @@
 
 .status-name {
     flex: 1;
-    color: #000000;
+    color: var(--white-2);
 }
 
 .status-count {

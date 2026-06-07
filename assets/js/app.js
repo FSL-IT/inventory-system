@@ -293,6 +293,14 @@ window.globalSearch = function (term) {
     }
 };
 
+window.appNavigate = function (url) {
+    if (typeof navigateTo === 'function') {
+        navigateTo(url);
+    } else {
+        window.location.href = url;
+    }
+};
+
 // ─── SPA ROUTING ──────────────────────────────────────────────────
 const PAGE_JS_MAP = {
     dashboard:       'dashboard.js',
@@ -366,6 +374,9 @@ async function navigateTo(url, pushState = true) {
         });
 
         await loadPageScript(url);
+        if (typeof window.initAllSearchableSelects === 'function') {
+            window.initAllSearchableSelects();
+        }
         setTimeout(() => initPageModule(url), 20);
 
     } catch (err) {
@@ -476,6 +487,9 @@ document.addEventListener('DOMContentLoaded', () => {
     history.replaceState({ url: window.location.href }, '', window.location.href);
 
     setTimeout(function () {
+        if (typeof window.initAllSearchableSelects === 'function') {
+            window.initAllSearchableSelects();
+        }
         initPageModule(window.location.pathname);
     }, 0);
 });

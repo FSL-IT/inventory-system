@@ -1,22 +1,16 @@
 // assets/js/dashboard.js
 
-document.addEventListener('DOMContentLoaded', loadDashboard);
-
-async function loadDashboard() {
+window.loadDashboard = async function loadDashboard() {
     if (typeof registerGlobalSearch === 'function') {
         registerGlobalSearch(function (term) {
             let q = (term || '').trim();
             if (!q) {
                 return;
             }
-            let target =
+            appNavigate(
                 '/src/views/assets.php?search=' +
-                encodeURIComponent(q);
-            if (typeof navigateTo === 'function') {
-                navigateTo(target);
-            } else {
-                window.location.href = target;
-            }
+                encodeURIComponent(q)
+            );
         });
     }
 
@@ -24,42 +18,180 @@ async function loadDashboard() {
         const data  = await apiFetch('/src/api/dashboard.php');
         const stats = data.data;
 
-        renderStatCards(stats);
+        renderAlerts(stats);
+        renderMainStatCards(stats);
         renderCategoryBreakdown(stats.by_category);
         renderStatusBreakdown(stats.by_status, stats.total_assets);
-        renderInsights(stats);
         renderRecentActivity(stats.recent_activity);
         renderTopOwners(stats.top_owners);
     } catch (err) {
         console.error('loadDashboard error:', err);
         showToast('Failed to load dashboard data.', 'error');
     }
+};
+
+// ─── ALERTS (action items) ────────────────────────────────────────────────────
+function renderAlerts(stats) {
+    const container = document.getElementById('dashboard_alerts');
+    if (!container) {
+        return;
+    }
+
+    const overdue   = stats.overdue_pos         ?? 0;
+    const pending   = stats.pending_endorsement ?? 0;
+    const missingSn = stats.total_missing_sn    ?? 0;
+    const oldest    = stats.oldest_overdue_po   ?? null;
+    const defective = (stats.by_status?.defective ?? 0)
+                    + (stats.by_status?.in_repair  ?? 0);
+
+    const items = [];
+
+    if (overdue > 0) {
+        items.push({
+            tone:  'red',
+            icon:  'bi-exclamation-octagon',
+            title: `${overdue} PO${overdue !== 1 ? 's' : ''} overdue for endorsement`,
+            desc:  oldest
+                ? `Oldest: ${oldest.po_number} — ${oldest.days_overdue} day${
+                    oldest.days_overdue !== 1 ? 's' : ''
+                } waiting.`
+                : 'POs received more than 3 days ago still need admin endorsement.',
+            action: 'Review overdue POs',
+            url:    '/src/views/purchase_orders.php?endorsed=overdue',
+        });
+    } else if (pending > 0) {
+        items.push({
+            tone:  'yellow',
+            icon:  'bi-hourglass-split',
+            title: `${pending} asset${pending !== 1 ? 's' : ''} awaiting PO endorsement`,
+            desc:  'These assets are on POs that have not been endorsed by admin yet.',
+            action: 'View pending POs',
+            url:    '/src/views/purchase_orders.php?endorsed=pending',
+        });
+    }
+
+    if (missingSn > 0) {
+        items.push({
+            tone:  'yellow',
+            icon:  'bi-upc-scan',
+            title: `${missingSn} asset${missingSn !== 1 ? 's' : ''} missing serial numbers`,
+            desc:  'Every unit should have a serial before deployment.',
+            action: 'Find assets without SN',
+            url:    '/src/views/assets.php?missing_sn=1',
+        });
+    }
+
+    if (defective > 0) {
+        items.push({
+            tone:  'red',
+            icon:  'bi-tools',
+            title: `${defective} asset${defective !== 1 ? 's' : ''} need attention`,
+            desc:  'Defective or in-repair units require follow-up.',
+            action: 'View defective assets',
+            url:    '/src/views/assets.php?attention=1',
+        });
+    }
+
+    if (!items.length) {
+        container.innerHTML = `
+            <div class="dashboard-alert dashboard-alert--ok">
+                <div class="dashboard-alert__icon">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+                <div class="dashboard-alert__body">
+                    <div class="dashboard-alert__title">All clear</div>
+                    <div class="dashboard-alert__desc">
+                        No overdue POs, missing serials, or defective
+                        assets right now.
+                    </div>
+                </div>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = items.map(function (item) {
+        return `
+            <div class="dashboard-alert dashboard-alert--${item.tone}">
+                <div class="dashboard-alert__icon">
+                    <i class="bi ${item.icon}"></i>
+                </div>
+                <div class="dashboard-alert__body">
+                    <div class="dashboard-alert__title">${item.title}</div>
+                    <div class="dashboard-alert__desc">${item.desc}</div>
+                </div>
+                <button type="button"
+                        class="btn btn-secondary btn-sm dashboard-alert__btn"
+                        onclick="appNavigate('${item.url}')">
+                    ${item.action}
+                    <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>`;
+    }).join('');
 }
 
-// ─── STAT CARDS ───────────────────────────────────────────────────────────────
-function renderStatCards(stats) {
-    const byStatus  = stats.by_status ?? {};
-    const active    = (byStatus.active    ?? 0)
-                    + (byStatus.deployed  ?? 0);
-    const defective = (byStatus.defective ?? 0)
-                    + (byStatus.in_repair ?? 0);
+// ─── MAIN STAT CARDS (clickable) ─────────────────────────────────────────────
+function renderMainStatCards(stats) {
+    const container = document.getElementById('stat_grid_main');
+    if (!container) {
+        return;
+    }
 
-    setText('stat_total_num',    stats.total_assets     ?? 0);
-    setText('stat_active_num',   active);
-    setText(
-        'stat_active_sub',
-        `↑ ${calcPct(active, stats.total_assets)}% of total`
-    );
-    setText('stat_pending_num',  stats.pending_endorsement ?? 0);
-    setText('stat_defective_num', defective);
-    setText(
-        'stat_defective_sub',
-        `${defective} units need attention`
-    );
-    setText('stat_pos_num',      stats.total_pos        ?? 0);
-    setText('stat_loc_num',      stats.total_locations  ?? 0);
-    setText('stat_vendor_num',   stats.total_vendors    ?? 0);
-    setText('stat_cat_num',      stats.total_categories ?? 0);
+    const byStatus  = stats.by_status ?? {};
+    const active    = (byStatus.active ?? 0) + (byStatus.deployed ?? 0);
+    const defective = (byStatus.defective ?? 0) + (byStatus.in_repair ?? 0);
+    const total     = stats.total_assets ?? 0;
+
+    const cards = [
+        {
+            tone:  'orange',
+            icon:  'bi-box-seam',
+            num:   total,
+            label: 'Total Assets',
+            sub:   'All serialized inventory',
+            url:   '/src/views/assets.php',
+        },
+        {
+            tone:  'blue',
+            icon:  'bi-file-earmark-text',
+            num:   stats.total_pos ?? 0,
+            label: 'Purchase Orders',
+            sub:   'PO tracker records',
+            url:   '/src/views/purchase_orders.php',
+        },
+        {
+            tone:  'green',
+            icon:  'bi-check-circle',
+            num:   active,
+            label: 'Active / Deployed',
+            sub:   `${calcPct(active, total)}% of inventory`,
+            url:   '/src/views/assets.php?operational=1',
+        },
+        {
+            tone:  'red',
+            icon:  'bi-tools',
+            num:   defective,
+            label: 'Need Attention',
+            sub:   'Defective or in repair',
+            url:   '/src/views/assets.php?attention=1',
+        },
+    ];
+
+    container.innerHTML = cards.map(function (c) {
+        return `
+            <button type="button"
+                    class="stat-card stat-card--link stat-card--${c.tone}"
+                    onclick="appNavigate('${c.url}')">
+                <div class="stat-card__icon">
+                    <i class="bi ${c.icon}"></i>
+                </div>
+                <div class="stat-card__num">${c.num}</div>
+                <div class="stat-card__label">${c.label}</div>
+                <div class="stat-card__change">${c.sub}</div>
+                <span class="stat-card__go">
+                    Open <i class="bi bi-arrow-right"></i>
+                </span>
+            </button>`;
+    }).join('');
 }
 
 // ─── CATEGORY BREAKDOWN ───────────────────────────────────────────────────────
@@ -69,28 +201,32 @@ function renderCategoryBreakdown(categories) {
         return;
     }
 
-    if (!categories.length) {
-        container.innerHTML = emptyState('No category data yet.');
+    if (!categories?.length) {
+        container.innerHTML = emptyState('No assets categorized yet.');
         return;
     }
 
-    const max = Math.max(
-        ...categories.map(c => parseInt(c.count))
-    );
+    const max = Math.max(...categories.map(c => parseInt(c.count, 10)));
 
-    container.innerHTML = categories.map(cat => {
+    container.innerHTML = categories.map(function (cat) {
         const pct = max > 0
             ? Math.round((cat.count / max) * 100)
             : 0;
+        const url = cat.id
+            ? `/src/views/assets.php?category_id=${cat.id}`
+            : '/src/views/assets.php';
+
         return `
-            <div class="cat-bar-row">
-                <div class="cat-bar-label">${cat.name}</div>
+            <button type="button"
+                    class="cat-bar-row cat-bar-row--link"
+                    onclick="appNavigate('${url}')"
+                    title="View ${escapeHtml(cat.name)} assets">
+                <div class="cat-bar-label">${escapeHtml(cat.name)}</div>
                 <div class="cat-bar-track">
-                    <div class="cat-bar-fill"
-                            style="width:${pct}%"></div>
+                    <div class="cat-bar-fill" style="width:${pct}%"></div>
                 </div>
                 <div class="cat-bar-count">${cat.count}</div>
-            </div>`;
+            </button>`;
     }).join('');
 }
 
@@ -110,145 +246,27 @@ function renderStatusBreakdown(byStatus, total) {
         lost:      'var(--purple)',
     };
 
-    const rows = Object.entries(byStatus).map(([status, count]) => {
-        const pct   = total > 0 ? calcPct(count, total) : 0;
-        const color = colorMap[status] ?? 'var(--white-4)';
-        return `
-            <div class="status-row">
-                <div class="status-dot"
-                        style="background:${color}"></div>
-                <div class="status-name">
-                    ${capitalize(status)}
-                </div>
-                <div class="status-count">${count}</div>
-                <div class="status-pct">${pct}%</div>
-            </div>`;
-    });
-
-    container.innerHTML = rows.join('') || emptyState('No data.');
-}
-
-// ─── INSIGHTS ─────────────────────────────────────────────────────────────────
-function renderInsights(stats) {
-    const container = document.getElementById('dashboard_insights');
-    if (!container) {
+    const entries = Object.entries(byStatus || {});
+    if (!entries.length) {
+        container.innerHTML = emptyState('No assets yet.');
         return;
     }
 
-    const pending   = stats.pending_endorsement ?? 0;
-    const overdue   = stats.overdue_pos         ?? 0;
-    const missingSn = stats.total_missing_sn    ?? 0;
-    const oldest    = stats.oldest_overdue_po   ?? null;
-    const defective = (stats.by_status?.defective ?? 0)
-                    + (stats.by_status?.in_repair  ?? 0);
+    container.innerHTML = entries.map(function ([status, count]) {
+        const pct   = total > 0 ? calcPct(count, total) : 0;
+        const color = colorMap[status] ?? 'var(--white-4)';
+        const url   = `/src/views/assets.php?status=${encodeURIComponent(status)}`;
 
-    let html = '';
-
-    // Overdue endorsement — highest priority alert
-    if (overdue > 0 && oldest) {
-        const poLink = `/src/views/purchase_orders.php`;
-        html += `
-            <div class="insight-card insight-card--red">
-                <div class="insight-card__icon">🔴</div>
-                <div>
-                    <div class="insight-card__title"
-                            style="color:var(--red)">
-                        ${overdue} PO${overdue !== 1 ? 's' : ''}
-                        Overdue for Endorsement
-                    </div>
-                    <div class="insight-card__desc">
-                        Oldest: <strong>${
-                            escapeHtml(oldest.po_number)
-                        }</strong>
-                        — ${oldest.days_overdue} day${
-                            oldest.days_overdue !== 1 ? 's' : ''
-                        } pending.
-                        <a href="${poLink}"
-                                style="color:var(--accent);
-                                       text-decoration:none;
-                                       margin-left:4px">
-                            View all →
-                        </a>
-                    </div>
-                </div>
-            </div>`;
-    } else if (pending > 0) {
-        html += `
-            <div class="insight-card">
-                <div class="insight-card__icon">⚠️</div>
-                <div>
-                    <div class="insight-card__title">
-                        ${pending} Items Pending Endorsement
-                    </div>
-                    <div class="insight-card__desc">
-                        Assets received but not yet endorsed
-                        by admin.
-                    </div>
-                </div>
-            </div>`;
-    }
-
-    // Qty vs serialised gap
-    if (missingSn > 0) {
-        html += `
-            <div class="insight-card">
-                <div class="insight-card__icon">📊</div>
-                <div>
-                    <div class="insight-card__title">
-                        ${missingSn} Asset${
-                            missingSn !== 1 ? 's' : ''
-                        } Missing Serial Numbers
-                    </div>
-                    <div class="insight-card__desc">
-                        These assets are linked to a PO but have
-                        no serial number recorded.
-                        <a href="/src/views/assets.php"
-                                style="color:var(--accent);
-                                       text-decoration:none;
-                                       margin-left:4px">
-                            Review →
-                        </a>
-                    </div>
-                </div>
-            </div>`;
-    }
-
-    // Defective / in-repair
-    if (defective > 0) {
-        html += `
-            <div class="insight-card insight-card--red">
-                <div class="insight-card__icon">🔧</div>
-                <div>
-                    <div class="insight-card__title"
-                            style="color:var(--red)">
-                        ${defective} Assets Need Attention
-                    </div>
-                    <div class="insight-card__desc">
-                        Defective or in-repair units require
-                        follow-up.
-                    </div>
-                </div>
-            </div>`;
-    }
-
-    if (!html) {
-        html = `
-            <div class="insight-card insight-card--green">
-                <div class="insight-card__icon">✅</div>
-                <div>
-                    <div class="insight-card__title"
-                            style="color:var(--green)">
-                        All Clear
-                    </div>
-                    <div class="insight-card__desc">
-                        No pending endorsements or critical
-                        issues.
-                    </div>
-                </div>
-            </div>`;
-    }
-
-    container.innerHTML = html;
+        return `
+            <button type="button"
+                    class="status-row status-row--link"
+                    onclick="appNavigate('${url}')">
+                <div class="status-dot" style="background:${color}"></div>
+                <div class="status-name">${capitalize(status)}</div>
+                <div class="status-count">${count}</div>
+                <div class="status-pct">${pct}%</div>
+            </button>`;
+    }).join('');
 }
 
 // ─── RECENT ACTIVITY ──────────────────────────────────────────────────────────
@@ -263,14 +281,17 @@ function renderRecentActivity(activities) {
         return;
     }
 
-    container.innerHTML = activities.map(a => {
+    container.innerHTML = activities.map(function (a) {
         const initial = (a.username ?? '?')[0].toUpperCase();
-        const changes = a.changes ? JSON.parse(a.changes) : {};
-        const desc    = changes.after?.event
-            ? `${a.username} performed: ${changes.after.event}`
-            : `${a.username} ${
-                a.action.toLowerCase()
-              }d on ${a.table_name}`;
+        let desc;
+        try {
+            const changes = a.changes ? JSON.parse(a.changes) : {};
+            desc = changes.after?.event
+                ? `${escapeHtml(a.username)} — ${escapeHtml(changes.after.event)}`
+                : `${escapeHtml(a.username)} ${a.action.toLowerCase()}d ${escapeHtml(a.table_name)}`;
+        } catch (e) {
+            desc = `${escapeHtml(a.username)} — ${escapeHtml(a.action)}`;
+        }
 
         return `
             <div class="activity-item">
@@ -278,7 +299,7 @@ function renderRecentActivity(activities) {
                 <div>
                     <div class="activity-action">${desc}</div>
                     <div class="activity-time">
-                        ${a.action} · ${formatDate(a.timestamp)}
+                        ${formatDate(a.timestamp)}
                     </div>
                 </div>
             </div>`;
@@ -293,39 +314,33 @@ function renderTopOwners(owners) {
     }
 
     if (!owners?.length) {
-        container.innerHTML = emptyState('No owner data.');
+        container.innerHTML = emptyState('No owner assignments yet.');
         return;
     }
 
-    const max = Math.max(...owners.map(o => parseInt(o.count)));
+    const max = Math.max(...owners.map(o => parseInt(o.count, 10)));
 
-    container.innerHTML = owners.map(o => {
-        const pct = max > 0
-            ? Math.round((o.count / max) * 100)
-            : 0;
+    container.innerHTML = owners.map(function (o) {
+        const pct = max > 0 ? Math.round((o.count / max) * 100) : 0;
+        const url = o.id
+            ? `/src/views/assets.php?owner_id=${o.id}`
+            : '/src/views/assets.php';
+
         return `
-            <div class="cat-bar-row">
-                <div class="cat-bar-label"
-                        style="font-size:11px">
-                    ${o.name}
-                </div>
+            <button type="button"
+                    class="cat-bar-row cat-bar-row--link"
+                    onclick="appNavigate('${url}')"
+                    title="View assets for ${escapeHtml(o.name)}">
+                <div class="cat-bar-label">${escapeHtml(o.name)}</div>
                 <div class="cat-bar-track">
-                    <div class="cat-bar-fill"
-                            style="width:${pct}%"></div>
+                    <div class="cat-bar-fill" style="width:${pct}%"></div>
                 </div>
                 <div class="cat-bar-count">${o.count}</div>
-            </div>`;
+            </button>`;
     }).join('');
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-function setText(id, text) {
-    const el = document.getElementById(id);
-    if (el) {
-        el.textContent = text;
-    }
-}
-
 function calcPct(part, total) {
     if (!total) {
         return 0;
@@ -344,4 +359,3 @@ function emptyState(msg) {
             <div class="empty-state__desc">${msg}</div>
         </div>`;
 }
-

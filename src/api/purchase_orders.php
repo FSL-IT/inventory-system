@@ -134,7 +134,13 @@ function fetchPOs(): void
             po.po_number,
             po.date_received,
             po.date_endorsed,
+            po.fiscal_year,
             po.created_at,
+            CASE
+                WHEN po.date_received IS NOT NULL THEN
+                    DATEDIFF(CURDATE(), po.date_received)
+                ELSE NULL
+            END AS days_since_received,
             v.id   AS vendor_id,
             v.name AS vendor_name,
             COUNT(a.id)                                   AS asset_count,
@@ -169,7 +175,7 @@ function fetchPOs(): void
         {$where}
         GROUP BY
             po.id, po.po_number, po.date_received,
-            po.date_endorsed, po.created_at,
+            po.date_endorsed, po.fiscal_year, po.created_at,
             v.id, v.name
         ORDER BY po.created_at DESC
         LIMIT :limit

@@ -1,5 +1,113 @@
 /* assets/css/dashboard.css */
 
+/* ===== SECTIONS ===== */
+.dashboard-section {
+    margin-bottom: 28px;
+}
+
+.dashboard-section__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--white-2);
+    margin-bottom: 14px;
+}
+
+.dashboard-section__title .bi {
+    color: var(--accent);
+    font-size: 15px;
+}
+
+.dashboard-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* ===== ALERTS ===== */
+.dashboard-alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dashboard-alerts__loading {
+    font-size: 13px;
+    color: var(--white-4);
+    padding: 12px 0;
+}
+
+.dashboard-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--navy-3);
+}
+
+.dashboard-alert--ok {
+    border-color: rgba(34, 197, 94, 0.25);
+    background: var(--green-dim);
+}
+
+.dashboard-alert--ok .dashboard-alert__icon {
+    color: var(--green);
+}
+
+.dashboard-alert--yellow {
+    border-color: rgba(250, 204, 21, 0.2);
+    background: rgba(250, 204, 21, 0.06);
+}
+
+.dashboard-alert--yellow .dashboard-alert__icon {
+    color: var(--yellow);
+}
+
+.dashboard-alert--red {
+    border-color: rgba(239, 68, 68, 0.25);
+    background: var(--red-dim);
+}
+
+.dashboard-alert--red .dashboard-alert__icon {
+    color: var(--red);
+}
+
+.dashboard-alert__icon {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.dashboard-alert__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dashboard-alert__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 4px;
+}
+
+.dashboard-alert__desc {
+    font-size: 12px;
+    color: var(--white-3);
+    line-height: 1.45;
+}
+
+.dashboard-alert__btn {
+    flex-shrink: 0;
+    align-self: center;
+    white-space: nowrap;
+}
+
 /* ===== STAT CARDS ===== */
 .stat-card {
     background: var(--navy-3);
@@ -8,11 +116,27 @@
     padding: 18px 20px;
     position: relative;
     overflow: hidden;
-    transition: transform 0.2s;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    text-align: left;
+    width: 100%;
 }
 
-.stat-card:hover {
+.stat-card--link {
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
+}
+
+.stat-card--link:hover {
     transform: translateY(-2px);
+    border-color: var(--border-2);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.stat-card--link:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 .stat-card::before {
@@ -90,7 +214,91 @@
 .stat-card__change {
     font-size: 11px;
     margin-top: 6px;
+    color: var(--white-4);
 }
 
-.stat-card__change--up   { color: var(--green); }
-.stat-card__change--down { color: var(--red); }
+.stat-card__go {
+    display: block;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 10px;
+    font-weight: 600;
+}
+
+.stat-grid--dashboard {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.card-title__link {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.card-title__link:hover {
+    text-decoration: underline;
+}
+
+.card-title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Clickable chart rows */
+.cat-bar-row--link,
+.status-row--link {
+    display: flex;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
+    text-align: left;
+    padding: 6px 8px;
+    margin: 0 -8px;
+    transition: background 0.12s;
+}
+
+.cat-bar-row--link:hover,
+.status-row--link:hover {
+    background: var(--navy-4);
+}
+
+.cat-bar-row--link:focus-visible,
+.status-row--link:focus-visible {
+    outline: none;
+    background: var(--navy-4);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.dashboard-charts {
+    margin-bottom: 24px;
+}
+
+@media (max-width: 1100px) {
+    .stat-grid--dashboard {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .stat-grid--dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-alert {
+        flex-direction: column;
+    }
+
+    .dashboard-alert__btn {
+        align-self: flex-start;
+    }
+}

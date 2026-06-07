@@ -9,13 +9,17 @@
     let poDir          = 'desc';
     let poViewId       = null; 
 
-    let MAX_CAT_CHIPS     = 3;
-    let ENDORSE_WARN_DAYS = 3;
+    let MAX_CAT_CHIPS       = 3;
+    let ENDORSE_WARN_DAYS   = 3;
+    let pendingPoUrlParams  = null;
 
     window.initPOs = function () {
+        pendingPoUrlParams = new URLSearchParams(window.location.search);
+
         if (typeof registerGlobalSearch === 'function') {
             registerGlobalSearch(function (term) {
                 safeSetVal('po_search', term);
+                safeSetVal('topbar_search', term);
                 debouncedApplyPoFilters();
             });
         }
@@ -26,6 +30,41 @@
         populatePoFiscalYearFilter();
         fetchInitialPOs();
     };
+
+    function applyPoUrlFilterFields(urlParams) {
+        let endorsed = urlParams.get('endorsed');
+        if (endorsed === 'pending') {
+            safeSetVal('filter_endorsed', 'no');
+        } else if (endorsed === 'overdue') {
+            safeSetVal('filter_endorsed', 'overdue');
+        }
+
+        if (urlParams.get('action') === 'new_po') {
+            setTimeout(function () {
+                window.openModal('add_po');
+            }, 100);
+        }
+    }
+
+    function getDaysSinceReceived(po) {
+        if (po.days_since_received != null && po.days_since_received !== '') {
+            return parseInt(po.days_since_received, 10) || 0;
+        }
+        if (!po.date_received) {
+            return 0;
+        }
+        let received = new Date(po.date_received + 'T00:00:00');
+        let today    = new Date();
+        today.setHours(0, 0, 0, 0);
+        return Math.max(
+            0,
+            Math.floor((today - received) / (1000 * 60 * 60 * 24))
+        );
+    }
+
+    function isPoEndorsed(po) {
+        return !!(po.date_endorsed && po.date_endorsed !== '0000-00-00');
+    }
 
     window.onPoEditClick = function (e, id) {
         e.stopPropagation();
@@ -58,6 +97,10 @@
             let url  = '/src/api/purchase_orders.php?per_page=5000';
             let data = await apiFetch(url);
             allPOs = data.data || [];
+            if (pendingPoUrlParams) {
+                applyPoUrlFilterFields(pendingPoUrlParams);
+                pendingPoUrlParams = null;
+            }
             applyClientPoFilters();
         } catch (err) {
             showToast('Failed to load purchase orders.', 'error');
@@ -127,15 +170,17 @@
                  p.vendor_name.toLowerCase().includes(search));
 
             let matchVendor = !vendorId || String(p.vendor_id) === vendorId;
-            let days = parseInt(p.days_since_received) || 0;
-            
+            let days        = getDaysSinceReceived(p);
+
             let matchEndorsed = true;
             if (endorsed === 'yes') {
-                matchEndorsed = !!p.date_endorsed;
+                matchEndorsed = isPoEndorsed(p);
             } else if (endorsed === 'no') {
-                matchEndorsed = !p.date_endorsed;
+                matchEndorsed = !isPoEndorsed(p);
             } else if (endorsed === 'overdue') {
-                matchEndorsed = !p.date_endorsed && days > ENDORSE_WARN_DAYS;
+                matchEndorsed = !isPoEndorsed(p)
+                    && !!p.date_received
+                    && days > ENDORSE_WARN_DAYS;
             }
 
             let matchCat = !catFilter || 
@@ -242,9 +287,9 @@
     }
 
     function buildAgeTag(po) {
-        if (po.date_endorsed) return '';
-        let days = parseInt(po.days_since_received) || 0;
-        
+        if (isPoEndorsed(po)) return '';
+        let days = getDaysSinceReceived(po);
+
         if (days <= ENDORSE_WARN_DAYS) return '';
         
         return `<span class="tag tag-defective" 

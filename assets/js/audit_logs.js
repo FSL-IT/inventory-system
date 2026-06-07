@@ -6,6 +6,29 @@
     let auditCurrentPage  = 1;
     let auditItemsPerPage = 50;
 
+    const AUDIT_SKIP_FIELDS = new Set([
+        'event', 'updated_at', 'created_at', 'deleted_at',
+    ]);
+
+    const AUDIT_FIELD_LABELS = {
+        serial_number: 'Serial Number',
+        description:   'Description',
+        status:        'Status',
+        po_id:         'Purchase Order',
+        category_id:   'Category',
+        location_id:   'Location',
+        owner_id:      'Process Owner',
+        remarks:       'Remarks',
+        po_number:     'PO Number',
+        date_endorsed: 'Date Endorsed',
+        date_received: 'Date Received',
+        vendor_id:     'Vendor',
+        fiscal_year:   'Fiscal Year',
+        username:      'Username',
+        role:          'Role',
+        name:          'Name',
+    };
+
     window.initAuditLogs = async function () {
         window.clearAuditFilters();
         await fetchInitialAuditLogs();
@@ -149,12 +172,13 @@
                         ${escapeHtml(a.action)}
                     </div>
                     <div class="audit-body audit-body-full">
-                        <div class="audit-desc" 
-                             style="display:flex;align-items:center;
-                                    flex-wrap:wrap;gap:6px">
-                            ${buildAuditDesc(a, changes)}
-                            <i class="bi bi-search audit-link-icon"></i>
-                            ${restoreBtn}
+                        <div class="audit-desc">
+                            <div class="audit-desc__main">
+                                ${buildAuditDesc(a, changes)}
+                                <i class="bi bi-search audit-link-icon"></i>
+                                ${restoreBtn}
+                            </div>
+                            ${buildAuditChangeChips(a, changes)}
                         </div>
                         <div class="audit-meta">
                             <span>
@@ -185,83 +209,48 @@
             return;
         }
 
-        let changes = parseChanges(log.changes);
-        let before  = changes.before ?? {};
-        let after   = changes.after  ?? {};
+        let changes      = parseChanges(log.changes);
+        let before       = changes.before ?? {};
+        let after        = changes.after  ?? {};
+        let changedKeys  = getChangedFieldKeys(changes, log.action);
+        let recordLabel  = getRecordLabel(log.table_name, changes, log.record_id);
 
         let titleEl = document.getElementById('audit_modal_title');
         let bodyEl  = document.getElementById('audit_modal_body');
 
         if (titleEl) {
-            titleEl.textContent = 
-                `${log.action} on ${log.table_name} #${log.record_id}`;
+            titleEl.textContent =
+                `${formatActionLabel(log.action)} — ` +
+                `${formatTableLabel(log.table_name)} ${recordLabel}`;
         }
         if (!bodyEl) return;
 
-        let allKeys = [
-            ...new Set([...Object.keys(before), ...Object.keys(after)])
-        ].filter(k => k !== 'event');
-        
-        let diffRows = '';
-
-        if (allKeys.length === 0) {
-            let ev   = after.event  ?? log.action;
-            let file = after.file   ?? '—';
-            let tbs  = after.tables ?? [];
-
-            diffRows = `
-                <tr>
-                    <td class="diff-key">Event</td>
-                    <td colspan="2">${escapeHtml(ev)}</td>
-                </tr>
-                <tr>
-                    <td class="diff-key">File</td>
-                    <td colspan="2"><code>${escapeHtml(file)}</code></td>
-                </tr>
-                ${tbs.length ? `
-                <tr>
-                    <td class="diff-key">Tables</td>
-                    <td colspan="2">${escapeHtml(tbs.join(', '))}</td>
-                </tr>` : ''}`;
-        } else {
-            diffRows = allKeys.map(k => {
-                let bVal = before[k] ?? null;
-                let aVal = after[k]  ?? null;
-                let changed = JSON.stringify(bVal) !== JSON.stringify(aVal);
-
-                let bCell = bVal !== null 
-                    ? `<span>${escapeHtml(String(bVal))}</span>` 
-                    : `<span style="color:var(--white-5)">—</span>`;
-                    
-                let aCell = aVal !== null 
-                    ? `<span class="${changed ? 'diff-changed' : ''}">
-                           ${escapeHtml(String(aVal))}
-                       </span>` 
-                    : `<span style="color:var(--white-5)">—</span>`;
-
-                return `
-                    <tr ${changed ? 'class="diff-row-changed"' : ''}>
-                        <td class="diff-key">${escapeHtml(formatKey(k))}</td>
-                        <td class="diff-before">${bCell}</td>
-                        <td class="diff-after">${aCell}</td>
-                    </tr>`;
-            }).join('');
-        }
+        let summaryHtml = buildAuditSummaryHtml(
+            log.action, changedKeys, changes
+        );
+        let diffRows    = buildAuditDiffRows(
+            log.action, before, after, changedKeys, changes
+        );
 
         bodyEl.innerHTML = `
-            <div style="margin-bottom:14px;font-size:12px;color:var(--white-4)">
-                <strong>By:</strong> ${escapeHtml(log.username ?? 'System')} ·
-                <strong>When:</strong> ${formatDate(log.timestamp)} ·
-                <strong>IP:</strong> ${escapeHtml(log.ip_address ?? '—')}
+            <div class="audit-detail-meta">
+                <span><i class="bi bi-person"></i>
+                    ${escapeHtml(log.username ?? 'System')}</span>
+                <span><i class="bi bi-calendar3"></i>
+                    ${formatDate(log.timestamp)}</span>
+                <span><i class="bi bi-globe"></i>
+                    ${escapeHtml(log.ip_address ?? '—')}</span>
+                <span><i class="bi bi-hash"></i>
+                    Record ID ${log.record_id}</span>
             </div>
-            <div class="table-wrapper" 
-                 style="max-height:400px;overflow-y:auto">
+            ${summaryHtml}
+            <div class="table-wrapper audit-diff-wrap">
                 <table class="data-table diff-table">
                     <thead>
                         <tr>
-                            <th style="width:28%">Field</th>
-                            <th style="width:36%">Before</th>
-                            <th style="width:36%">After</th>
+                            <th style="width:26%">Field</th>
+                            <th style="width:37%">Before</th>
+                            <th style="width:37%">After</th>
                         </tr>
                     </thead>
                     <tbody>${diffRows}</tbody>
@@ -346,13 +335,211 @@
             return `${user} restored ${table} ${idStr} (from audit #${src})`;
         }
 
-        let afterKeys = Object.keys(changes.after ?? {}).filter(k => k !== 'event');
-        if (afterKeys.length) {
-            let str = escapeHtml(afterKeys.map(k => formatKey(k)).join(', '));
-            return `${user} updated [${str}] on ${table} ${idStr}`;
+        let changed = getChangedFieldKeys(changes, entry.action);
+        if (changed.length) {
+            return `${user} updated ${table} ${idStr}`;
         }
 
         return `${user} updated ${table} ${idStr}`;
+    }
+
+    function buildAuditChangeChips(entry, changes) {
+        let keys = getChangedFieldKeys(changes, entry.action);
+        if (!keys.length) {
+            return '';
+        }
+
+        let chips = keys.map(function (k) {
+            return `<span class="audit-change-chip">${escapeHtml(formatKey(k))}</span>`;
+        }).join('');
+
+        let prefix = entry.action === 'INSERT'
+            ? 'Fields set'
+            : entry.action === 'DELETE'
+                ? 'Removed'
+                : 'Changed';
+
+        return `
+            <div class="audit-change-chips">
+                <span class="audit-change-chips__label">${prefix}:</span>
+                ${chips}
+            </div>`;
+    }
+
+    function buildAuditSummaryHtml(action, changedKeys, changes) {
+        if (!changedKeys.length) {
+            let ev = changes.after?.event;
+            if (ev) {
+                return `
+                    <div class="audit-changes-summary audit-changes-summary--info">
+                        <i class="bi bi-info-circle"></i>
+                        <span>${escapeHtml(String(ev))}</span>
+                    </div>`;
+            }
+            return '';
+        }
+
+        let chips = changedKeys.map(function (k) {
+            return `<span class="audit-change-chip audit-change-chip--lg">` +
+                `${escapeHtml(formatKey(k))}</span>`;
+        }).join('');
+
+        let verb = action === 'INSERT'
+            ? 'New record — fields created'
+            : action === 'DELETE'
+                ? 'Record deleted — previous values'
+                : `${changedKeys.length} field` +
+                  `${changedKeys.length !== 1 ? 's' : ''} changed`;
+
+        return `
+            <div class="audit-changes-summary">
+                <div class="audit-changes-summary__title">${verb}</div>
+                <div class="audit-change-chips">${chips}</div>
+            </div>`;
+    }
+
+    function buildAuditDiffRows(action, before, after, changedKeys, changes) {
+        if (action === 'BACKUP' || action === 'RESTORE') {
+            let ev   = changes.after?.event  ?? action;
+            let file = changes.after?.file   ?? '—';
+            let tbs  = changes.after?.tables ?? [];
+            return `
+                <tr class="diff-row-changed">
+                    <td class="diff-key">Event</td>
+                    <td class="diff-before">—</td>
+                    <td class="diff-after diff-cell--new">
+                        ${escapeHtml(String(ev))}</td>
+                </tr>
+                <tr class="diff-row-changed">
+                    <td class="diff-key">File</td>
+                    <td class="diff-before">—</td>
+                    <td class="diff-after diff-cell--new">
+                        <code>${escapeHtml(String(file))}</code></td>
+                </tr>
+                ${tbs.length ? `
+                <tr class="diff-row-changed">
+                    <td class="diff-key">Tables</td>
+                    <td class="diff-before">—</td>
+                    <td class="diff-after diff-cell--new">
+                        ${escapeHtml(tbs.join(', '))}</td>
+                </tr>` : ''}`;
+        }
+
+        let allKeys = [
+            ...new Set([...Object.keys(before), ...Object.keys(after)]),
+        ].filter(function (k) {
+            return !AUDIT_SKIP_FIELDS.has(k);
+        });
+
+        if (!allKeys.length) {
+            return `
+                <tr>
+                    <td colspan="3" class="audit-diff-empty">
+                        No field-level details recorded for this entry.
+                    </td>
+                </tr>`;
+        }
+
+        let sorted = allKeys.slice().sort(function (a, b) {
+            let aChanged = changedKeys.includes(a) ? 0 : 1;
+            let bChanged = changedKeys.includes(b) ? 0 : 1;
+            if (aChanged !== bChanged) return aChanged - bChanged;
+            return formatKey(a).localeCompare(formatKey(b));
+        });
+
+        return sorted.map(function (k) {
+            let bVal    = before[k] ?? null;
+            let aVal    = after[k]  ?? null;
+            let changed = changedKeys.includes(k);
+
+            let bCell = formatDiffValue(bVal, changed, 'old');
+            let aCell = formatDiffValue(aVal, changed, 'new');
+
+            return `
+                <tr class="${changed ? 'diff-row-changed' : 'diff-row-unchanged'}">
+                    <td class="diff-key">
+                        ${changed ? '<i class="bi bi-pencil-fill diff-key__icon"></i> ' : ''}
+                        ${escapeHtml(formatKey(k))}
+                    </td>
+                    <td class="diff-before ${changed ? 'diff-cell--old' : ''}">
+                        ${bCell}</td>
+                    <td class="diff-after ${changed ? 'diff-cell--new' : ''}">
+                        ${aCell}</td>
+                </tr>`;
+        }).join('');
+    }
+
+    function formatDiffValue(val, changed, side) {
+        if (val === null || val === undefined || val === '') {
+            return '<span class="diff-empty">—</span>';
+        }
+        let cls = changed
+            ? (side === 'old' ? 'diff-val diff-val--old' : 'diff-val diff-val--new')
+            : 'diff-val';
+        return `<span class="${cls}">${escapeHtml(String(val))}</span>`;
+    }
+
+    function getChangedFieldKeys(changes, action) {
+        let before = changes.before ?? {};
+        let after  = changes.after  ?? {};
+        let keys   = [...new Set([
+            ...Object.keys(before),
+            ...Object.keys(after),
+        ])].filter(function (k) {
+            return !AUDIT_SKIP_FIELDS.has(k);
+        });
+
+        if (action === 'INSERT') {
+            return keys.filter(function (k) {
+                let v = after[k];
+                return v !== null && v !== undefined && v !== '';
+            });
+        }
+        if (action === 'DELETE') {
+            return keys.filter(function (k) {
+                let v = before[k];
+                return v !== null && v !== undefined && v !== '';
+            });
+        }
+
+        return keys.filter(function (k) {
+            return JSON.stringify(before[k] ?? null)
+                !== JSON.stringify(after[k] ?? null);
+        });
+    }
+
+    function getRecordLabel(table, changes, recordId) {
+        let data  = { ...(changes.before ?? {}), ...(changes.after ?? {}) };
+        let label = data.serial_number
+            ?? data.po_number
+            ?? data.name
+            ?? data.username
+            ?? `#${recordId}`;
+        return `<code>${escapeHtml(String(label))}</code>`;
+    }
+
+    function formatActionLabel(action) {
+        let map = {
+            INSERT: 'Created',
+            UPDATE: 'Updated',
+            DELETE: 'Deleted',
+            BACKUP: 'Backup',
+            RESTORE: 'Restore',
+        };
+        return map[action] ?? action;
+    }
+
+    function formatTableLabel(table) {
+        let map = {
+            assets:          'Asset',
+            purchase_orders: 'Purchase Order',
+            categories:      'Category',
+            locations:       'Location',
+            process_owners:  'Process Owner',
+            vendors:         'Vendor',
+            users:           'User',
+        };
+        return map[table] ?? table;
     }
 
     function parseChanges(raw) {
@@ -376,9 +563,12 @@
     }
 
     function formatKey(key) {
+        if (AUDIT_FIELD_LABELS[key]) {
+            return AUDIT_FIELD_LABELS[key];
+        }
         return key
             .replace(/_id$/, '')
             .replace(/_/g, ' ')
-            .replace(/^\w/, c => c.toUpperCase());
+            .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
     }
 })();

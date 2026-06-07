@@ -5,8 +5,7 @@ require_once __DIR__ . '/../../src/core/auth.php';
 requireLogin();
 
 $pageTitle = 'Dashboard';
-$pageJs = 'dashboard.js';
-$pageJs2 = 'assets.js';
+$pageJs    = 'dashboard.js';
 
 include __DIR__ . '/shared/header.php';
 include __DIR__ . '/shared/sidebar.php';
@@ -15,141 +14,118 @@ include __DIR__ . '/shared/sidebar.php';
 <div class="main" id="main_content">
     <div class="topbar">
         <button class="topbar__toggle" id="sidebar_toggle"
-            onclick="toggleSidebar()">
+                onclick="toggleSidebar()">
             <i class="bi bi-list"></i>
         </button>
         <div class="topbar__title" id="topbar_title">Dashboard</div>
         <div class="topbar__search">
             <i class="bi bi-search topbar__search-icon"></i>
-            <input
-                type="text"
-                id="global_search"
-                placeholder="Search serial #, PO, description..."
-                oninput="globalSearch(this.value)">
+            <input type="text"
+                    id="topbar_search"
+                    placeholder="Search assets by serial, PO, or description…"
+                    oninput="globalSearch(this.value)">
         </div>
     </div>
 
     <div class="content">
         <div class="page-header">
             <div class="page-header__left">
-                <div class="page-header__title">Asset Overview</div>
+                <div class="page-header__title">Dashboard</div>
                 <div class="page-header__desc">
-                    Real-time tracking of all received PO inventory assets
+                    PO-to-asset workflow at a glance — click any metric
+                    to jump to the relevant page.
                 </div>
+            </div>
+            <div class="page-header__right dashboard-quick-actions">
+                <button type="button" class="btn btn-secondary btn-sm"
+                        onclick="appNavigate(
+                            '/src/views/purchase_orders.php?action=new_po'
+                        )">
+                    <i class="bi bi-file-earmark-plus"></i> New PO
+                </button>
+                <button type="button" class="btn btn-primary btn-sm"
+                        onclick="appNavigate(
+                            '/src/views/assets.php?action=add_asset'
+                        )">
+                    <i class="bi bi-plus-lg"></i> Add Asset
+                </button>
             </div>
         </div>
 
-        <!-- Stat Cards Row 1 -->
-        <div class="stat-grid" id="stat_grid_1">
-            <div class="stat-card stat-card--orange" id="stat_total">
-                <div class="stat-card__icon">
-                    <i class="bi bi-box-seam"></i>
-                </div>
-                <div class="stat-card__num" id="stat_total_num">—</div>
-                <div class="stat-card__label">Total Assets</div>
-                <div class="stat-card__change stat-card__change--up"
-                    id="stat_total_sub"></div>
-            </div>
-            <div class="stat-card stat-card--green" id="stat_active">
-                <div class="stat-card__icon">
-                    <i class="bi bi-check-circle"></i>
-                </div>
-                <div class="stat-card__num" id="stat_active_num">—</div>
-                <div class="stat-card__label">Active / Deployed</div>
-                <div class="stat-card__change stat-card__change--up"
-                    id="stat_active_sub"></div>
-            </div>
-            <div class="stat-card stat-card--yellow" id="stat_pending">
-                <div class="stat-card__icon">
-                    <i class="bi bi-exclamation-triangle"></i>
-                </div>
-                <div class="stat-card__num" id="stat_pending_num">—</div>
-                <div class="stat-card__label">Pending Endorsement</div>
-                <div class="stat-card__change stat-card__change--down">
-                    ↓ Needs attention
+        <section class="dashboard-section">
+            <h2 class="dashboard-section__title">
+                <i class="bi bi-bell"></i> Needs Your Attention
+            </h2>
+            <div id="dashboard_alerts" class="dashboard-alerts">
+                <div class="dashboard-alerts__loading">
+                    Loading alerts…
                 </div>
             </div>
-            <div class="stat-card stat-card--red" id="stat_defective">
-                <div class="stat-card__icon">
-                    <i class="bi bi-tools"></i>
-                </div>
-                <div class="stat-card__num" id="stat_defective_num">—</div>
-                <div class="stat-card__label">Defective / In Repair</div>
-                <div class="stat-card__change stat-card__change--down"
-                    id="stat_defective_sub"></div>
-            </div>
-        </div>
+        </section>
 
-        <!-- Stat Cards Row 2 -->
-        <div class="stat-grid" id="stat_grid_2">
-            <div class="stat-card stat-card--blue">
-                <div class="stat-card__icon">
-                    <i class="bi bi-file-earmark-text"></i>
-                </div>
-                <div class="stat-card__num" id="stat_pos_num">—</div>
-                <div class="stat-card__label">Total PO Records</div>
+        <section class="dashboard-section">
+            <h2 class="dashboard-section__title">
+                <i class="bi bi-grid"></i> Inventory at a Glance
+            </h2>
+            <div class="stat-grid stat-grid--dashboard" id="stat_grid_main">
             </div>
-            <div class="stat-card stat-card--purple">
-                <div class="stat-card__icon">
-                    <i class="bi bi-geo-alt"></i>
-                </div>
-                <div class="stat-card__num" id="stat_loc_num">—</div>
-                <div class="stat-card__label">Center Locations</div>
-            </div>
-            <div class="stat-card stat-card--orange">
-                <div class="stat-card__icon">
-                    <i class="bi bi-building"></i>
-                </div>
-                <div class="stat-card__num" id="stat_vendor_num">—</div>
-                <div class="stat-card__label">Active Vendors</div>
-            </div>
-            <div class="stat-card stat-card--green">
-                <div class="stat-card__icon">
-                    <i class="bi bi-tags"></i>
-                </div>
-                <div class="stat-card__num" id="stat_cat_num">—</div>
-                <div class="stat-card__label">Asset Categories</div>
-            </div>
-        </div>
+        </section>
 
-        <!-- Charts Row -->
-        <div class="grid-3col">
+        <div class="grid-2col dashboard-charts">
             <div class="card">
                 <div class="card-title">
-                    Category Breakdown
-                    <span class="card-title__sub">by unit count</span>
+                    Assets by Category
+                    <a href="#" class="card-title__link"
+                            onclick="event.preventDefault();
+                                     appNavigate('/src/views/assets.php')">
+                        View all assets →
+                    </a>
                 </div>
                 <div id="category_breakdown"></div>
             </div>
-            <div style="display:flex;flex-direction:column;gap:16px">
-                <div class="card">
-                    <div class="card-title">Asset Status</div>
-                    <div id="status_breakdown"></div>
+            <div class="card">
+                <div class="card-title">
+                    Assets by Status
+                    <span class="card-title__sub">click a row to filter</span>
                 </div>
-                <div class="card">
-                    <div class="card-title">
-                        <i class="bi bi-lightning-charge"></i> Smart Insights
-                    </div>
-                    <div id="dashboard_insights"></div>
-                </div>
+                <div id="status_breakdown"></div>
             </div>
         </div>
 
-        <!-- Activity + Location Row -->
         <div class="grid-2col">
             <div class="card">
                 <div class="card-title">
                     Recent Activity
-                    <span class="card-title__sub">last 5 actions</span>
+                    <?php if (isAdmin()): ?>
+                    <a href="#" class="card-title__link"
+                            onclick="event.preventDefault();
+                                     appNavigate(
+                                         '/src/views/admin/audit_logs.php'
+                                     )">
+                        Full audit log →
+                    </a>
+                    <?php endif; ?>
                 </div>
                 <div id="recent_activity"></div>
             </div>
             <div class="card">
-                <div class="card-title">Top Process Owners</div>
+                <div class="card-title">
+                    Top Process Owners
+                    <span class="card-title__sub">click a row to view assets</span>
+                    <?php if (isAdmin()): ?>
+                    <a href="#" class="card-title__link"
+                            onclick="event.preventDefault();
+                                     appNavigate(
+                                         '/src/views/process_owners.php'
+                                     )">
+                        Manage →
+                    </a>
+                    <?php endif; ?>
+                </div>
                 <div id="top_owners"></div>
             </div>
         </div>
-    </div><!-- end content -->
-</div><!-- end main -->
+    </div>
+</div>
 
 <?php include __DIR__ . '/shared/footer.php'; ?>

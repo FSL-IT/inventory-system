@@ -7,8 +7,11 @@
     let itemsPerPage   = 25;
     let currentSort    = 'a.created_at';
     let currentDir     = 'desc';
-    let assetViewId    = null; 
-    let assetMode      = 'single';
+    let assetViewId      = null;
+    let assetMode        = 'single';
+    let filterMissingSn    = false;
+    let filterAttention    = false;
+    let filterOperational  = false;
 
     window.initAssets = function () {
         let urlParams = new URLSearchParams(window.location.search);
@@ -17,31 +20,43 @@
         let poId      = urlParams.get('po_id');
         let poNumber  = urlParams.get('po_number');
 
+        filterMissingSn   = urlParams.get('missing_sn') === '1';
+        filterAttention   = urlParams.get('attention') === '1';
+        filterOperational = urlParams.get('operational') === '1';
+
         if (urlSearch) {
             safeSetVal('asset_search', urlSearch);
+            safeSetVal('topbar_search', urlSearch);
         }
+
+        applyAssetUrlFilterFields(urlParams);
 
         fetchInitialAssets();
         bindAssetPoChangeListener();
 
         populateAssetFormDropdowns().then(function () {
-            if (action === 'add_asset' && poId) {
+            applyAssetUrlFilterFields(urlParams);
+            applyClientFilters();
+
+            if (action === 'add_asset') {
                 window.openAddAsset();
-                setTimeout(function () {
-                    if (typeof setSearchableSelectValue === 'function') {
-                        setSearchableSelectValue('asset_po', poId);
-                    }
-                    window.onPoChange(poId);
-                    
-                    let hint = document.getElementById('po_autofill_hint');
-                    let msg  = document.getElementById('po_autofill_msg');
-                    if (hint && msg) {
-                        msg.textContent = 
-                            `Adding assets to PO: ${poNumber}. ` +
-                            `Location and owner pre-filled.`;
-                        hint.classList.remove('hidden');
-                    }
-                }, 500);
+                if (poId) {
+                    setTimeout(function () {
+                        if (typeof setSearchableSelectValue === 'function') {
+                            setSearchableSelectValue('asset_po', poId);
+                        }
+                        window.onPoChange(poId);
+
+                        let hint = document.getElementById('po_autofill_hint');
+                        let msg  = document.getElementById('po_autofill_msg');
+                        if (hint && msg) {
+                            msg.textContent =
+                                `Adding assets to PO: ${poNumber}. ` +
+                                `Location and owner pre-filled.`;
+                            hint.classList.remove('hidden');
+                        }
+                    }, 500);
+                }
             }
         });
         
@@ -52,12 +67,32 @@
         if (typeof registerGlobalSearch === 'function') {
             registerGlobalSearch(function (term) {
                 safeSetVal('asset_search', term);
+                safeSetVal('topbar_search', term);
                 if (typeof window.debouncedLoadAssets === 'function') {
                     window.debouncedLoadAssets();
                 }
             });
         }
     };
+
+    function applyAssetUrlFilterFields(urlParams) {
+        let status = urlParams.get('status');
+        if (status) {
+            safeSetVal('filter_status', status);
+        }
+        let categoryId = urlParams.get('category_id');
+        if (categoryId) {
+            safeSetVal('filter_category', categoryId);
+        }
+        let locationId = urlParams.get('location_id');
+        if (locationId) {
+            safeSetVal('filter_location', locationId);
+        }
+        let ownerId = urlParams.get('owner_id');
+        if (ownerId) {
+            safeSetVal('filter_owner', ownerId);
+        }
+    }
 
     function bindAssetPoChangeListener() {
         let poInput = document.getElementById('asset_po');
@@ -183,8 +218,18 @@
             let matchLoc = !locId || String(a.location_id) === locId;
             let matchOwn = !ownId || String(a.owner_id) === ownId;
 
+            let matchMissingSn = !filterMissingSn ||
+                !a.serial_number || String(a.serial_number).trim() === '';
+
+            let matchAttention = !filterAttention ||
+                a.status === 'defective' || a.status === 'in_repair';
+
+            let matchOperational = !filterOperational ||
+                a.status === 'active' || a.status === 'deployed';
+
             return matchSearch && matchStatus &&
-                   matchCat && matchLoc && matchOwn;
+                   matchCat && matchLoc && matchOwn &&
+                   matchMissingSn && matchAttention && matchOperational;
         });
 
         let SORT_MAP = {

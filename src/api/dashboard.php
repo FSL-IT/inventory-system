@@ -35,11 +35,12 @@ function fetchDashboardStats(): void
 
     // By category
     $byCategory = $pdo->query('
-        SELECT c.name, COUNT(a.id) AS count
+        SELECT c.id, c.name, COUNT(a.id) AS count
         FROM categories c
         LEFT JOIN assets a
             ON a.category_id = c.id AND a.deleted_at IS NULL
         GROUP BY c.id, c.name
+        HAVING count > 0
         ORDER BY count DESC
     ')->fetchAll();
 
@@ -55,11 +56,12 @@ function fetchDashboardStats(): void
 
     // Top owners
     $topOwners = $pdo->query('
-        SELECT o.name, COUNT(a.id) AS count
+        SELECT o.id, o.name, COUNT(a.id) AS count
         FROM process_owners o
         LEFT JOIN assets a
             ON a.owner_id = o.id AND a.deleted_at IS NULL
         GROUP BY o.id, o.name
+        HAVING count > 0
         ORDER BY count DESC
         LIMIT 5
     ')->fetchAll();
