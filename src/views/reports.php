@@ -43,11 +43,6 @@ include __DIR__ . '/shared/sidebar.php';
                     <i class="bi bi-geo-alt"></i>
                     By Location
                 </button>
-                <button id="tab_by_owner"
-                        class="btn btn-secondary">
-                    <i class="bi bi-person-workspace"></i>
-                    By Process Owner
-                </button>
             </div>
             <div style="margin-left:auto;display:flex;
                         align-items:center;gap:8px">
@@ -75,11 +70,6 @@ include __DIR__ . '/shared/sidebar.php';
         </div>
 
         <?php
-        // NOTE: footer.php already closes:
-        //   </div><!-- end content -->
-        //   </div><!-- end main -->
-        //   </div><!-- end app-shell -->
-        // DO NOT add those closing tags here.
         ?>
 
 <?php include __DIR__ . '/shared/footer.php'; ?>

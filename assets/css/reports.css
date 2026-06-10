@@ -1,9 +1,3 @@
-/* assets/css/reports.css
-   APPEND this file — link it in header.php after components.css
-   <link rel="stylesheet" href="/assets/css/reports.css">
-*/
-
-/* ── Report group header ─────────────────────────────────────── */
 .report-group__header {
     display: flex;
     align-items: center;
@@ -25,18 +19,15 @@
     flex: 1;
 }
 
-/* ── Print header (hidden on screen, shown on print) ─────────── */
 .report-print-header {
     display: none;
 }
 
-/* ── Sort icon active state (used in purchase_orders.js too) ─── */
 .sort-active {
     opacity: 1;
     color: var(--accent);
 }
 
-/* ── Print styles ────────────────────────────────────────────── */
 @media print {
     .sidebar,
     .topbar,

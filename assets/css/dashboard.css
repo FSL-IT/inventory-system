@@ -12,7 +12,7 @@
     font-family: var(--font-display);
     font-size: 14px;
     font-weight: 600;
-    color: var(--white-2);
+    color: #000000;
     margin-bottom: 14px;
 }
 
@@ -92,7 +92,7 @@
 .dashboard-alert__title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--white);
+    color: #000000;
     margin-bottom: 4px;
 }
 

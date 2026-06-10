@@ -27,7 +27,7 @@
 
 .btn-secondary {
     background: var(--navy-4);
-    color: var(--white-2);
+    color: #000000; 
     border: 1px solid var(--border);
 }
 
@@ -256,7 +256,7 @@
 
 .pagination-btn:hover {
     background: var(--navy-5);
-    color: var(--white-2);
+    color: #000000;
 }
 
 .pagination-btn.active {
@@ -288,7 +288,7 @@
 
 .page-header__desc {
     font-size: 13px;
-    color: var(--white-3);
+    color: #000000;
 }
 
 .page-header__right {
@@ -484,7 +484,7 @@
 .upload-zone__label {
     font-size: 14px;
     font-weight: 600;
-    color: var(--white-2);
+    color: #000000;
     margin-bottom: 4px;
 }
 
@@ -918,7 +918,7 @@
 
 .activity-action {
     font-size: 12px;
-    color: var(--white-2);
+    color: #000000;
 }
 
 .activity-time {
@@ -938,7 +938,7 @@
 
 .cat-bar-label {
     width: 100px;
-    color: var(--white-2);
+    color: #000000;
     font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
@@ -990,12 +990,12 @@
 
 .status-name {
     flex: 1;
-    color: var(--white-2);
+    color: #000000;
 }
 
 .status-count {
     font-weight: 700;
-    color: var(--white);
+    color: #000000;
 }
 
 .status-pct {
