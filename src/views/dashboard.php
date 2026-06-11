@@ -18,13 +18,6 @@ include __DIR__ . '/shared/sidebar.php';
             <i class="bi bi-list"></i>
         </button>
         <div class="topbar__title" id="topbar_title">Dashboard</div>
-        <div class="topbar__search">
-            <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text"
-                    id="topbar_search"
-                    placeholder="Search assets by serial, PO, or description…"
-                    oninput="globalSearch(this.value)">
-        </div>
     </div>
 
     <div class="content">

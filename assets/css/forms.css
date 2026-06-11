@@ -192,3 +192,11 @@
     gap: 14px;
     margin-bottom: 18px;
 }
+
+.login-logo__name {
+    color: var(--white) !important;
+}
+
+.login-logo__sub {
+    color: var(--white-3) !important;
+}

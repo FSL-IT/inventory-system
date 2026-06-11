@@ -21,12 +21,6 @@ include __DIR__ . '/shared/sidebar.php';
             <i class="bi bi-list"></i>
         </button>
         <div class="topbar__title">PO Tracker</div>
-        <div class="topbar__search">
-            <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="topbar_search"
-                    placeholder="Search PO number, vendor..."
-                    oninput="globalSearch(this.value)">
-        </div>
     </div>
 
     <div class="content">

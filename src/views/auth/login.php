@@ -22,11 +22,11 @@ if (isLoggedIn()) {
     <link rel="stylesheet" href="/assets/css/responsive.css">
     
     <link rel="stylesheet" 
-            href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap">
+          href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap">
     <link rel="stylesheet" 
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" 
-            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body class="login-body">
 
@@ -36,7 +36,6 @@ if (isLoggedIn()) {
             <div class="login-logo__icon">📦</div>
             <div class="login-logo__name">FSL Inventory</div>
             <div class="login-logo__sub">
-                PO Received Asset Tracking System
             </div>
         </div>
 
@@ -46,15 +45,15 @@ if (isLoggedIn()) {
             <div class="form-group">
                 <label for="login_username">Username</label>
                 <input type="text" id="login_username"
-                        placeholder="Enter username"
-                        autocomplete="username">
+                       placeholder="Enter username"
+                       autocomplete="username">
             </div>
             
             <div class="form-group mb-3">
                 <label for="login_password">Password</label>
                 <div class="input-wrapper">
                     <input type="password" id="login_password" 
-                            name="password" required>
+                           name="password" required>
                     
                     <button type="button" class="pw-toggle-btn"
                             onclick="togglePwVis('login_password', this)">

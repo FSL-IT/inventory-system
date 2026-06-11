@@ -23,12 +23,6 @@ include __DIR__ . '/../shared/sidebar.php';
                     placeholder="Search users…"
                     oninput="globalSearch(this.value)">
         </div>
-        <div class="topbar__actions">
-            <div class="icon-btn"
-                onclick="showToast('No notifications','info')">
-                <i class="bi bi-bell"></i>
-            </div>
-        </div>
     </div>
 
     <div class="content">
