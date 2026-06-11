@@ -31,10 +31,6 @@ source database/fsl_inventory.sql
 ### 5. Default credentials
 | Username | Password | Role  |
 |----------|----------|-------|
-| admin    | (set in DB seed) | Admin |
+| admin    | password | Admin |
 
 > **Important:** Update the default admin password immediately after first login.
-
-```
-
-
