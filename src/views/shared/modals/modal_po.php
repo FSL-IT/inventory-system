@@ -28,10 +28,48 @@
                 </div>
 
                 <div class="form-field">
-                    <label for="po_vendor">Vendor</label>
-                    <select id="po_vendor">
-                        <option value="">— Select Vendor —</option>
-                    </select>
+                    <label id="label_po_vendor_field"
+                            for="trigger_po_vendor">
+                        Vendor
+                    </label>
+                    <div class="searchable-select-wrap"
+                            id="wrap_po_vendor">
+                        <button type="button"
+                                class="searchable-select-trigger"
+                                id="trigger_po_vendor"
+                                aria-labelledby="label_po_vendor_field"
+                                onclick="toggleSearchableSelect(
+                                    'po_vendor'
+                                )">
+                            <span id="label_po_vendor">
+                                — Select Vendor —
+                            </span>
+                            <i class="bi bi-chevron-down"
+                                    aria-hidden="true"></i>
+                        </button>
+                        <div class="searchable-select-dropdown"
+                                id="dropdown_po_vendor"
+                                role="listbox"
+                                style="display:none">
+                            <div class="searchable-select-search-wrap">
+                                <i class="bi bi-search"
+                                        aria-hidden="true"></i>
+                                <input type="text"
+                                        class="searchable-select-search"
+                                        placeholder="Search vendors..."
+                                        autocomplete="off"
+                                        aria-label="Search vendors"
+                                        oninput="filterSearchableSelect(
+                                            'po_vendor', this.value
+                                        )"
+                                        onclick="event.stopPropagation()">
+                            </div>
+                            <div class="searchable-select-options"
+                                    id="options_po_vendor">
+                            </div>
+                        </div>
+                        <input type="hidden" id="po_vendor">
+                    </div>
                 </div>
 
                 <div class="field-grid">
@@ -143,11 +181,13 @@
                     onclick="window.closeModal('view_po')">
                 Close
             </button>
+            <?php if (isAdmin()): ?>
             <button class="btn btn-secondary"
                     id="view_po_edit_btn"
                     onclick="window.editPoFromView()">
                 <i class="bi bi-pencil"></i> Edit PO
             </button>
+            <?php endif; ?>
         </div>
     </div>
 </div>

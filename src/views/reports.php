@@ -24,26 +24,12 @@ include __DIR__ . '/shared/sidebar.php';
             <div class="page-header__left">
                 <div class="page-header__title">Reports</div>
                 <div class="page-header__desc">
-                    Per-location and per-owner asset summaries.
-                    Use Print / Save PDF to export.
+                    location asset reports.
                 </div>
-            </div>
-            <div class="page-header__right">
-                <button class="btn btn-secondary" id="btn_print">
-                    <i class="bi bi-printer"></i>
-                    Print / Save PDF
-                </button>
             </div>
         </div>
 
         <div class="table-toolbar" id="report_toolbar">
-            <div style="display:flex;gap:8px">
-                <button id="tab_by_location"
-                        class="btn btn-primary">
-                    <i class="bi bi-geo-alt"></i>
-                    By Location
-                </button>
-            </div>
             <div style="margin-left:auto;display:flex;
                         align-items:center;gap:8px">
                 <span id="report_meta"

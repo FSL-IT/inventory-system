@@ -156,10 +156,11 @@
                 changes.before && 
                 Object.keys(changes.before).length > 0;
 
+            let btnStr = `window.restoreRecord(${a.id})`;
             let restoreBtn = canRestore
                 ? `<button class="btn btn-secondary btn-sm" 
                            style="font-size:11px;margin-left:6px"
-                           onclick="event.stopPropagation(); window.restoreRecord(${a.id})" 
+                           onclick="event.stopPropagation(); ${btnStr}" 
                            title="Restore to previous state">
                        <i class="bi bi-arrow-counterclockwise"></i> Restore
                    </button>`
@@ -213,13 +214,15 @@
         let before       = changes.before ?? {};
         let after        = changes.after  ?? {};
         let changedKeys  = getChangedFieldKeys(changes, log.action);
-        let recordLabel  = getRecordLabel(log.table_name, changes, log.record_id);
+        let recordLabel  = getRecordLabel(
+            log.table_name, changes, log.record_id
+        );
 
         let titleEl = document.getElementById('audit_modal_title');
         let bodyEl  = document.getElementById('audit_modal_body');
 
         if (titleEl) {
-            titleEl.textContent =
+            titleEl.innerHTML =
                 `${formatActionLabel(log.action)} — ` +
                 `${formatTableLabel(log.table_name)} ${recordLabel}`;
         }
@@ -290,7 +293,7 @@
                     })
                 });
                 showToast(
-                    `${log.table_name} #${log.record_id} restored successfully.`, 
+                    `${log.table_name} #${log.record_id} restored.`, 
                     'success'
                 );
                 fetchInitialAuditLogs();
@@ -345,12 +348,11 @@
 
     function buildAuditChangeChips(entry, changes) {
         let keys = getChangedFieldKeys(changes, entry.action);
-        if (!keys.length) {
-            return '';
-        }
+        if (!keys.length) return '';
 
         let chips = keys.map(function (k) {
-            return `<span class="audit-change-chip">${escapeHtml(formatKey(k))}</span>`;
+            let f = escapeHtml(formatKey(k));
+            return `<span class="audit-change-chip">${f}</span>`;
         }).join('');
 
         let prefix = entry.action === 'INSERT'
@@ -371,7 +373,8 @@
             let ev = changes.after?.event;
             if (ev) {
                 return `
-                    <div class="audit-changes-summary audit-changes-summary--info">
+                    <div class="audit-changes-summary 
+                                audit-changes-summary--info">
                         <i class="bi bi-info-circle"></i>
                         <span>${escapeHtml(String(ev))}</span>
                     </div>`;
@@ -454,11 +457,13 @@
 
             let bCell = formatDiffValue(bVal, changed, 'old');
             let aCell = formatDiffValue(aVal, changed, 'new');
+            let rCls  = changed ? 'diff-row-changed' : 'diff-row-unchanged';
+            let iCls  = '<i class="bi bi-pencil-fill diff-key__icon"></i> ';
 
             return `
-                <tr class="${changed ? 'diff-row-changed' : 'diff-row-unchanged'}">
+                <tr class="${rCls}">
                     <td class="diff-key">
-                        ${changed ? '<i class="bi bi-pencil-fill diff-key__icon"></i> ' : ''}
+                        ${changed ? iCls : ''}
                         ${escapeHtml(formatKey(k))}
                     </td>
                     <td class="diff-before ${changed ? 'diff-cell--old' : ''}">

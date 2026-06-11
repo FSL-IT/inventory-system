@@ -3,8 +3,11 @@
 
 require_once __DIR__ . '/../../src/core/auth.php';
 requireRole('admin');
+
 $pageTitle = 'Locations';
-$pageJs    = 'locations.js';
+$pageJs    = 'ref_table.js';
+$pageJs2   = 'locations.js';
+
 include __DIR__ . '/shared/header.php';
 include __DIR__ . '/shared/sidebar.php';
 ?>

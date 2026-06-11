@@ -3,8 +3,11 @@
 
 require_once __DIR__ . '/../../src/core/auth.php';
 requireRole('admin');
+
 $pageTitle = 'Process Owners';
-$pageJs    = 'process_owners.js';
+$pageJs    = 'ref_table.js';
+$pageJs2   = 'process_owners.js';
+
 include __DIR__ . '/shared/header.php';
 include __DIR__ . '/shared/sidebar.php';
 ?>
