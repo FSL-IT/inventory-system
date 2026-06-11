@@ -51,7 +51,9 @@ function getQueryString(string $key, string $default = ''): string
 
 function getQueryInt(string $key, int $default = 0): int
 {
-    return (int) filter_input(INPUT_GET, $key, FILTER_VALIDATE_INT) ?: $default;
+    return (int) filter_input(
+        INPUT_GET, $key, FILTER_VALIDATE_INT
+    ) ?: $default;
 }
 
 function getClientIp(): string

@@ -28,16 +28,17 @@ include __DIR__ . '/../shared/sidebar.php';
     <div class="content">
         <div class="page-header">
             <div class="page-header__left">
-                <div class="page-header__title">User Management</div>
+                <div class="page-header__title">
+                    User Management
+                </div>
                 <div class="page-header__desc">
-                    Manage system users, roles, and access levels
+                    Manage system access and administrator roles.
                 </div>
             </div>
             <div class="page-header__right">
-                <button
-                    class="btn btn-primary"
-                    onclick="openModal('add_user')">
-                    <i class="bi bi-person-plus"></i> Add User
+                <button class="btn btn-primary"
+                        onclick="window.openAddUser()">
+                    <i class="bi bi-plus-lg"></i> Add User
                 </button>
             </div>
         </div>

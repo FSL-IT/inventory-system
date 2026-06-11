@@ -27,15 +27,15 @@ function applyUserSearch(term) {
 }
 
 // ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
-function onEditClick(e, id, username, role) {
+window.onEditClick = function(e, id, username, role) {
     e.stopPropagation();
-    openEditUser(id, username, role);
-}
+    window.openEditUser(id, username, role);
+};
 
-function onDeleteClick(e, id, username) {
+window.onDeleteClick = function(e, id, username) {
     e.stopPropagation();
-    deleteUser(id, username);
-}
+    window.deleteUser(id, username);
+};
 
 // ─── LOAD & RENDER ──────────────────────────────────────────────────────────
 async function loadUsers() {
@@ -74,13 +74,17 @@ function renderUserTable(users) {
         
         const deleteBtn = u.username !== 'admin' ? `
             <button class="btn btn-danger btn-sm"
-                    onclick="onDeleteClick(event, ${u.id}, '${jsUser}')">
+                    onclick="window.onDeleteClick(
+                        event, ${u.id}, '${jsUser}'
+                    )">
                 <i class="bi bi-trash"></i>
             </button>` : '';
 
         return `
             <tr class="clickable-row" 
-                    onclick="openEditUser(${u.id}, '${jsUser}', '${jsRole}')">
+                    onclick="window.openEditUser(
+                        ${u.id}, '${jsUser}', '${jsRole}'
+                    )">
                 <td>
                     <div class="user-row-wrapper">
                         <div class="user-avatar">${initial}</div>
@@ -99,7 +103,7 @@ function renderUserTable(users) {
                 <td>
                     <div class="table-actions">
                         <button class="btn btn-secondary btn-sm"
-                                onclick="onEditClick(
+                                onclick="window.onEditClick(
                                     event, ${u.id}, '${jsUser}', '${jsRole}'
                                 )">
                             <i class="bi bi-pencil"></i> Edit
@@ -112,7 +116,13 @@ function renderUserTable(users) {
 }
 
 // ─── ADD / EDIT / DELETE ────────────────────────────────────────────────────
-function openEditUser(id, username, role) {
+window.openAddUser = function() {
+    window.resetUserForm();
+    window.validateUserForm();
+    window.openModal('add_user');
+};
+
+window.openEditUser = function(id, username, role) {
     const unEl = document.getElementById('user_username');
     
     safeSetVal('user_edit_id', id);
@@ -125,14 +135,17 @@ function openEditUser(id, username, role) {
     
     if (unEl) {
         unEl.value = username;
-        unEl.setAttribute('readonly', true);
+        unEl.setAttribute('readonly', 'true');
     }
     
-    toggleClass('pw_hint', 'hidden', false);
-    openModal('add_user');
-}
+    const hintEl = document.getElementById('pw_hint');
+    if (hintEl) hintEl.classList.remove('hidden');
+    
+    window.validateUserForm();
+    window.openModal('add_user');
+};
 
-async function saveUser() {
+window.saveUser = async function() {
     const id       = getVal('user_edit_id');
     const username = getVal('user_username');
     const role     = getVal('user_role');
@@ -144,9 +157,15 @@ async function saveUser() {
         return;
     }
     
-    if (password && password !== confirm) {
-        showToast('Passwords do not match.', 'error');
-        return;
+    if (password) {
+        if (password.length < 8) {
+            showToast('Password must be at least 8 characters.', 'error');
+            return;
+        }
+        if (password !== confirm) {
+            showToast('Passwords do not match.', 'error');
+            return;
+        }
     }
 
     const payload = { 
@@ -164,7 +183,9 @@ async function saveUser() {
     }
 
     const isEdit = !!id;
-    const url    = isEdit ? `/src/api/users.php?id=${id}` : '/src/api/users.php';
+    const url    = isEdit 
+        ? `/src/api/users.php?id=${id}` 
+        : '/src/api/users.php';
     const method = isEdit ? 'PUT' : 'POST';
 
     try {
@@ -173,19 +194,19 @@ async function saveUser() {
             body:   JSON.stringify(payload) 
         });
         
-        closeModal('add_user');
-        resetUserForm();
+        window.closeModal('add_user');
+        window.resetUserForm();
         showToast(`User ${isEdit ? 'updated' : 'created'}.`, 'success');
         loadUsers();
     } catch (err) {
         showToast(err.message, 'error');
     }
-}
+};
 
-function deleteUser(id, username) {
+window.deleteUser = function(id, username) {
     const msg = `Deactivate "${username}"? They won't be able to log in.`;
     
-    showConfirm('Deactivate User', msg, async () => {
+    window.showConfirm('Deactivate User', msg, async () => {
         try {
             await apiFetch(`/src/api/users.php?id=${id}`, {
                 method: 'DELETE',
@@ -196,9 +217,9 @@ function deleteUser(id, username) {
             showToast(err.message, 'error');
         }
     });
-}
+};
 
-function resetUserForm() {
+window.resetUserForm = function() {
     const unEl = document.getElementById('user_username');
     
     safeSetVal('user_edit_id', '');
@@ -214,7 +235,8 @@ function resetUserForm() {
         unEl.removeAttribute('readonly');
     }
     
-    toggleClass('pw_hint', 'hidden', true);
+    const hintEl = document.getElementById('pw_hint');
+    if (hintEl) hintEl.classList.add('hidden');
     
     const fillEl = document.getElementById('pw_strength_fill');
     if (fillEl) {
@@ -227,24 +249,66 @@ function resetUserForm() {
     const p1 = document.getElementById('user_password');
     const p2 = document.getElementById('user_confirm_password');
     
-    if (p1) {
-        p1.type = 'password';
-    }
-    if (p2) {
-        p2.type = 'password';
-    }
+    if (p1) p1.type = 'password';
+    if (p2) p2.type = 'password';
     
     document.querySelectorAll('.pw-toggle-btn').forEach(btn => {
         btn.innerHTML = '<i class="bi bi-eye"></i>';
     });
-}
+};
+
+window.validateUserForm = function() {
+    const id      = getVal('user_edit_id');
+    const un      = getVal('user_username');
+    const pw      = getVal('user_password');
+    const cp      = getVal('user_confirm_password');
+    const btn     = document.getElementById('user_save_btn');
+    const errText = document.getElementById('user_form_error');
+    const hintEl  = document.getElementById('pw_hint');
+
+    let isValid = true;
+    let errMsg  = '';
+
+    if (hintEl && id) {
+        if (pw.length > 0) {
+            hintEl.classList.add('hidden');
+        } else {
+            hintEl.classList.remove('hidden');
+        }
+    }
+
+    if (!un.trim()) {
+        isValid = false;
+        errMsg = 'Username is required.';
+    } else if (!id && pw.length < 8) {
+        isValid = false;
+        errMsg = 'New users require an 8+ character password.';
+    } else if (pw.length > 0 && pw.length < 8) {
+        isValid = false;
+        errMsg = 'Password must be at least 8 characters.';
+    } else if (pw.length > 0 && pw !== cp) {
+        isValid = false;
+        errMsg = 'Passwords do not match.';
+    }
+
+    if (errText) errText.textContent = errMsg;
+    
+    if (btn) {
+        btn.disabled = !isValid;
+        if (!isValid) {
+            btn.style.opacity = '0.5';
+            btn.style.cursor  = 'not-allowed';
+        } else {
+            btn.style.opacity = '1';
+            btn.style.cursor  = 'pointer';
+        }
+    }
+};
 
 // ─── PASSWORD UX & SECURITY ─────────────────────────────────────────────────
-function togglePwVis(inpId, btnEl) {
+window.togglePwVis = function(inpId, btnEl) {
     const inp = document.getElementById(inpId);
-    if (!inp) {
-        return;
-    }
+    if (!inp) return;
     
     if (inp.type === 'password') {
         inp.type = 'text';
@@ -253,16 +317,14 @@ function togglePwVis(inpId, btnEl) {
         inp.type = 'password';
         btnEl.innerHTML = '<i class="bi bi-eye"></i>';
     }
-}
+};
 
-function evalPwStrength() {
+window.evalPwStrength = function() {
     const val  = getVal('user_password');
     const fill = document.getElementById('pw_strength_fill');
     const text = document.getElementById('pw_strength_text');
     
-    if (!fill || !text) {
-        return;
-    }
+    if (!fill || !text) return;
     
     if (!val) {
         fill.style.width = '0%';
@@ -292,16 +354,14 @@ function evalPwStrength() {
         text.textContent      = 'Strength: Strong';
         text.className        = 'pw-text-sm text-green';
     }
-}
+};
 
-function checkPwMatch() {
+window.checkPwMatch = function() {
     const p1  = getVal('user_password');
     const p2  = getVal('user_confirm_password');
     const msg = document.getElementById('pw_match_msg');
     
-    if (!msg) {
-        return;
-    }
+    if (!msg) return;
     
     if (!p2) {
         msg.textContent = '';
@@ -315,4 +375,4 @@ function checkPwMatch() {
         msg.textContent = 'Passwords do not match';
         msg.className   = 'pw-text-sm text-red mt-3';
     }
-}
+};

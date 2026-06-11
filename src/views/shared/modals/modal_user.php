@@ -7,7 +7,7 @@
                 👤 Add New User
             </div>
             <button class="modal-close"
-                    onclick="closeModal('add_user')">
+                    onclick="window.closeModal('add_user')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
@@ -19,7 +19,8 @@
                     <label for="user_username">Username *</label>
                     <input type="text" id="user_username"
                             placeholder="e.g. jdelacruz"
-                            autocomplete="off">
+                            autocomplete="off"
+                            oninput="window.validateUserForm()">
                 </div>
                 <div class="form-field">
                     <label for="user_role">Role *</label>
@@ -38,13 +39,20 @@
                     <input type="password" id="user_password"
                             placeholder="Minimum 8 chars"
                             autocomplete="new-password"
-                            oninput="evalPwStrength(); checkPwMatch()">
+                            oninput="window.evalPwStrength(); 
+                                     window.checkPwMatch();
+                                     window.validateUserForm()">
                     <button type="button" class="pw-toggle-btn"
-                            onclick="togglePwVis('user_password', this)">
+                            onclick="window.togglePwVis('user_password', this)">
                         <i class="bi bi-eye"></i>
                     </button>
                 </div>
-                <div class="pw-strength-container">
+                
+                <div id="pw_hint" class="pw-text-sm text-yellow mt-1 hidden">
+                    Leave blank to keep current password.
+                </div>
+                
+                <div class="pw-strength-container mt-2">
                     <div class="pw-bar-bg">
                         <div id="pw_strength_fill" class="pw-bar-fill"></div>
                     </div>
@@ -58,9 +66,10 @@
                     <input type="password" id="user_confirm_password"
                             placeholder="Repeat password"
                             autocomplete="new-password"
-                            oninput="checkPwMatch()">
+                            oninput="window.checkPwMatch();
+                                     window.validateUserForm()">
                     <button type="button" class="pw-toggle-btn"
-                            onclick="togglePwVis(
+                            onclick="window.togglePwVis(
                                 'user_confirm_password', this
                             )">
                         <i class="bi bi-eye"></i>
@@ -69,17 +78,28 @@
                 <div id="pw_match_msg" class="pw-text-sm mt-3"></div>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary"
-                    onclick="closeModal('add_user')">
-                Cancel
-            </button>
-            <button class="btn btn-primary"
-                    id="user_save_btn"
-                    onclick="saveUser()">
-                <i class="bi bi-floppy"></i> 
-                <span id="user_save_btn_text">Save User</span>
-            </button>
+        <div class="modal-footer" 
+             style="display:flex; justify-content:space-between; align-items:center;">
+             
+            <div id="user_form_error" 
+                 class="pw-text-sm text-red" 
+                 style="flex:1; padding-right:8px; font-weight:600;">
+            </div>
+            
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-secondary"
+                        onclick="window.closeModal('add_user')">
+                    Cancel
+                </button>
+                <button class="btn btn-primary"
+                        id="user_save_btn"
+                        onclick="window.saveUser()"
+                        disabled
+                        style="opacity:0.5; cursor:not-allowed;">
+                    <i class="bi bi-floppy"></i> 
+                    <span id="user_save_btn_text">Save User</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>

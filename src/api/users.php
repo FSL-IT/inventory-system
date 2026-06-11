@@ -72,9 +72,10 @@ function createUser(): void
     }
 
     $pdo = getDbConnection();
-    $dup = $pdo->prepare(
-        'SELECT id FROM users WHERE username = :u AND deleted_at IS NULL'
-    );
+    $dup = $pdo->prepare('
+        SELECT id FROM users 
+        WHERE username = :u AND deleted_at IS NULL
+    ');
     $dup->execute([':u' => $username]);
 
     if ($dup->fetch()) {
@@ -113,9 +114,11 @@ function updateUser(int $id): void
     $body = json_decode(file_get_contents('php://input'), true);
     $pdo  = getDbConnection();
 
-    $old = $pdo->prepare(
-        'SELECT * FROM users WHERE id = :id AND deleted_at IS NULL LIMIT 1'
-    );
+    $old = $pdo->prepare('
+        SELECT * FROM users 
+        WHERE id = :id AND deleted_at IS NULL 
+        LIMIT 1
+    ');
     $old->execute([':id' => $id]);
     $before = $old->fetch();
 
@@ -178,9 +181,11 @@ function softDeleteUser(int $id): void
     }
 
     $pdo = getDbConnection();
-    $old = $pdo->prepare(
-        'SELECT * FROM users WHERE id = :id AND deleted_at IS NULL LIMIT 1'
-    );
+    $old = $pdo->prepare('
+        SELECT * FROM users 
+        WHERE id = :id AND deleted_at IS NULL 
+        LIMIT 1
+    ');
     $old->execute([':id' => $id]);
     $before = $old->fetch();
 
@@ -188,7 +193,9 @@ function softDeleteUser(int $id): void
         sendError('User not found.', 404);
     }
 
-    $del = $pdo->prepare('UPDATE users SET deleted_at = NOW() WHERE id = :id');
+    $del = $pdo->prepare(
+        'UPDATE users SET deleted_at = NOW() WHERE id = :id'
+    );
     $del->execute([':id' => $id]);
 
     logAudit($_SESSION['user_id'], 'DELETE', 'users', $id, [
