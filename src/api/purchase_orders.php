@@ -28,6 +28,9 @@ if ($method === 'GET' && $id && $action === 'assets') {
     updatePO($id);
 } elseif ($method === 'DELETE') {
     requireCsrf();
+    if (!isAdmin()) {
+        sendError('Forbidden: Administrative privileges required.', 403);
+    }
     deletePO($id);
 } else {
     sendError('Method not allowed.', 405);

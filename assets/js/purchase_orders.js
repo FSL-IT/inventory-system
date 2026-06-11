@@ -339,24 +339,30 @@
                        ${buildAgeTag(p)}
                    </div>`;
      
-            let adminActions = `
-                ${!p.date_endorsed
-                    ? `<button class="btn btn-secondary btn-sm" 
-                               onclick="onPoEndorseClick(event, ${p.id})" 
-                               title="Mark endorsed today">
-                           <i class="bi bi-pen-fill"></i>
-                       </button>`
-                    : ''}
+            let endorseBtn = (!p.date_endorsed && IS_ADMIN)
+                ? `<button class="btn btn-secondary btn-sm" 
+                           onclick="onPoEndorseClick(event, ${p.id})" 
+                           title="Mark endorsed today">
+                       <i class="bi bi-pen-fill"></i>
+                   </button>`
+                : '';
+
+            let deleteBtn = IS_ADMIN
+                ? `<button class="btn btn-danger btn-sm" 
+                           onclick="onPoDeleteClick(event, ${p.id}, '${safePoNum}')" 
+                           title="Delete PO">
+                       <i class="bi bi-trash"></i>
+                   </button>`
+                : '';
+
+            let actionMarkup = `
+                ${endorseBtn}
                 <button class="btn btn-secondary btn-sm" 
                         onclick="onPoEditClick(event, ${p.id})" 
                         title="Edit PO">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-danger btn-sm" 
-                        onclick="onPoDeleteClick(event, ${p.id}, '${safePoNum}')" 
-                        title="Delete PO">
-                    <i class="bi bi-trash"></i>
-                </button>`;
+                ${deleteBtn}`;
      
             return `
                 <tr class="clickable-row" onclick="viewPO(${p.id})">
@@ -386,7 +392,7 @@
                     </td>
                     <td class="cell-date">${formatDate(p.date_received)}</td>
                     <td>${endorsedCell}</td>
-                    <td><div class="table-actions">${adminActions}</div></td>
+                    <td><div class="table-actions">${actionMarkup}</div></td>
                 </tr>`;
         }).join('');
     }
@@ -524,13 +530,14 @@
             ? titleEl.textContent.replace('📋 PO: ', '').trim() 
             : '';
             
-        // FIXED: Using navigateTo for SPA compliance
         let searchUrl = `/src/views/assets.php?search=` 
             + encodeURIComponent(poNumber);
      
         tbody.innerHTML = rows.map(r => `
             <tr class="clickable-row" 
-                onclick="if(typeof navigateTo === 'function') { navigateTo('${searchUrl}'); } else { window.location.href='${searchUrl}'; }" 
+                onclick="if(typeof navigateTo === 
+                    'function') { navigateTo('${searchUrl}'); } 
+                        else { window.location.href='${searchUrl}'; }" 
                 title="View assets for this PO in inventory">
                 <td>
                     <span class="tag tag-category">
@@ -556,18 +563,27 @@
 
     window.openAddPO = function () {
         safeSetVal('po_edit_id', '');
-        document.getElementById('po_modal_title').textContent 
-            = '📋 New Purchase Order';
+        
+        let titleEl = document.getElementById('po_modal_title');
+        if (titleEl) {
+            titleEl.textContent = '📋 New Purchase Order';
+        } else {
+            console.warn('po_modal_title element not found in the DOM.');
+        }
             
         let ids = [
-            'po_number', 'po_date_received', 'po_date_endorsed', 'po_vendor'
+            'po_number', 
+            'po_date_received', 
+            'po_date_endorsed', 
+            'po_vendor'
         ];
         ids.forEach(id => safeSetVal(id, ''));
         
-        let inputs = document.querySelectorAll('#po_form input, #po_form select');
+        let inputs = document.querySelectorAll(
+            '#po_form input, #po_form select'
+        );
         inputs.forEach(el => el.classList.remove('error-highlight'));
         
-        // FIXED: Show "Save & Add" on Add Modal
         let btnNext = document.getElementById('btn_save_po_next');
         if (btnNext) {
             btnNext.style.display = 'inline-flex';
@@ -584,18 +600,22 @@
         }
         
         safeSetVal('po_edit_id', id);
-        document.getElementById('po_modal_title').textContent 
-            = '✏️ Edit Purchase Order';
+        
+        let titleEl = document.getElementById('po_modal_title');
+        if (titleEl) {
+            titleEl.textContent = '✏️ Edit Purchase Order';
+        }
             
         safeSetVal('po_number', po.po_number);
         safeSetVal('po_vendor', po.vendor_id ?? '');
         safeSetVal('po_date_received', po.date_received ?? '');
         safeSetVal('po_date_endorsed', po.date_endorsed ?? '');
         
-        let inputs = document.querySelectorAll('#po_form input, #po_form select');
+        let inputs = document.querySelectorAll(
+            '#po_form input, #po_form select'
+        );
         inputs.forEach(el => el.classList.remove('error-highlight'));
         
-        // FIXED: Hide "Save & Add Assets" on Edit per client request
         let btnNext = document.getElementById('btn_save_po_next');
         if (btnNext) {
             btnNext.style.display = 'none';

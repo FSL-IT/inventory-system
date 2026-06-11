@@ -330,28 +330,28 @@ function updateAsset(int $id): void
         file_get_contents('php://input'), true
     );
     $serial     = sanitizeString(
-        $body['serial_number'] ?? $old['serial_number']
-    );
+        $body['serial_number'] ?? $old['serial_number']);
     $desc       = sanitizeString(
-        $body['description']   ?? $old['description']
-    );
+        $body['description']   ?? $old['description']);
     $categoryId = (int) ($body['category_id'] ?? $old['category_id']);
     $status     = sanitizeString($body['status'] ?? $old['status']);
-    $locationId = isset($body['location_id'])
-        ? ((int) $body['location_id'] ?: null)
+    
+    $locationId = array_key_exists('location_id', $body)
+        ? ($body['location_id'] ? (int) $body['location_id'] : null)
         : $old['location_id'];
-    $ownerId    = isset($body['owner_id'])
-        ? ((int) $body['owner_id'] ?: null)
+        
+    $ownerId    = array_key_exists('owner_id', $body)
+        ? ($body['owner_id'] ? (int) $body['owner_id'] : null)
         : $old['owner_id'];
-    $poId       = isset($body['po_id'])
-        ? ((int) $body['po_id'] ?: null)
+        
+    $poId       = array_key_exists('po_id', $body)
+        ? ($body['po_id'] ? (int) $body['po_id'] : null)
         : $old['po_id'];
-    $remarks    = sanitizeString(
-        $body['remarks'] ?? $old['remarks']
-    );
-    $transferNote = sanitizeString(
-        $body['transfer_note'] ?? ''
-    );
+        
+    $remarks    = sanitizeString($body['remarks'] ?? $old['remarks']);
+    
+    // Now captures the transfer note from the UI
+    $transferNote = sanitizeString($body['transfer_note'] ?? '');
 
     if (!validateEnum($status, ASSET_STATUSES)) {
         sendError('Invalid status value.', 422);

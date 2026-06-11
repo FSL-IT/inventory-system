@@ -143,13 +143,11 @@
                     onclick="window.closeModal('view_po')">
                 Close
             </button>
-            <?php if (isAdmin()): ?>
             <button class="btn btn-secondary"
                     id="view_po_edit_btn"
                     onclick="window.editPoFromView()">
                 <i class="bi bi-pencil"></i> Edit PO
             </button>
-            <?php endif; ?>
         </div>
     </div>
 </div>

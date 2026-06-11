@@ -407,6 +407,8 @@
         if (serialEl) {
             serialEl.removeAttribute('readonly');
         }
+        let transferWrap = document.getElementById('wrap_transfer_note');
+        if (transferWrap) transferWrap.classList.add('hidden');
 
         hidePoAutofillHint();
         setAssetMode('single');
@@ -601,12 +603,17 @@
         safeSetVal('asset_status',  a.status);
         safeSetVal('asset_vendor',  a.vendor_name ?? '');
         safeSetVal('asset_remarks', a.remarks     ?? '');
+        safeSetVal('asset_transfer_note', '');
      
         if (typeof setSearchableSelectValue === 'function') {
-            setSearchableSelectValue('asset_po',       a.po_id       ?? '');
-            setSearchableSelectValue('asset_category', a.category_id ?? '');
-            setSearchableSelectValue('asset_location', a.location_id ?? '');
-            setSearchableSelectValue('asset_owner',    a.owner_id    ?? '');
+            setSearchableSelectValue('asset_po',       
+                a.po_id != null ? String(a.po_id) : '');
+            setSearchableSelectValue('asset_category', 
+                a.category_id != null ? String(a.category_id) : '');
+            setSearchableSelectValue('asset_location', 
+                a.location_id != null ? String(a.location_id) : '');
+            setSearchableSelectValue('asset_owner',    
+                a.owner_id != null ? String(a.owner_id) : '');
         }
      
         clearAllFieldErrors();
@@ -616,6 +623,9 @@
             serialEl.removeAttribute('readonly');
             serialEl.title = 'You can correct a mis-typed serial number here.';
         }
+        
+        let transferWrap = document.getElementById('wrap_transfer_note');
+        if (transferWrap) transferWrap.classList.remove('hidden');
      
         hidePoAutofillHint();
         showModeToggle(false);
@@ -720,6 +730,7 @@
             location_id:   getVal('asset_location'),
             owner_id:      getVal('asset_owner'),
             remarks:       getVal('asset_remarks') || '',
+            transfer_note: getVal('asset_transfer_note') || '',
         };
 
         let isEdit = !!id;

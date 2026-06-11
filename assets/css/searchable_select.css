@@ -204,7 +204,6 @@ button.searchable-select-trigger {
     display: block;
     font-size: 11px;
     color: var(--red);
-    margin-top: 4px;
     min-height: 16px;
 }
 

@@ -50,7 +50,9 @@
                                     class="searchable-select-trigger"
                                     id="trigger_asset_po"
                                     aria-labelledby="label_asset_po_field"
-                                    onclick="toggleSearchableSelect('asset_po')">
+                                    onclick="toggleSearchableSelect(
+                                        'asset_po'
+                                    )">
                                 <span id="label_asset_po">
                                     — Select PO —
                                 </span>
@@ -66,9 +68,9 @@
                                             aria-hidden="true"></i>
                                     <input type="text"
                                             class="searchable-select-search"
-                                            placeholder="Search PO or vendor..."
+                                            placeholder="Search PO..."
                                             autocomplete="off"
-                                            aria-label="Search purchase orders"
+                                            aria-label="Search POs"
                                             oninput="filterSearchableSelect(
                                                 'asset_po', this.value
                                             )"
@@ -102,7 +104,9 @@
                         </label>
                         <input type="text" id="asset_serial"
                                 placeholder="e.g. 5CD432D87V"
-                                oninput="window.clearFieldError('asset_serial')">
+                                oninput="window.clearFieldError(
+                                    'asset_serial'
+                                )">
                         <span class="field-error"
                                 id="err_asset_serial"></span>
                     </div>
@@ -140,7 +144,9 @@
                         </label>
                         <input type="text" id="asset_desc"
                                 placeholder="e.g. HP ProBook"
-                                oninput="window.clearFieldError('asset_desc')">
+                                oninput="window.clearFieldError(
+                                    'asset_desc'
+                                )">
                         <span class="field-error"
                                 id="err_asset_desc"></span>
                     </div>
@@ -309,7 +315,7 @@
                                             aria-hidden="true"></i>
                                     <input type="text"
                                             class="searchable-select-search"
-                                            placeholder="Search process owners..."
+                                            placeholder="Search owners..."
                                             autocomplete="off"
                                             aria-label="Search process owners"
                                             oninput="filterSearchableSelect(

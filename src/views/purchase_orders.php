@@ -39,24 +39,19 @@ include __DIR__ . '/shared/sidebar.php';
                 </div>
             </div>
             <div class="page-header__right">
-                <!-- Import: all roles -->
                 <button class="btn btn-secondary"
                         onclick="openPoImportModal()">
                     <i class="bi bi-upload"></i> Import
                 </button>
-                <!-- Export: all roles -->
                 <button class="btn btn-secondary"
                         onclick="exportPoTracker()">
                     <i class="bi bi-file-earmark-excel"></i>
                     Export Excel
                 </button>
-                <!-- New PO: admin only -->
-                <?php if (isAdmin()): ?>
                 <button class="btn btn-primary"
                         onclick="openAddPO()">
                     <i class="bi bi-plus-lg"></i> New PO
                 </button>
-                <?php endif; ?>
             </div>
         </div>
 
@@ -194,6 +189,5 @@ include __DIR__ . '/shared/sidebar.php';
     </div>
 
 </div>
-
 
 <?php include __DIR__ . '/shared/footer.php'; ?>

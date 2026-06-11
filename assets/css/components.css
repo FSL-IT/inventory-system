@@ -938,7 +938,7 @@
 
 .cat-bar-label {
     width: 100px;
-    color: #000000;
+    color: #696464;
     font-weight: 500;
     flex-shrink: 0;
     white-space: nowrap;
@@ -990,12 +990,12 @@
 
 .status-name {
     flex: 1;
-    color: #000000;
+    color: #696464;
 }
 
 .status-count {
     font-weight: 700;
-    color: #000000;
+    color: #696464;
 }
 
 .status-pct {
