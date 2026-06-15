@@ -1025,3 +1025,87 @@
         window.location.href = `/src/api/import_export.php?${params}`;
     };
 })();
+
+    window.openImportModal = function () {
+        let zoneLabel = document.getElementById('import_zone_label');
+        if (zoneLabel) {
+            zoneLabel.textContent = 'Drop your .xlsx file here';
+        }
+        
+        let fileInput = document.getElementById('import_file');
+        if (fileInput) fileInput.value = '';
+        
+        let submitBtn = document.getElementById('import_submit_btn');
+        if (submitBtn) { 
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="bi bi-upload"></i> Import'; 
+            // Bind the specific submit handler for assets
+            submitBtn.onclick = window.submitAssetImport; 
+        }
+        
+        if (typeof showImportStep === 'function') {
+            showImportStep('upload');
+        }
+        
+        if (typeof setImportTab === 'function') {
+            setImportTab('flat');
+        }
+        
+        window.openModal('import_assets');
+    };
+
+    window.submitAssetImport = async function () {
+        let fileInput = document.getElementById('import_file');
+        let submitBtn = document.getElementById('import_submit_btn');
+        let file = fileInput?.files?.[0];
+        
+        if (!file) { 
+            showToast('Select a file first.', 'error'); 
+            return; 
+        }
+        
+        if (typeof showImportStep === 'function') showImportStep('progress');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing...';
+        
+        let fd = new FormData();
+        fd.append('import_file', file);
+        if (window.currentImportType) {
+            fd.append('import_type', window.currentImportType);
+        }
+        
+        try {
+            let url = '/src/api/import_export.php?action=import';
+            let res = await fetch(url, { 
+                method: 'POST', 
+                headers: { 'X-CSRF-Token': getCsrfToken() }, 
+                body: fd 
+            });
+            
+            let json = await res.json();
+            if (!json.success && !json.data) {
+                let errStr = json.message ?? 'Import failed.';
+                if (errStr.includes('Duplicate entry')) {
+                    errStr = 'Failed: Records already exist in the system.';
+                }
+                throw new Error(errStr);
+            }
+            
+            if (typeof renderImportResults === 'function') {
+                renderImportResults(json.data);
+            }
+            if (typeof showImportStep === 'function') {
+                showImportStep('results');
+            }
+            
+            if ((json.data?.success ?? 0) > 0) {
+                fetchInitialAssets();
+            }
+        } catch (err) {
+            if (typeof showImportStep === 'function') showImportStep('upload');
+            showToast(err.message ?? 'Import failed.', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-upload"></i> Import';
+        }
+    };

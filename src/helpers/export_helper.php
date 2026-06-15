@@ -248,6 +248,42 @@ function exportTemplate(): void
     sendXlsx($spreadsheet, 'fsl_import_template');
 }
 
+function exportPoTemplate(): void
+{
+    $spreadsheet = new Spreadsheet();
+    $spreadsheet->removeSheetByIndex(0); // Remove default sheet
+
+    $sheetIntro = $spreadsheet->createSheet();
+    $sheetIntro->setTitle('INSTRUCTIONS');
+    $sheetIntro->setCellValue('A1', 'HOW TO USE THIS TEMPLATE (READ FIRST)');
+    $sheetIntro->setCellValue('A2', '1. DO NOT put your data on this first sheet.');
+    $sheetIntro->setCellValue('A3', '2. Click the tabs below (Desktop, Laptop, Webcam, etc.) to enter your assets.');
+    $sheetIntro->setCellValue('A4', '3. Every single item MUST have a unique Serial Number to be imported.');
+    $sheetIntro->setCellValue('A5', '4. Do not group by quantity. If you have 5 laptops, you must use 5 rows with 5 serial numbers.');
+    $sheetIntro->setCellValue('A6', '5. Do not delete or rename the category sheet tabs at the bottom.');
+    
+    $sheetIntro->getStyle('A1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB('FFD32F2F'); // Red
+    $sheetIntro->getStyle('A2:A6')->getFont()->setSize(12);
+    $sheetIntro->getColumnDimension('A')->setAutoSize(true);
+
+    $sheetNames = ['Desktop', 'Laptop', 'Webcam', 'Docking', 'Headset', 'Monitor', 'Network Devices', 'Yubikey'];
+
+    foreach ($sheetNames as $name) {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle($name);
+        $headers = [
+            'A' => 'Description', 'B' => 'Serial Number', 'C' => 'PO#',
+            'D' => 'Center Delivered', 'E' => 'Process Name', 'F' => 'Remarks'
+        ];
+        applyHeaders($sheet, $headers, 'A1:F1');
+        autosizeColumns($sheet, range('A', 'F'));
+    }
+
+    $spreadsheet->setActiveSheetIndex(1);
+
+    sendXlsx($spreadsheet, 'fsl_po_import_template');
+}
+
 // ─── SHARED HELPERS ───────────────────────────────────────────────────────
 function applyHeaders($sheet, array $headers, string $range): void
 {

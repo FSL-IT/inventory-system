@@ -16,7 +16,7 @@ require_once __DIR__ . '/../helpers/import_helper.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $action = getQueryString('action');
 
-if (in_array($action, ['export', 'export_po_tracker', 'template'], true)) {
+if (in_array($action, ['export', 'export_po_tracker', 'template', 'template_po'], true)) {
     requireLogin();
 } else {
     requireRole('admin');
@@ -28,6 +28,8 @@ if ($method === 'GET' && $action === 'export') {
     handlePoTrackerExport();
 } elseif ($method === 'GET' && $action === 'template') {
     exportTemplate();
+} elseif ($method === 'GET' && $action === 'template_po') {
+    exportPoTemplate();
 } elseif ($method === 'POST' && $action === 'import') {
     requireCsrf();
     handleImport();

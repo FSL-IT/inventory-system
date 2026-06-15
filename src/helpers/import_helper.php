@@ -72,8 +72,9 @@ function detectPoNativeFormat(array $sheetNames): bool
 
 /**
  * Imports from the multi-sheet PO workbook.
- * Columns per sheet: Description | Serial | PO# | Center | Owner | Remarks
- * Sheet name maps to asset category via PO_SHEET_MAP.
+ * Smart Logic: 
+ * - If Serial Number is provided -> Creates PO and Asset (checks for duplicates).
+ * - If Serial Number is blank -> Creates the PO only (No Asset).
  */
 function importPoNative(
     $spreadsheet,
@@ -98,7 +99,7 @@ function importPoNative(
                 ->getValue()
             );
             if (!$sn) {
-                continue;
+                continue; // We allow blank serials now
             }
             if (isset($allSerials[$sn])) {
                 $result['infile_dupes'][] =
@@ -109,7 +110,7 @@ function importPoNative(
         }
     }
 
-    // Pass 2: insert each valid serial
+    // Pass 2: Process rows (Create POs and Assets)
     foreach ($sheetMap as $sheetName => $categoryName) {
         $sheet = $spreadsheet->getSheetByName($sheetName);
         if (!$sheet) {
@@ -120,31 +121,42 @@ function importPoNative(
         $highest    = $sheet->getHighestDataRow();
 
         for ($r = 2; $r <= $highest; $r++) {
-            $desc   = trim((string) $sheet
-                ->getCellByColumnAndRow(1, $r)->getValue());
-            $sn     = trim((string) $sheet
-                ->getCellByColumnAndRow(2, $r)->getValue());
-            $poStr  = trim((string) $sheet
-                ->getCellByColumnAndRow(3, $r)->getValue());
-            $center = trim((string) $sheet
-                ->getCellByColumnAndRow(4, $r)->getValue());
-            $owner  = trim((string) $sheet
-                ->getCellByColumnAndRow(5, $r)->getValue());
-            $rem    = trim((string) $sheet
-                ->getCellByColumnAndRow(6, $r)->getValue());
+            $desc   = trim((string) $sheet->getCellByColumnAndRow(1, $r)->getValue());
+            $sn     = trim((string) $sheet->getCellByColumnAndRow(2, $r)->getValue());
+            $poStr  = trim((string) $sheet->getCellByColumnAndRow(3, $r)->getValue());
+            $center = trim((string) $sheet->getCellByColumnAndRow(4, $r)->getValue());
+            $owner  = trim((string) $sheet->getCellByColumnAndRow(5, $r)->getValue());
+            $rem    = trim((string) $sheet->getCellByColumnAndRow(6, $r)->getValue());
 
-            if (!$sn && !$desc) {
+            // Skip completely empty rows
+            if (!$sn && !$poStr && !$desc) {
                 continue;
             }
 
+            // 1. ALWAYS process the Purchase Order if provided
+            $poId = null;
+            if ($poStr) {
+                $vendorId = resolveVendorFromPo($pdo, $poStr);
+                $poId     = resolvePo($pdo, $poStr, $vendorId);
+            }
+
+            // 2. If Serial Number is missing, we ONLY register the PO
             if (!$sn) {
-                $result['failed']++;
-                $result['errors'][] =
-                    "{$sheetName} row {$r}: missing serial number.";
+                if ($poStr) {
+                    // We successfully created/ensured the PO exists. 
+                    // No asset is created because SN is missing.
+                    $result['success']++;
+                } else {
+                    // Data exists, but no SN and no PO.
+                    $result['failed']++;
+                    $result['errors'][] = "{$sheetName} row {$r}: Missing Serial Number and PO Number.";
+                }
                 continue;
             }
 
-            // Skip in-file dupes (already logged in pass 1)
+            // 3. Serial Number IS provided -> Process Asset Creation
+
+            // Check in-file dupe
             if (
                 isset($allSerials[$sn]) &&
                 in_array(
@@ -157,7 +169,7 @@ function importPoNative(
                 continue;
             }
 
-            // Check DB duplicate
+            // Check DB duplicate (STRICT DUPLICATE CHECK)
             $chk = $pdo->prepare(
                 'SELECT id FROM assets WHERE serial_number = :sn LIMIT 1'
             );
@@ -166,15 +178,14 @@ function importPoNative(
             if ($chk->fetch()) {
                 $result['db_dupes'][] = $sn;
                 $result['failed']++;
+                $result['errors'][] = "{$sheetName} row {$r}: Serial Number '{$sn}' already exists (Duplicate).";
                 continue;
             }
 
+            // Resolve relationships
             $locationId = resolveOrCreateLocation($pdo, $center, $userId);
             $ownerId    = resolveOrCreateOwner($pdo, $owner, $userId);
-            $vendorId   = resolveVendorFromPo($pdo, $poStr);
-            $poId       = resolvePo($pdo, $poStr, $vendorId);
-
-            $remarks = normaliseRemarks($rem);
+            $remarks    = normaliseRemarks($rem);
 
             try {
                 $ins = $pdo->prepare('
@@ -213,9 +224,16 @@ function importPoNative(
             } catch (PDOException $e) {
                 $result['failed']++;
                 $result['errors'][] =
-                    "{$sheetName} row {$r}: " . $e->getMessage();
+                    "{$sheetName} row {$r}: Database error - " . $e->getMessage();
             }
         }
+    }
+
+    if ($result['success'] === 0 && $result['failed'] === 0 && empty($result['errors'])) {
+        $result['errors'][] = 'No valid data found. Did you put your data in the 
+            "All" sheet? You MUST enter data into the specific category tabs 
+                (e.g., Desktop, Laptop).';
+        $result['failed'] = 1; 
     }
 
     return $result;

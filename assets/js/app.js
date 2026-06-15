@@ -493,3 +493,138 @@ document.addEventListener('DOMContentLoaded', () => {
         initPageModule(window.location.pathname);
     }, 0);
 });
+
+
+window.showImportStep = function(step) {
+    const steps = ['upload', 'progress', 'results'];
+    steps.forEach(s => {
+        let el = document.getElementById('import_step_' + s);
+        if (el) el.style.display = (s === step) ? 'block' : 'none';
+    });
+    let footer = document.getElementById('import_modal_footer');
+    if (footer) {
+        footer.style.display = (step === 'progress') ? 'none' : 'flex';
+    }
+};
+
+window.setImportTab = function(tab) {
+    window.currentImportType = tab;
+    
+    let tabPo = document.getElementById('fmt_tab_po');
+    let tabFlat = document.getElementById('fmt_tab_flat');
+    if(tabPo) {
+        tabPo.classList.toggle('btn-primary', tab === 'po');
+        tabPo.classList.toggle('btn-secondary', tab !== 'po');
+    }
+    if(tabFlat) {
+        tabFlat.classList.toggle('btn-primary', tab === 'flat');
+        tabFlat.classList.toggle('btn-secondary', tab !== 'flat');
+    }
+
+    let infoPo = document.getElementById('fmt_info_po');
+    let infoFlat = document.getElementById('fmt_info_flat');
+    if(infoPo) infoPo.style.display = (tab === 'po') ? 'flex' : 'none';
+    if(infoFlat) infoFlat.style.display = (tab === 'flat') ? 'flex' : 'none';
+
+    let dlBtn = document.getElementById('btn_download_template');
+    if (dlBtn) {
+        if (tab === 'po') {
+            dlBtn.href = '/src/api/import_export.php?action=template_po';
+        } else {
+            dlBtn.href = '/src/api/import_export.php?action=template';
+        }
+    }
+};
+
+window.onImportFileSelected = function(input) {
+    let file = input.files && input.files[0];
+    updateImportFileLabel(file);
+};
+
+window.updateImportFileLabel = function(file) {
+    let label = document.getElementById('import_zone_label');
+    let submitBtn = document.getElementById('import_submit_btn');
+    
+    if (file && label) {
+        if(!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+            showToast('Invalid file format. Please upload an Excel (.xlsx) file.', 'error');
+            submitBtn.disabled = true;
+            label.textContent = 'Invalid file type selected';
+            return;
+        }
+        label.textContent = file.name;
+        if(submitBtn) submitBtn.disabled = false;
+    } else if (label) {
+        label.textContent = 'Drop your .xlsx file here';
+        if(submitBtn) submitBtn.disabled = true;
+    }
+};
+
+window.renderImportResults = function(data) {
+    let body = document.getElementById('import_results_body');
+    if (!body) return;
+    
+    let successCount = data.success || 0;
+    let errors = data.errors || [];
+    
+    let html = `
+        <div style="text-align:center; padding: 20px 0;">
+            <div style="font-size: 48px; margin-bottom: 12px;">
+                ${successCount > 0 ? '✅' : '⚠️'}
+            </div>
+            <h3 style="margin-bottom: 8px;">Import Processed</h3>
+            <p>Successfully imported <strong>${successCount}</strong> records.</p>
+        </div>
+    `;
+    
+    if (errors.length > 0) {
+        html += `
+            <div style="background: rgba(255, 60, 60, 0.05); border: 1px solid 
+            rgba(255, 60, 60, 0.2); padding: 12px; border-radius: 6px; margin-top: 
+            15px; max-height: 200px; overflow-y: auto; text-align: left;">
+                <h4 style="color: var(--red); margin-bottom: 8px; font-size: 14px;">
+                <i class="bi bi-exclamation-triangle"></i> Errors encountered:</h4>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; 
+                color: var(--white-3);">
+                    ${errors.map(err => `<li style="margin-bottom: 6px; border-bottom: 
+                        1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                        ❌ ${escapeHtml(err)}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    body.innerHTML = html;
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    let dropZone = document.getElementById('import_drop_zone');
+    let fileInput = document.getElementById('import_file');
+    
+    if(dropZone && fileInput) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.style.opacity = '0.5', false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.style.opacity = '1', false);
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateImportFileLabel(files[0]);
+            }
+        }, false);
+    }
+});

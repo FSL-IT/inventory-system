@@ -109,15 +109,13 @@
                 <div style="margin-top:14px;display:flex;gap:8px;
                             justify-content:flex-end;
                             align-items:center">
-                    <a href=
-                            "/src/api/import_export.php?action=template"
-                            class="btn btn-secondary btn-sm">
-                        <i class="bi bi-download"></i>
-                        Download Template
+                    <a href="/src/api/import_export.php?action=template_po" 
+                    id="btn_download_template" 
+                    class="btn btn-secondary btn-sm">
+                        <i class="bi bi-download"></i> Download Template
                     </a>
                     <button class="btn btn-primary"
                             id="import_submit_btn"
-                            onclick="submitImport()"
                             disabled>
                         <i class="bi bi-upload"></i> Import
                     </button>
