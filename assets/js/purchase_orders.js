@@ -301,6 +301,7 @@
 
     function renderPoTable(pos) {
         let tbody = document.getElementById('po_body');
+        let isAdmin = window.IS_ADMIN === true;
      
         if (!pos.length) {
             tbody.innerHTML = `
@@ -339,6 +340,14 @@
                        ${buildAgeTag(p)}
                    </div>`;
      
+            let deleteBtn = isAdmin 
+                ? `<button class="btn btn-danger btn-sm" 
+                        onclick="onPoDeleteClick(event, ${p.id}, '${safePoNum}')" 
+                        title="Delete PO">
+                    <i class="bi bi-trash"></i>
+                </button>` 
+                : '';
+
             let adminActions = `
                 ${!p.date_endorsed
                     ? `<button class="btn btn-secondary btn-sm" 
@@ -352,11 +361,7 @@
                         title="Edit PO">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-danger btn-sm" 
-                        onclick="onPoDeleteClick(event, ${p.id}, '${safePoNum}')" 
-                        title="Delete PO">
-                    <i class="bi bi-trash"></i>
-                </button>`;
+                ${deleteBtn}`;
      
             return `
                 <tr class="clickable-row" onclick="viewPO(${p.id})">

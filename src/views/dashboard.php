@@ -25,23 +25,8 @@ include __DIR__ . '/shared/sidebar.php';
             <div class="page-header__left">
                 <div class="page-header__title">Dashboard</div>
                 <div class="page-header__desc">
-                    PO-to-asset workflow at a glance — click any metric
-                    to jump to the relevant page.
+                    click any metric to jump to the relevant page.
                 </div>
-            </div>
-            <div class="page-header__right dashboard-quick-actions">
-                <button type="button" class="btn btn-secondary btn-sm"
-                        onclick="appNavigate(
-                            '/src/views/purchase_orders.php?action=new_po'
-                        )">
-                    <i class="bi bi-file-earmark-plus"></i> New PO
-                </button>
-                <button type="button" class="btn btn-primary btn-sm"
-                        onclick="appNavigate(
-                            '/src/views/assets.php?action=add_asset'
-                        )">
-                    <i class="bi bi-plus-lg"></i> Add Asset
-                </button>
             </div>
         </div>
 

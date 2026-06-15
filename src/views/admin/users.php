@@ -17,12 +17,6 @@ include __DIR__ . '/../shared/sidebar.php';
             <i class="bi bi-list"></i>
         </button>
         <div class="topbar__title">User Management</div>
-        <div class="topbar__search">
-            <i class="bi bi-search topbar__search-icon"></i>
-            <input type="text" id="topbar_search"
-                    placeholder="Search users…"
-                    oninput="globalSearch(this.value)">
-        </div>
     </div>
 
     <div class="content">

@@ -35,17 +35,15 @@ include __DIR__ . '/shared/sidebar.php';
             </div>
             <div class="page-header__right">
                 <button class="btn btn-secondary"
+                    onclick="window.openImportModal()">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    Import Excel
+                </button>
+                <button class="btn btn-secondary"
                         onclick="window.exportToExcel()">
                     <i class="bi bi-file-earmark-excel"></i>
                     Export Excel
                 </button>
-
-                <button class="btn btn-secondary"
-                        onclick="window.openImportModal()">
-                    <i class="bi bi-file-earmark-arrow-up"></i>
-                    Import Excel
-                </button>
-
                 <?php if (isAdmin()): ?>
                 <button class="btn btn-primary"
                         onclick="window.openAddAsset()">

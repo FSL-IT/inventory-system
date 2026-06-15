@@ -35,7 +35,7 @@ include __DIR__ . '/shared/sidebar.php';
             <div class="page-header__right">
                 <button class="btn btn-secondary"
                         onclick="openPoImportModal()">
-                    <i class="bi bi-upload"></i> Import
+                    <i class="bi bi-upload"></i> Import Excel
                 </button>
                 <button class="btn btn-secondary"
                         onclick="exportPoTracker()">
