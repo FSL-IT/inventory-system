@@ -598,7 +598,6 @@
         safeSetVal('po_date_received', po.date_received ?? '');
         safeSetVal('po_date_endorsed', po.date_endorsed ?? '');
 
-        // QA Fix: Set value via Searchable Select helper
         if (typeof setSearchableSelectValue === 'function') {
             setSearchableSelectValue(
                 'po_vendor', 
@@ -747,7 +746,6 @@
     async function populatePoFormVendors() {
         try { 
             let d = await apiFetch('/src/api/vendors.php?per_page=500'); 
-            // QA Fix: Support injection into the custom searchable UI
             if (typeof populateSearchableSelect === 'function') {
                 populateSearchableSelect(
                     'po_vendor', 
@@ -810,13 +808,29 @@
         
         let submitBtn = document.getElementById('import_submit_btn');
         if (submitBtn) { 
-            submitBtn.disabled = false; 
+            submitBtn.disabled = true; 
             submitBtn.innerHTML = "Import"; 
             submitBtn.onclick = window.submitPoImport; 
         }
+
+        let titleEl = document.getElementById('import_modal_title');
+        if (titleEl) titleEl.textContent = '📥 Import PO';
+
+        let poInfo = document.getElementById('fmt_info_po');
+        let flatInfo = document.getElementById('fmt_info_flat');
+        if (poInfo) poInfo.style.display = 'flex';
+        if (flatInfo) flatInfo.style.display = 'none';
+
+        let dlBtn = document.getElementById('btn_download_template');
+        if (dlBtn) {
+            dlBtn.href = '/src/api/import_export.php?action=template_po';
+        }
         
-        showImportStep('upload');
-        window.openModal('import_assets');
+        if (typeof showImportStep === 'function') {
+            showImportStep('upload');
+        }
+
+        window.openModal('import_modal');
     };
      
     window.submitPoImport = async function () {
@@ -829,7 +843,7 @@
             return; 
         }
         
-        showImportStep('progress');
+        if (typeof showImportStep === 'function') showImportStep('progress');
         submitBtn.disabled = true;
         
         let loadingHtml = '<i class="bi bi-hourglass-split"></i> Importing...';
@@ -837,6 +851,7 @@
         
         let fd = new FormData();
         fd.append('import_file', file);
+
         try {
             let url = '/src/api/import_export.php?action=import';
             let res = await fetch(url, { 
@@ -854,14 +869,25 @@
                 throw new Error(errStr);
             }
             
-            renderImportResults(json.data);
-            showImportStep('results');
+            if (typeof renderImportResults === 'function') {
+                renderImportResults(json.data);
+            }
+            if (typeof showImportStep === 'function') {
+                showImportStep('results');
+            }
             
             if ((json.data?.success ?? 0) > 0) {
+                showToast(
+                    `Success: ${json.data.success} purchase order(s) imported.`, 
+                    'success'
+                );
                 fetchInitialPOs();
+            } else if ((json.data?.failed ?? 0) > 0) {
+                showToast('Import finished with some errors.', 'warning');
             }
+            
         } catch (err) {
-            showImportStep('upload');
+            if (typeof showImportStep === 'function') showImportStep('upload');
             showToast(err.message ?? 'Import failed.', 'error');
         } finally {
             submitBtn.disabled = false;

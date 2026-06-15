@@ -1,44 +1,28 @@
 <?php // src/views/shared/modals/modal_import.php ?>
 
-<div class="modal-overlay" id="modal-import_assets">
+<div class="modal-overlay" id="modal-import_modal">
     <div class="modal" style="max-width:580px">
         <div class="modal-header">
-            <div class="modal-title">
-                📥 Import Assets from Excel
+            <div class="modal-title" id="import_modal_title">
+                📥 Import Data
             </div>
             <button class="modal-close"
-                    onclick="closeModal('import_assets')">
+                    onclick="closeModal('import_modal')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
 
         <div class="modal-body">
-
-            <!-- Step 1: Upload -->
             <div id="import_step_upload">
-
-                <!-- Format tabs -->
-                <div style="display:flex;gap:6px;margin-bottom:14px">
-                    <button id="fmt_tab_po"
-                            class="btn btn-primary btn-sm"
-                            onclick="setImportTab('po')">
-                        PO Workbook
-                    </button>
-                    <button id="fmt_tab_flat"
-                            class="btn btn-secondary btn-sm"
-                            onclick="setImportTab('flat')">
-                        Flat Template
-                    </button>
-                </div>
 
                 <div id="fmt_info_po" class="insight-card
                         insight-card--blue"
-                        style="margin-bottom:14px">
+                        style="display:none;margin-bottom:14px">
                     <div class="insight-card__icon">📊</div>
                     <div>
                         <div class="insight-card__title"
                                 style="color:var(--blue-tag)">
-                            PO Workbook Format (recommended)
+                            PO Import Format
                         </div>
                         <div class="insight-card__desc">
                             Upload your existing PO Tracker Excel.
@@ -67,7 +51,7 @@
                     <div>
                         <div class="insight-card__title"
                                 style="color:var(--blue-tag)">
-                            Flat Template Format
+                            Asset Template Format
                         </div>
                         <div class="insight-card__desc">
                             Single-sheet file, headers in row 1:
@@ -109,9 +93,9 @@
                 <div style="margin-top:14px;display:flex;gap:8px;
                             justify-content:flex-end;
                             align-items:center">
-                    <a href="/src/api/import_export.php?action=template_po" 
-                    id="btn_download_template" 
-                    class="btn btn-secondary btn-sm">
+                    <a href="#" 
+                       id="btn_download_template" 
+                       class="btn btn-secondary btn-sm">
                         <i class="bi bi-download"></i> Download Template
                     </a>
                     <button class="btn btn-primary"
@@ -122,16 +106,13 @@
                 </div>
             </div>
 
-            <!-- Step 2: Progress -->
             <div id="import_step_progress"
                     style="display:none;text-align:center;
                            padding:20px 0">
-                <div style="font-size:36px;margin-bottom:12px">
-                    ⏳
-                </div>
+                <div style="font-size:36px;margin-bottom:12px">⏳</div>
                 <div style="font-size:15px;font-weight:600;
                             color:var(--white);margin-bottom:8px">
-                    Importing assets...
+                    Importing data...
                 </div>
                 <div style="font-size:13px;color:var(--white-3);
                             margin-bottom:20px">
@@ -148,7 +129,6 @@
                 </div>
             </div>
 
-            <!-- Step 3: Results -->
             <div id="import_step_results" style="display:none">
                 <div id="import_results_body"></div>
             </div>
@@ -157,8 +137,8 @@
 
         <div class="modal-footer" id="import_modal_footer">
             <button class="btn btn-secondary"
-                    onclick="closeModal('import_assets')">
-                Cancel
+                    onclick="closeModal('import_modal')">
+                Close
             </button>
         </div>
     </div>

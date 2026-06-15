@@ -1039,19 +1039,90 @@
         if (submitBtn) { 
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="bi bi-upload"></i> Import'; 
-            // Bind the specific submit handler for assets
             submitBtn.onclick = window.submitAssetImport; 
+        }
+
+        let titleEl = document.getElementById('import_modal_title');
+        if (titleEl) titleEl.textContent = '📥 Import Assets';
+
+        let poInfo = document.getElementById('fmt_info_po');
+        let flatInfo = document.getElementById('fmt_info_flat');
+        if (poInfo) poInfo.style.display = 'none';
+        if (flatInfo) flatInfo.style.display = 'flex';
+
+        let dlBtn = document.getElementById('btn_download_template');
+        if (dlBtn) {
+            dlBtn.href = '/src/api/import_export.php?action=template';
         }
         
         if (typeof showImportStep === 'function') {
             showImportStep('upload');
         }
         
-        if (typeof setImportTab === 'function') {
-            setImportTab('flat');
+        window.openModal('import_modal');
+    };
+
+    window.submitAssetImport = async function () {
+        let fileInput = document.getElementById('import_file');
+        let submitBtn = document.getElementById('import_submit_btn');
+        let file = fileInput?.files?.[0];
+        
+        if (!file) { 
+            showToast('Select a file first.', 'error'); 
+            return; 
         }
         
-        window.openModal('import_assets');
+        if (typeof showImportStep === 'function') showImportStep('progress');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing...';
+        
+        let fd = new FormData();
+        fd.append('import_file', file);
+        if (window.currentImportType) {
+            fd.append('import_type', window.currentImportType);
+        }
+        
+        try {
+            let url = '/src/api/import_export.php?action=import';
+            let res = await fetch(url, { 
+                method: 'POST', 
+                headers: { 'X-CSRF-Token': getCsrfToken() }, 
+                body: fd 
+            });
+            
+            let json = await res.json();
+            if (!json.success && !json.data) {
+                let errStr = json.message ?? 'Import failed.';
+                if (errStr.includes('Duplicate entry')) {
+                    errStr = 'Failed: Records already exist in the system.';
+                }
+                throw new Error(errStr);
+            }
+            
+            if (typeof renderImportResults === 'function') {
+                renderImportResults(json.data);
+            }
+            if (typeof showImportStep === 'function') {
+                showImportStep('results');
+            }
+            
+            if ((json.data?.success ?? 0) > 0) {
+                showToast(
+                    `Success: ${json.data.success} asset(s) imported.`, 
+                    'success'
+                );
+                fetchInitialAssets();
+            } else if ((json.data?.failed ?? 0) > 0) {
+                showToast('Import finished with some errors.', 'warning');
+            }
+
+        } catch (err) {
+            if (typeof showImportStep === 'function') showImportStep('upload');
+            showToast(err.message ?? 'Import failed.', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-upload"></i> Import';
+        }
     };
 
     window.submitAssetImport = async function () {

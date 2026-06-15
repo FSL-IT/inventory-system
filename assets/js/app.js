@@ -1,5 +1,4 @@
 // assets/js/app.js
-// Global utilities + Dynamic Content Loading (SPA navigation)
 
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
@@ -30,7 +29,6 @@ async function apiFetch(url, options = {}) {
     const data     = await response.json();
 
     if (!data.success) {
-        // Translate SQL errors to user-friendly messages
         let errorMsg = data.message ?? 'Request failed.';
         if (errorMsg.includes('Duplicate entry')) {
             errorMsg = 'A record with this information already exists.';
@@ -52,14 +50,12 @@ async function submitFormWithValidation(formId, apiEndpoint, btnId, onSuccess) {
         return;
     }
     
-    // Clear previous highlights
     let fields = form.querySelectorAll('input, select, textarea');
     fields.forEach(field => field.classList.remove('error-highlight'));
 
     if (!form.checkValidity()) {
         showToast('Please fill all required fields.', 'error');
         
-        // Highlight empty required fields
         fields.forEach(field => {
             if (!field.validity.valid) {
                 field.classList.add('error-highlight');
@@ -198,7 +194,6 @@ async function logoutUser() {
     try {
         await apiFetch('/src/api/auth.php', { method: 'DELETE' });
     } catch {
-        // Continue to redirect
     }
     window.location.href = '/src/views/auth/login.php';
 }
@@ -568,12 +563,13 @@ window.renderImportResults = function(data) {
     let errors = data.errors || [];
     
     let html = `
-        <div style="text-align:center; padding: 20px 0;">
+        <div style="text-align:center; padding: 20px 0; color: var(--white, #ffffff);">
             <div style="font-size: 48px; margin-bottom: 12px;">
                 ${successCount > 0 ? '✅' : '⚠️'}
             </div>
-            <h3 style="margin-bottom: 8px;">Import Processed</h3>
-            <p>Successfully imported <strong>${successCount}</strong> records.</p>
+            <h3 style="margin-bottom: 8px; color: var(--white, #ffffff);">Import Processed</h3>
+            <p style="color: var(--white-2, #e2e8f0);">Successfully imported 
+            <strong style="color: var(--white, #ffffff);">${successCount}</strong> records.</p>
         </div>
     `;
     

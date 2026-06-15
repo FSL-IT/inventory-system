@@ -358,3 +358,7 @@
     font-size: 12px;
     line-height: 1.45;
 }
+
+.modal-title, #import_modal_title {
+    color: var(--white, #ffffff);
+}
