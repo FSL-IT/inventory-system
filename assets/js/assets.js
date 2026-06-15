@@ -311,6 +311,7 @@
         let tbody   = document.getElementById('assets_body');
         let isAdmin = window.IS_ADMIN === true;
      
+        if (!tbody) return;
         if (!assets.length) {
             tbody.innerHTML = `
                 <tr>

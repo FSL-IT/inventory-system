@@ -269,8 +269,17 @@ function statusTag(status) {
 }
 
 function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-PH', {
+    if (!dateStr || dateStr === '0000-00-00') {
+        return '—';
+    }
+    
+    let dateObj = new Date(dateStr);
+    
+    if (isNaN(dateObj.getTime())) {
+        return '—';
+    }
+    
+    return dateObj.toLocaleDateString('en-PH', {
         year: 'numeric', month: 'short', day: 'numeric',
     });
 }

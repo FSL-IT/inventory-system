@@ -25,7 +25,11 @@ if ($method === 'GET' && $id && $action === 'assets') {
     createPO();
 } elseif ($method === 'PUT') {
     requireCsrf();
-    updatePO($id);
+    if ($action === 'endorse') {
+        endorsePO($id);
+    } else {
+        updatePO($id);
+    }
 } elseif ($method === 'DELETE') {
     requireCsrf();
     if (!isAdmin()) {
@@ -247,30 +251,30 @@ function createPO(): void
 
 function updatePO(int $id): void
 {
-    if (!$id) {
-        sendError('PO ID required.', 400);
-    }
+    if (!$id) sendError('PO ID required.', 400);
 
     $body = json_decode(file_get_contents('php://input'), true);
     $pdo  = getDbConnection();
-    $old  = $pdo->prepare(
-        'SELECT * FROM purchase_orders WHERE id = :id LIMIT 1'
-    );
+    
+    $old  = $pdo->prepare('SELECT * FROM purchase_orders WHERE id = :id LIMIT 1');
     $old->execute([':id' => $id]);
     $before = $old->fetch();
 
-    if (!$before) {
-        sendError('Purchase order not found.', 404);
-    }
+    if (!$before) sendError('Purchase order not found.', 404);
 
-    $poNumber     = sanitizeString(
-        $body['po_number'] ?? $before['po_number']
-    );
-    $vendorId     = isset($body['vendor_id'])
-        ? ((int) $body['vendor_id'] ?: null)
+    $poNumber = sanitizeString($body['po_number'] ?? $before['po_number']);
+    
+    $vendorId = array_key_exists('vendor_id', $body) 
+        ? ($body['vendor_id'] ? (int) $body['vendor_id'] : null) 
         : $before['vendor_id'];
-    $dateReceived = $body['date_received'] ?? $before['date_received'];
-    $dateEndorsed = $body['date_endorsed'] ?? $before['date_endorsed'];
+
+    $dateReceived = array_key_exists('date_received', $body) 
+        ? ($body['date_received'] ?: null) 
+        : $before['date_received'];
+
+    $dateEndorsed = array_key_exists('date_endorsed', $body) 
+        ? ($body['date_endorsed'] ?: null) 
+        : $before['date_endorsed'];
 
     $upd = $pdo->prepare('
         UPDATE purchase_orders
@@ -290,12 +294,34 @@ function updatePO(int $id): void
 
     logAudit($_SESSION['user_id'], 'UPDATE', 'purchase_orders', $id, [
         'before' => $before,
-        'after'  => compact(
-            'poNumber', 'vendorId', 'dateReceived', 'dateEndorsed'
-        ),
+        'after'  => compact('poNumber', 'vendorId', 'dateReceived', 'dateEndorsed'),
     ]);
 
     sendSuccess([], 'Purchase order updated.');
+}
+
+function endorsePO(int $id): void
+{
+    if (!$id) sendError('PO ID required.', 400);
+
+    $pdo  = getDbConnection();
+    $old  = $pdo->prepare('SELECT * FROM purchase_orders WHERE id = :id LIMIT 1');
+    $old->execute([':id' => $id]);
+    $before = $old->fetch();
+
+    if (!$before) sendError('Purchase order not found.', 404);
+
+    $today = date('Y-m-d');
+
+    $upd = $pdo->prepare('UPDATE purchase_orders SET date_endorsed = :de WHERE id = :id');
+    $upd->execute([':de' => $today, ':id' => $id]);
+
+    logAudit($_SESSION['user_id'], 'UPDATE', 'purchase_orders', $id, [
+        'before' => $before,
+        'after'  => ['date_endorsed' => $today],
+    ]);
+
+    sendSuccess(['date_endorsed' => $today], 'PO Endorsed.');
 }
 
 function deletePO(int $id): void
