@@ -29,14 +29,12 @@
             safeSetVal('topbar_search', urlSearch);
         }
 
-        applyAssetUrlFilterFields(urlParams);
-
-        fetchInitialAssets();
         bindAssetPoChangeListener();
 
         populateAssetFormDropdowns().then(function () {
             applyAssetUrlFilterFields(urlParams);
-            applyClientFilters();
+        
+            loadServerAssets();
 
             if (action === 'add_asset') {
                 window.openAddAsset();
@@ -120,35 +118,54 @@
         deleteAsset(id, serial);
     };
 
-    async function fetchInitialAssets() {
+    async function loadServerAssets() {
         let tbody = document.getElementById('assets_body');
-        if (!tbody) {
-            return; 
-        }
+        if (!tbody) return;
 
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="9" class="cell-date"
-                        style="text-align:center;padding:30px">
-                    <i class="bi bi-arrow-repeat spin"></i>
-                    Loading database...
-                </td>
-            </tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">
+            <i class="bi bi-arrow-repeat spin"></i> Fetching records...
+        </td></tr>`;
+
+        let params = new URLSearchParams({
+            page:        currentPage,
+            per_page:    itemsPerPage,
+            search:      getVal('asset_search'),
+            status:      getVal('filter_status'),
+            category_id: getVal('filter_category'),
+            location_id: getVal('filter_location'),
+            owner_id:    getVal('filter_owner'),
+            sort:        currentSort,
+            dir:         currentDir
+        });
 
         try {
-            let url = '/src/api/assets.php?per_page=10000';
-            let data = await apiFetch(url);
-            allAssets = data.data || [];
-            applyClientFilters();
+            let url = `/src/api/assets.php?${params.toString()}`;
+            let res = await apiFetch(url);
+            
+            renderAssetTable(res.data || []);
+            
+            if (res.pagination) {
+                renderPagination(
+                    'assets_pagination', 
+                    res.pagination, 
+                    'changeClientPage'
+                );
+                renderCounter(res.pagination);
+            }
         } catch (err) {
-            showToast('Failed to load assets.', 'error');
+            showToast('Failed to load assets from server.', 'error');
         }
     }
 
-    window.debouncedLoadAssets = function () {
-        currentPage = 1;
-        applyClientFilters();
+    window.changeClientPage = function (page) {
+        currentPage = page;
+        loadServerAssets();
     };
+
+    window.debouncedLoadAssets = debounce(function () {
+        currentPage = 1;
+        loadServerAssets();
+    }, 350);
 
     window.clearAssetFilters = function () {
         let fields = [
@@ -166,7 +183,7 @@
     window.onPerPageChange = function () {
         itemsPerPage = parseInt(getVal('asset_per_page')) || 25;
         currentPage  = 1;
-        applyClientFilters();
+        window.debouncedLoadAssets();
     };
 
     window.sortAssets = function (col) {
@@ -178,7 +195,7 @@
         }
         currentPage = 1;
         updateSortIcons();
-        applyClientFilters();
+        window.debouncedLoadAssets();
     };
 
     function updateSortIcons() {
@@ -193,71 +210,6 @@
                 : 'bi-sort-down';
             active.className = `bi ${dirClass} sort-icon sort-active`;
         }
-    }
-
-    function applyClientFilters() {
-        let search = getVal('asset_search').toLowerCase();
-        let status = getVal('filter_status');
-        let catId  = getVal('filter_category');
-        let locId  = getVal('filter_location');
-        let ownId  = getVal('filter_owner');
-
-        filteredAssets = allAssets.filter(a => {
-            let matchSearch = !search ||
-                (a.serial_number &&
-                 a.serial_number.toLowerCase().includes(search)) ||
-                (a.description &&
-                 a.description.toLowerCase().includes(search)) ||
-                (a.po_number &&
-                 a.po_number.toLowerCase().includes(search)) ||
-                (a.vendor_name &&
-                 a.vendor_name.toLowerCase().includes(search));
-
-            let matchStatus = !status || String(a.status) === status;
-            let matchCat = !catId || String(a.category_id) === catId;
-            let matchLoc = !locId || String(a.location_id) === locId;
-            let matchOwn = !ownId || String(a.owner_id) === ownId;
-
-            let matchMissingSn = !filterMissingSn ||
-                !a.serial_number || String(a.serial_number).trim() === '';
-
-            let matchAttention = !filterAttention ||
-                a.status === 'defective' || a.status === 'in_repair';
-
-            let matchOperational = !filterOperational ||
-                a.status === 'active' || a.status === 'deployed';
-
-            return matchSearch && matchStatus &&
-                   matchCat && matchLoc && matchOwn &&
-                   matchMissingSn && matchAttention && matchOperational;
-        });
-
-        let SORT_MAP = {
-            'a.serial_number':  'serial_number',
-            'a.description':    'description',
-            'c.name':           'category_name',
-            'l.name':           'location_name',
-            'o.name':           'owner_name',
-            'a.status':         'status',
-            'po.date_received': 'date_received',
-            'a.created_at':     'created_at',
-        };
-
-        let jsSortKey = SORT_MAP[currentSort] || 'created_at';
-
-        filteredAssets.sort(function (a, b) {
-            let valA = a[jsSortKey] || '';
-            let valB = b[jsSortKey] || '';
-
-            if (typeof valA === 'string') valA = valA.toLowerCase();
-            if (typeof valB === 'string') valB = valB.toLowerCase();
-
-            if (valA < valB) return currentDir === 'asc' ? -1 : 1;
-            if (valA > valB) return currentDir === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        renderCurrentPage();
     }
 
     window.changeClientPage = function (page) {
@@ -331,14 +283,15 @@
         }
      
         tbody.innerHTML = assets.map(a => {
-            let safeSn = escapeHtml(a.serial_number);
-     
+            let safeHtmlSn = escapeHtml(a.serial_number);
+            let safeJsSn   = escapeJsStr(a.serial_number);
+
             let deleteBtn = isAdmin
                 ? `<button class="btn btn-danger btn-sm"
-                           onclick="onAssetDeleteClick(event, ${a.id}, '${safeSn}')"
-                           title="Delete Asset">
-                       <i class="bi bi-trash"></i>
-                   </button>`
+                        onclick="onAssetDeleteClick(event, ${a.id}, '${safeJsSn}')"
+                        title="Delete Asset">
+                    <i class="bi bi-trash"></i>
+                </button>`
                 : '';
      
             return `
@@ -659,21 +612,21 @@
 
     function validateAssetForm(isBulk = false) {
         clearAllFieldErrors();
-
-        let status     = getVal('asset_status');
-        let desc       = getVal('asset_desc');
-        let categoryId = getVal('asset_category');
-        let locationId = getVal('asset_location');
-        let ownerId    = getVal('asset_owner');
-
         let isValid = true;
 
+        let requiredFields = [
+            { id: 'asset_desc',     msg: 'Description is required.' },
+            { id: 'asset_status',   msg: 'Select a status.' },
+            { id: 'asset_category', msg: 'Select a category.', isSelect: true },
+            { id: 'asset_location', msg: 'Select a location.', isSelect: true },
+            { id: 'asset_owner',    msg: 'Select an owner.',   isSelect: true }
+        ];
+
         if (!isBulk) {
-            let serial = getVal('asset_serial');
-            if (!serial) {
-                showFieldError('asset_serial', 'Required.');
-                isValid = false;
-            }
+            requiredFields.push({
+                id: 'asset_serial', 
+                msg: 'Serial Number is required.' 
+            });
         } else {
             let raw = getVal('asset_serials_bulk');
             if (!parseSerialInput(raw).length) {
@@ -682,32 +635,17 @@
             }
         }
 
-        if (!desc) {
-            showFieldError('asset_desc', 'Description is required.');
-            isValid = false;
-        }
-        if (!categoryId) {
-            if (typeof showSelectError === 'function') {
-                showSelectError('asset_category', 'Select a category.');
+        requiredFields.forEach(field => {
+            let val = getVal(field.id);
+            if (!val) {
+                if (field.isSelect && typeof showSelectError === 'function') {
+                    showSelectError(field.id, field.msg);
+                } else {
+                    showFieldError(field.id, field.msg);
+                }
+                isValid = false;
             }
-            isValid = false;
-        }
-        if (!status) {
-            showFieldError('asset_status', 'Select a status.');
-            isValid = false;
-        }
-        if (!locationId) {
-            if (typeof showSelectError === 'function') {
-                showSelectError('asset_location', 'Select a location.');
-            }
-            isValid = false;
-        }
-        if (!ownerId) {
-            if (typeof showSelectError === 'function') {
-                showSelectError('asset_owner', 'Select a process owner.');
-            }
-            isValid = false;
-        }
+        });
 
         return isValid;
     }
@@ -721,6 +659,15 @@
         }
 
         if (!validateAssetForm(false)) return;
+
+        let btn = document.getElementById('asset_save_btn');
+        let lbl = document.getElementById('asset_save_label');
+        let originalText = lbl ? lbl.textContent : 'Save Asset';
+        
+        if (btn) {
+            btn.disabled = true;
+            if (lbl) lbl.innerHTML = '<i class="bi bi-hourglass"></i>...';
+        }
 
         let payload = {
             serial_number: getVal('asset_serial'),
@@ -741,18 +688,32 @@
         let method = isEdit ? 'PUT' : 'POST';
 
         try {
-            await apiFetch(url, { method, body: JSON.stringify(payload) });
+            await apiFetch(url, { 
+                method, body: JSON.stringify(payload) 
+            });
             window.closeModal('add_asset');
-            let txt = `Asset ${isEdit ? 'updated' : 'created'} successfully.`;
+            let txt = `Asset ${isEdit ? 'updated' : 'created'}.`;
             showToast(txt, 'success');
-            fetchInitialAssets();
+            loadServerAssets();
         } catch (err) {
             showToast(err.message, 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+            if (lbl) lbl.textContent = originalText;
         }
     };
 
     async function saveBulkAssets() {
         if (!validateAssetForm(true)) return;
+
+        let btn = document.getElementById('asset_save_btn');
+        let lbl = document.getElementById('asset_save_label');
+        let originalText = lbl ? lbl.textContent : 'Save All';
+
+        if (btn) {
+            btn.disabled = true;
+            if (lbl) lbl.innerHTML = '<i class="bi bi-hourglass"></i>...';
+        }
 
         let payload = {
             serials:      parseSerialInput(getVal('asset_serials_bulk')),
@@ -780,9 +741,12 @@
             }
 
             showToast(msg, inserted ? 'success' : 'error');
-            fetchInitialAssets();
+            loadServerAssets();
         } catch (err) {
             showToast(err.message, 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+            if (lbl) lbl.textContent = originalText;
         }
     }
 
@@ -794,7 +758,7 @@
                     method: 'DELETE',
                 });
                 showToast('Asset deleted.', 'success');
-                fetchInitialAssets();
+                loadServerAssets();
             } catch (err) {
                 showToast(err.message, 'error');
             }
@@ -1063,121 +1027,111 @@
         window.openModal('import_modal');
     };
 
-    window.submitAssetImport = async function () {
-        let fileInput = document.getElementById('import_file');
-        let submitBtn = document.getElementById('import_submit_btn');
-        let file = fileInput?.files?.[0];
-        
-        if (!file) { 
-            showToast('Select a file first.', 'error'); 
-            return; 
-        }
-        
-        if (typeof showImportStep === 'function') showImportStep('progress');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing...';
-        
-        let fd = new FormData();
-        fd.append('import_file', file);
-        if (window.currentImportType) {
-            fd.append('import_type', window.currentImportType);
-        }
-        
-        try {
-            let url = '/src/api/import_export.php?action=import';
-            let res = await fetch(url, { 
-                method: 'POST', 
-                headers: { 'X-CSRF-Token': getCsrfToken() }, 
-                body: fd 
-            });
-            
-            let json = await res.json();
-            if (!json.success && !json.data) {
-                let errStr = json.message ?? 'Import failed.';
-                if (errStr.includes('Duplicate entry')) {
-                    errStr = 'Failed: Records already exist in the system.';
-                }
-                throw new Error(errStr);
-            }
-            
-            if (typeof renderImportResults === 'function') {
-                renderImportResults(json.data);
-            }
-            if (typeof showImportStep === 'function') {
-                showImportStep('results');
-            }
-            
-            if ((json.data?.success ?? 0) > 0) {
-                showToast(
-                    `Success: ${json.data.success} asset(s) imported.`, 
-                    'success'
-                );
-                fetchInitialAssets();
-            } else if ((json.data?.failed ?? 0) > 0) {
-                showToast('Import finished with some errors.', 'warning');
-            }
+    window.setupImportDropZone = function () {
+    let dropZone = document.getElementById('import_drop_zone');
+    let fileInput = document.getElementById('import_file');
+    
+    if (!dropZone || !fileInput) return;
 
-        } catch (err) {
-            if (typeof showImportStep === 'function') showImportStep('upload');
-            showToast(err.message ?? 'Import failed.', 'error');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="bi bi-upload"></i> Import';
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.style.opacity = '0.5';
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.style.opacity = '1';
+        }, false);
+    });
+
+    dropZone.addEventListener('drop', function (e) {
+        let dt = e.dataTransfer;
+        let files = dt.files;
+        
+        if (files.length > 0) {
+            fileInput.files = files;
+            if (typeof window.updateImportFileLabel === 'function') {
+                window.updateImportFileLabel(files[0]);
+            }
         }
-    };
+    }, false);
+};
 
     window.submitAssetImport = async function () {
-        let fileInput = document.getElementById('import_file');
-        let submitBtn = document.getElementById('import_submit_btn');
-        let file = fileInput?.files?.[0];
+    let fileInput = document.getElementById('import_file');
+    let submitBtn = document.getElementById('import_submit_btn');
+    let file = fileInput?.files?.[0];
+    
+    if (!file) { 
+        showToast('Select a file first.', 'error'); 
+        return; 
+    }
+    
+    if (typeof showImportStep === 'function') {
+        showImportStep('progress');
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing...';
+    
+    let fd = new FormData();
+    fd.append('import_file', file);
+    if (window.currentImportType) {
+        fd.append('import_type', window.currentImportType);
+    }
+    
+    try {
+        let url = '/src/api/import_export.php?action=import';
+        let res = await fetch(url, { 
+            method: 'POST', 
+            headers: { 'X-CSRF-Token': getCsrfToken() }, 
+            body: fd 
+        });
         
-        if (!file) { 
-            showToast('Select a file first.', 'error'); 
-            return; 
+        let json = await res.json();
+        if (!json.success && !json.data) {
+            let errStr = json.message ?? 'Import failed.';
+            if (errStr.includes('Duplicate entry')) {
+                errStr = 'Failed: Records already exist in the system.';
+            }
+            throw new Error(errStr);
         }
         
-        if (typeof showImportStep === 'function') showImportStep('progress');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing...';
-        
-        let fd = new FormData();
-        fd.append('import_file', file);
-        if (window.currentImportType) {
-            fd.append('import_type', window.currentImportType);
+        if (typeof renderImportResults === 'function') {
+            renderImportResults(json.data);
         }
         
-        try {
-            let url = '/src/api/import_export.php?action=import';
-            let res = await fetch(url, { 
-                method: 'POST', 
-                headers: { 'X-CSRF-Token': getCsrfToken() }, 
-                body: fd 
-            });
-            
-            let json = await res.json();
-            if (!json.success && !json.data) {
-                let errStr = json.message ?? 'Import failed.';
-                if (errStr.includes('Duplicate entry')) {
-                    errStr = 'Failed: Records already exist in the system.';
-                }
-                throw new Error(errStr);
-            }
-            
-            if (typeof renderImportResults === 'function') {
-                renderImportResults(json.data);
-            }
-            if (typeof showImportStep === 'function') {
-                showImportStep('results');
-            }
-            
-            if ((json.data?.success ?? 0) > 0) {
-                fetchInitialAssets();
-            }
-        } catch (err) {
-            if (typeof showImportStep === 'function') showImportStep('upload');
-            showToast(err.message ?? 'Import failed.', 'error');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="bi bi-upload"></i> Import';
+        if (typeof showImportStep === 'function') {
+            showImportStep('results');
         }
-    };
+        
+        if ((json.data?.success ?? 0) > 0) {
+            showToast(
+                `Success: ${json.data.success} asset(s) imported.`, 
+                'success'
+            );
+            loadServerAssets();
+        } else if ((json.data?.failed ?? 0) > 0) {
+            showToast('Import finished with some errors.', 'warning');
+        }
+
+    } catch (err) {
+        if (typeof showImportStep === 'function') {
+            showImportStep('upload');
+        }
+        showToast(err.message ?? 'Import failed.', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-upload"></i> Import';
+    }
+};

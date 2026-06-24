@@ -108,15 +108,65 @@ function fetchSingleAsset(int $id): void
 function fetchAssets(): void
 {
     $pdo     = getDbConnection();
-    $perPage = getQueryInt('per_page', 10000);
+    $page    = max(1, (int)($_GET['page'] ?? 1));
+    $perPage = max(1, (int)($_GET['per_page'] ?? 25));
+    $offset  = ($page - 1) * $perPage;
 
-    $total = (int) $pdo
-        ->query(
-            'SELECT COUNT(*) FROM assets WHERE deleted_at IS NULL'
-        )
-        ->fetchColumn();
+    $where  = "a.deleted_at IS NULL";
+    $params = [];
 
-    $stmt = $pdo->prepare('
+    if (!empty($_GET['search'])) {
+        $where .= " AND (a.serial_number LIKE :search 
+                      OR a.description LIKE :search 
+                      OR po.po_number LIKE :search 
+                      OR v.name LIKE :search)";
+        $params[':search'] = '%' . $_GET['search'] . '%';
+    }
+
+    if (!empty($_GET['status'])) {
+        $where .= " AND a.status = :status";
+        $params[':status'] = $_GET['status'];
+    }
+    if (!empty($_GET['category_id'])) {
+        $where .= " AND a.category_id = :category_id";
+        $params[':category_id'] = (int) $_GET['category_id'];
+    }
+    if (!empty($_GET['location_id'])) {
+        $where .= " AND a.location_id = :location_id";
+        $params[':location_id'] = (int) $_GET['location_id'];
+    }
+    if (!empty($_GET['owner_id'])) {
+        $where .= " AND a.owner_id = :owner_id";
+        $params[':owner_id'] = (int) $_GET['owner_id'];
+    }
+
+    $from = "FROM assets a
+        LEFT JOIN categories      c  ON a.category_id = c.id
+        LEFT JOIN locations       l  ON a.location_id  = l.id
+        LEFT JOIN process_owners  o  ON a.owner_id     = o.id
+        LEFT JOIN purchase_orders po ON a.po_id        = po.id
+        LEFT JOIN vendors         v  ON po.vendor_id   = v.id";
+
+    $countSql  = "SELECT COUNT(*) $from WHERE $where";
+    $countStmt = $pdo->prepare($countSql);
+    foreach ($params as $key => $val) {
+        $countStmt->bindValue($key, $val);
+    }
+    $countStmt->execute();
+    $totalRows = (int) $countStmt->fetchColumn();
+
+    $allowedSorts = [
+        'a.serial_number', 'a.description', 'c.name', 'po.po_number', 
+        'l.name', 'o.name', 'a.status', 'po.date_received', 'a.created_at'
+    ];
+    $sortCol = $_GET['sort'] ?? 'a.created_at';
+    if (!in_array($sortCol, $allowedSorts)) {
+        $sortCol = 'a.created_at';
+    }
+    $sortDir = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' 
+        ? 'ASC' : 'DESC';
+
+    $sql = "
         SELECT
             a.id, a.serial_number, a.description,
             a.status, a.remarks,
@@ -133,20 +183,33 @@ function fetchAssets(): void
             po.date_endorsed,
             v.id   AS vendor_id,
             v.name AS vendor_name
-        FROM assets a
-        LEFT JOIN categories      c  ON a.category_id = c.id
-        LEFT JOIN locations       l  ON a.location_id  = l.id
-        LEFT JOIN process_owners  o  ON a.owner_id     = o.id
-        LEFT JOIN purchase_orders po ON a.po_id        = po.id
-        LEFT JOIN vendors         v  ON po.vendor_id   = v.id
-        WHERE a.deleted_at IS NULL
-        ORDER BY a.created_at DESC
-        LIMIT :limit
-    ');
+        $from
+        WHERE $where
+        ORDER BY $sortCol $sortDir
+        LIMIT :limit OFFSET :offset
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
 
-    sendPaginated($stmt->fetchAll(), $total, 1, $perPage);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode([
+        'success'    => true,
+        'data'       => $results,
+        'pagination' => [
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total'       => $totalRows,
+            'total_pages' => (int) ceil($totalRows / $perPage)
+        ]
+    ]);
+    exit;
 }
 
 // ─── CREATE ──────────────────────────────────────────────────────
