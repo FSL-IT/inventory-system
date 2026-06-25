@@ -283,16 +283,11 @@ function bulkCreateAssets(): void
     $locationId = (int) ($body['location_id']          ?? 0);
     $ownerId    = (int) ($body['owner_id']             ?? 0);
     $status     = sanitizeString($body['status']       ?? 'active');
-    $poId       = !empty($body['po_id'])
-        ? (int) $body['po_id'] : null;
+    $poId       = !empty($body['po_id']) ? (int) $body['po_id'] : null;
     $remarks    = sanitizeString($body['remarks']      ?? '');
 
     if (!$desc || !$categoryId || !$locationId || !$ownerId) {
-        sendError(
-            'description, category, location, and owner '
-            . 'are required.',
-            422
-        );
+        sendError('description, category, location, and owner are required.', 422);
     }
 
     if (!validateEnum($status, ASSET_STATUSES)) {
@@ -300,9 +295,7 @@ function bulkCreateAssets(): void
     }
 
     $pdo      = getDbConnection();
-    $dupCheck = $pdo->prepare(
-        'SELECT id FROM assets WHERE serial_number = :sn LIMIT 1'
-    );
+    $dupCheck = $pdo->prepare('SELECT id FROM assets WHERE serial_number = :sn LIMIT 1');
     $ins = $pdo->prepare('
         INSERT INTO assets
             (serial_number, description, po_id, category_id,
@@ -315,41 +308,51 @@ function bulkCreateAssets(): void
     $inserted = 0;
     $skipped  = [];
 
-    foreach ($serials as $rawSn) {
-        $sn = sanitizeString((string) $rawSn);
-        if (!$sn) {
-            continue;
+    try {
+        $pdo->beginTransaction();
+
+        foreach ($serials as $rawSn) {
+            $sn = sanitizeString((string) $rawSn);
+            if (!$sn) {
+                continue;
+            }
+
+            $dupCheck->execute([':sn' => $sn]);
+            if ($dupCheck->fetch()) {
+                $skipped[] = $sn;
+                continue;
+            }
+
+            $ins->execute([
+                ':sn'       => $sn,
+                ':desc'     => $desc,
+                ':po_id'    => $poId,
+                ':cat_id'   => $categoryId,
+                ':loc_id'   => $locationId,
+                ':owner_id' => $ownerId,
+                ':remarks'  => $remarks,
+                ':status'   => $status,
+            ]);
+
+            $newId = (int) $pdo->lastInsertId();
+            logAudit($_SESSION['user_id'], 'INSERT', 'assets', $newId, [
+                'before' => [],
+                'after'  => [
+                    'serial_number' => $sn,
+                    'description'   => $desc,
+                    'category_id'   => $categoryId,
+                    'status'        => $status,
+                ],
+            ]);
+
+            $inserted++;
         }
 
-        $dupCheck->execute([':sn' => $sn]);
-        if ($dupCheck->fetch()) {
-            $skipped[] = $sn;
-            continue;
-        }
+        $pdo->commit();
 
-        $ins->execute([
-            ':sn'       => $sn,
-            ':desc'     => $desc,
-            ':po_id'    => $poId,
-            ':cat_id'   => $categoryId,
-            ':loc_id'   => $locationId,
-            ':owner_id' => $ownerId,
-            ':remarks'  => $remarks,
-            ':status'   => $status,
-        ]);
-
-        $newId = (int) $pdo->lastInsertId();
-        logAudit($_SESSION['user_id'], 'INSERT', 'assets', $newId, [
-            'before' => [],
-            'after'  => [
-                'serial_number' => $sn,
-                'description'   => $desc,
-                'category_id'   => $categoryId,
-                'status'        => $status,
-            ],
-        ]);
-
-        $inserted++;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        sendError('A database error occurred during bulk insert. No assets were saved.', 500);
     }
 
     sendSuccess(

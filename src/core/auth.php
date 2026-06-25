@@ -90,28 +90,35 @@ function requireCsrf(): void
     exit;
 }
 
-/**
- * Simple file-based rate limiter for login attempts.
- * Max $maxAttempts per $windowSeconds per IP.
- */
 function checkLoginRateLimit(string $ip, int $maxAttempts = 10, int $windowSeconds = 300): void
 {
     $dir  = sys_get_temp_dir();
     $key  = 'fsl_rl_' . md5($ip);
     $file = "{$dir}/{$key}.json";
 
+    $fp = fopen($file, 'c+');
+    if (!$fp) {
+        return;
+    }
+
+    flock($fp, LOCK_EX);
+
+    clearstatcache(true, $file);
+    $filesize = filesize($file);
+    $raw = $filesize > 0 ? json_decode(fread($fp, $filesize), true) : null;
+
     $data = ['attempts' => 0, 'window_start' => time()];
 
-    if (is_file($file)) {
-        $raw = json_decode(file_get_contents($file), true);
-
-        if ($raw && (time() - $raw['window_start']) < $windowSeconds) {
-            $data = $raw;
-        }
+    if ($raw && (time() - $raw['window_start']) < $windowSeconds) {
+        $data = $raw;
     }
 
     if ($data['attempts'] >= $maxAttempts) {
         $retry = $windowSeconds - (time() - $data['window_start']);
+        
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        
         http_response_code(429);
         echo json_encode([
             'success' => false,
@@ -121,7 +128,13 @@ function checkLoginRateLimit(string $ip, int $maxAttempts = 10, int $windowSecon
     }
 
     $data['attempts']++;
-    file_put_contents($file, json_encode($data), LOCK_EX);
+    
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($data));
+    
+    flock($fp, LOCK_UN);
+    fclose($fp);
 }
 
 function clearLoginRateLimit(string $ip): void

@@ -14,7 +14,6 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'POST') {
     handleLogin();
 } elseif ($method === 'DELETE') {
-    // Require CSRF token to prevent cross-site logout attacks
     requireCsrf();
     handleLogout();
 } else {
@@ -23,7 +22,9 @@ if ($method === 'POST') {
 
 function handleLogin(): void 
 {
-    $body     = json_decode(file_get_contents('php://input'), true);
+    checkLoginRateLimit($_SERVER['REMOTE_ADDR']);
+
+    $body     = json_decode(file_get_contents('php://input'), true) ?? [];
     $username = sanitizeString($body['username'] ?? '');
     $password = $body['password'] ?? '';
 
@@ -63,6 +64,8 @@ function handleLogin(): void
         'after'  => ['event' => 'login', 'username' => $user['username']],
     ]);
 
+    clearLoginRateLimit($_SERVER['REMOTE_ADDR']);
+
     sendSuccess([
         'user_id'    => $user['id'],
         'username'   => $user['username'],
@@ -80,7 +83,6 @@ function handleLogout(): void
         );
     }
 
-    // Deep session destruction: clear data and force cookie expiration
     $_SESSION = [];
     
     if (ini_get("session.use_cookies")) {

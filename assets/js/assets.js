@@ -148,10 +148,9 @@
             let res = await apiFetch(url);
             
             let dataArr = res.data || [];
-            allAssets = dataArr; // Keep for the view modal
+            allAssets = dataArr;
             renderAssetTable(dataArr);
             
-            // Format meta mapping for app.js renderPagination
             if (res.meta && res.meta.pagination) {
                 let pg = res.meta.pagination;
                 let standardizedPg = {
@@ -189,6 +188,27 @@
         loadServerAssets();
     };
 
+    window.clearAssetFilters = function () {
+        // Clear text search inputs
+        safeSetVal('asset_search', '');
+        let topbarSearch = document.getElementById('topbar_search');
+        if (topbarSearch) topbarSearch.value = '';
+
+        // Clear all select dropdowns
+        safeSetVal('filter_status', '');
+        safeSetVal('filter_category', '');
+        safeSetVal('filter_location', '');
+        safeSetVal('filter_owner', '');
+
+        let url = new URL(window.location);
+        url.search = '';
+        window.history.replaceState({}, document.title, url.toString());
+
+        if (typeof window.debouncedLoadAssets === 'function') {
+            window.debouncedLoadAssets();
+        }
+    };
+
     window.sortAssets = function (col) {
         if (currentSort === col) {
             currentDir = currentDir === 'asc' ? 'desc' : 'asc';
@@ -213,39 +233,6 @@
                 : 'bi-sort-down';
             active.className = `bi ${dirClass} sort-icon sort-active`;
         }
-    }
-
-    window.changeClientPage = function (page) {
-        currentPage = page;
-        renderCurrentPage();
-    };
-
-    function renderCurrentPage() {
-        let totalItems = filteredAssets.length;
-        let totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-
-        if (currentPage > totalPages) {
-            currentPage = totalPages;
-        }
-
-        let startIdx = (currentPage - 1) * itemsPerPage;
-        let pageData = filteredAssets.slice(
-            startIdx, startIdx + itemsPerPage
-        );
-
-        renderAssetTable(pageData);
-
-        let mockPg = {
-            page:        currentPage,
-            per_page:    itemsPerPage,
-            total:       totalItems,
-            total_pages: totalPages,
-        };
-
-        renderPagination(
-            'assets_pagination', mockPg, 'changeClientPage'
-        );
-        renderCounter(mockPg);
     }
 
     function renderCounter(pg) {
@@ -684,17 +671,23 @@
         let method = isEdit ? 'PUT' : 'POST';
 
         try {
-            await apiFetch(url, { method, body: JSON.stringify(payload) });
+            await apiFetch(url, { 
+                method, 
+                body: JSON.stringify(payload) 
+            });
+            
             window.closeModal('add_asset');
-            showToast(`Asset ${isEdit ? 'updated' : 'created'} 
-                successfully.`, 'success');
-            fetchInitialAssets();
+            showToast(`Asset ${isEdit ? 'updated' : 'created'} ` +
+                `successfully.`, 'success');
+                
+            loadServerAssets();
+            
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
             if (btn) btn.disabled = false;
         }
-    };  
+    };
 
     async function saveBulkAssets() {
         if (!validateAssetForm(true)) return;
@@ -1018,6 +1011,14 @@
         }
         
         window.openModal('import_modal');
+    };
+
+    // Fallback to ensure drag-and-drop file label updates without crashing
+    window.updateImportFileLabel = window.updateImportFileLabel || function (file) {
+        let zoneLabel = document.getElementById('import_zone_label');
+        if (zoneLabel && file) {
+            zoneLabel.textContent = file.name;
+        }
     };
 
     window.setupImportDropZone = function () {
