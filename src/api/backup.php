@@ -213,8 +213,9 @@ function restoreServerBackup(): void
 // ─── EXECUTE EXCEL RESTORE ───────────────────────────────────────
 function executeExcelRestore(string $filePath): void
 {
-    $reader      = new XlsxReader();
-    $spreadsheet = null;
+    $reader = new XlsxReader();
+    // Only load the data, not the formatting to save memory
+    $reader->setReadDataOnly(true);
     
     try {
         $spreadsheet = $reader->load($filePath);
@@ -232,47 +233,39 @@ function executeExcelRestore(string $filePath): void
 
         foreach (BACKUP_TABLES as $table) {
             $sheet = $spreadsheet->getSheetByName($table);
-            if (!$sheet) {
-                continue;
-            }
+            if (!$sheet) continue;
             
             $pdo->exec("TRUNCATE TABLE `{$table}`");
             
-            $rows = $sheet->toArray();
-            if (count($rows) <= 1) {
-                continue;
-            }
+            $highestRow = $sheet->getHighestDataRow();
+            $highestCol = $sheet->getHighestColumn();
             
-            $headers      = array_shift($rows);
-            $colList      = implode(', ', array_map(
-                fn($c) => "`{$c}`", 
-                $headers
-            ));
+            $headers = $sheet->rangeToArray("A1:{$highestCol}1", NULL, TRUE, FALSE)[0];
+            $colList = implode(', ', array_map(fn($c) => "`{$c}`", $headers));
+            $placeholders = implode(', ', array_fill(0, count($headers), '?'));
             
-            $placeholders = implode(', ', array_fill(
-                0, 
-                count($headers), 
-                '?'
-            ));
+            $stmt = $pdo->prepare("INSERT INTO `{$table}` ({$colList}) VALUES ({$placeholders})");
             
-            $stmt = $pdo->prepare(
-                "INSERT INTO `{$table}` ({$colList}) " .
-                "VALUES ({$placeholders})"
-            );
-            
-            foreach ($rows as $row) {
-                $stmt->execute($row);
+            $chunkSize = 500;
+            for ($startRow = 2; $startRow <= $highestRow; $startRow += $chunkSize) {
+                $endRow = min($startRow + $chunkSize - 1, $highestRow);
+                $rows = $sheet->rangeToArray("A{$startRow}:{$highestCol}{$endRow}", NULL, TRUE, FALSE);
+                
+                foreach ($rows as $row) {
+                    if (array_filter($row) !== []) {
+                        $stmt->execute($row);
+                    }
+                }
             }
         }
 
         $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
         $pdo->commit();
         
-    } catch (PDOException $e) {
+    } catch (Throwable $e) {
         $pdo->rollBack();
         $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
         sendError('Restore failed: ' . $e->getMessage(), 500);
-        return;
     }
 }
 

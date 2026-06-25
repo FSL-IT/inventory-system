@@ -35,11 +35,12 @@
 
         bindAssetPoChangeListener();
 
-        populateAssetFormDropdowns().then(function () {
-            applyAssetUrlFilterFields(urlParams);
-        
-            loadServerAssets();
+        // FIX: Setup filters first, then load the table immediately
+        applyAssetUrlFilterFields(urlParams);
+        loadServerAssets();
 
+        // FIX: Let dropdowns populate in the background so they don't block the UI
+        populateAssetFormDropdowns().then(function () {
             if (action === 'add_asset') {
                 window.openAddAsset();
                 if (poId) {
@@ -151,13 +152,21 @@
             allAssets = dataArr;
             renderAssetTable(dataArr);
             
-            if (res.meta && res.meta.pagination) {
-                let pg = res.meta.pagination;
+            let pg = res.pagination || (res.meta && res.meta.pagination) 
+                  || res.meta;
+            
+            if (pg && pg.total !== undefined) {
+                let pageNum  = parseInt(pg.current_page || pg.page) || 1;
+                let perPage  = parseInt(pg.per_page) || 25;
+                let totalRow = parseInt(pg.total) || 0;
+                let totalPgs = parseInt(pg.total_pages) || 
+                               Math.ceil(totalRow / perPage) || 1;
+
                 let standardizedPg = {
-                    page:        pg.current_page || pg.page,
-                    per_page:    pg.per_page,
-                    total:       pg.total,
-                    total_pages: pg.total_pages
+                    page:        pageNum,
+                    per_page:    perPage,
+                    total:       totalRow,
+                    total_pages: totalPgs
                 };
                 
                 renderPagination(
@@ -166,16 +175,40 @@
                     'changeClientPage'
                 );
                 renderCounter(standardizedPg);
+            } else {
+                let pagBar = document.getElementById('assets_pagination');
+                if (pagBar) pagBar.innerHTML = '';
+                renderCounter({ 
+                    page: 1, 
+                    per_page: dataArr.length, 
+                    total: dataArr.length 
+                });
             }
         } catch (err) {
             showToast('Failed to load assets from server.', 'error');
+            
+            let tbody = document.getElementById('assets_body');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <div class="empty-state__icon" style="color:var(--danger)">⚠️</div>
+                                <div class="empty-state__title">Error loading data</div>
+                                <div class="empty-state__desc">
+                                    The server encountered an error while searching.
+                                </div>
+                            </div>
+                        </td>
+                    </tr>`;
+            }
         }
     }
 
     window.debouncedLoadAssets = debounce(function () {
         currentPage = 1;
         loadServerAssets();
-    }, 350);
+    }, 600);
 
     window.changeClientPage = function (page) {
         currentPage = page;
@@ -872,95 +905,47 @@
     }
 
     async function populateAssetFormDropdowns() {
+        let [poRes, catRes, locRes, ownerRes] = await Promise.all([
+            apiFetch('/src/api/purchase_orders.php?per_page=5000').catch(() => ({data: []})),
+            apiFetch('/src/api/categories.php?per_page=5000').catch(() => ({data: []})),
+            apiFetch('/src/api/locations.php?per_page=5000').catch(() => ({data: []})),
+            apiFetch('/src/api/process_owners.php?per_page=5000').catch(() => ({data: []}))
+        ]);
+
+        let pos    = poRes?.data    || [];
+        let cats   = catRes?.data   || [];
+        let locs   = locRes?.data   || [];
+        let owners = ownerRes?.data || [];
+
         if (typeof populateSearchableSelect === 'function') {
-            await Promise.all([
-                populateSearchableSelectFromApi(
-                    'asset_po',
-                    '/src/api/purchase_orders.php',
-                    'id', 'po_number', '— Select PO —',
-                    { formatMeta: formatPoSelectMeta }
-                ),
-                populateSearchableSelectFromApi(
-                    'asset_category',
-                    '/src/api/categories.php',
-                    'id', 'name', '— Select Category —'
-                ),
-                populateSearchableSelectFromApi(
-                    'asset_location',
-                    '/src/api/locations.php',
-                    'id', 'name', '— Select Location —'
-                ),
-                populateSearchableSelectFromApi(
-                    'asset_owner',
-                    '/src/api/process_owners.php',
-                    'id', 'name', '— Select Owner —'
-                ),
-            ]);
+            populateSearchableSelect('asset_po', pos, 'id', 'po_number', '— Select PO —', { formatMeta: formatPoSelectMeta });
+            populateSearchableSelect('asset_category', cats, 'id', 'name', '— Select Category —');
+            populateSearchableSelect('asset_location', locs, 'id', 'name', '— Select Location —');
+            populateSearchableSelect('asset_owner', owners, 'id', 'name', '— Select Owner —');
         }
 
-        // Standard filter dropdowns
-        await Promise.all([
-            populateSelect(
-                'filter_category',
-                '/src/api/categories.php',
-                'id', 'name'
-            ),
-            populateSelect(
-                'filter_location',
-                '/src/api/locations.php',
-                'id', 'name'
-            ),
-            populateSelect(
-                'filter_owner',
-                '/src/api/process_owners.php',
-                'id', 'name'
-            ),
-        ]);
+        populateSelectFromArray('filter_category', cats, 'id', 'name');
+        populateSelectFromArray('filter_location', locs, 'id', 'name');
+        populateSelectFromArray('filter_owner', owners, 'id', 'name');
     }
 
     function formatPoSelectMeta(item) {
         let parts = [];
         if (item.vendor_name) parts.push(item.vendor_name);
-        if (item.date_received) {
-            parts.push(formatDate(item.date_received));
-        }
-        if (item.asset_count > 0) {
-            parts.push(`${item.asset_count} asset(s)`);
-        }
+        if (item.date_received) parts.push(formatDate(item.date_received));
+        if (item.asset_count > 0) parts.push(`${item.asset_count} asset(s)`);
         return parts.join(' · ');
     }
 
-    async function populateSearchableSelectFromApi(
-        fieldId, url, valKey, lblKey, placeholder, extraOptions = {}
-    ) {
-        try {
-            let data  = await apiFetch(`${url}?per_page=5000`);
-            let items = data.data ?? [];
-            if (typeof populateSearchableSelect === 'function') {
-                populateSearchableSelect(
-                    fieldId, items, valKey, lblKey, placeholder, extraOptions
-                );
-            }
-        } catch (err) {}
-    }
-
-    async function populateSelect(
-        selId, url, valKey, lblKey
-    ) {
+    function populateSelectFromArray(selId, items, valKey, lblKey) {
         let el = document.getElementById(selId);
         if (!el) return;
-
-        try {
-            let data  = await apiFetch(`${url}?per_page=5000`);
-            let items = data.data ?? [];
-
-            items.forEach(item => {
-                let opt = document.createElement('option');
-                opt.value = item[valKey];
-                opt.textContent = item[lblKey];
-                el.appendChild(opt);
-            });
-        } catch (err) {}
+        items.forEach(item => {
+            let opt = document.createElement('option');
+            opt.value = item[valKey];
+            opt.textContent = item[lblKey];
+            el.appendChild(opt);
+        });
     }
 
     window.exportToExcel = async function () {
@@ -1013,7 +998,6 @@
         window.openModal('import_modal');
     };
 
-    // Fallback to ensure drag-and-drop file label updates without crashing
     window.updateImportFileLabel = window.updateImportFileLabel || function (file) {
         let zoneLabel = document.getElementById('import_zone_label');
         if (zoneLabel && file) {

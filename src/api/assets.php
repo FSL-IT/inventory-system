@@ -107,6 +107,10 @@ function fetchSingleAsset(int $id): void
 // ─── FETCH LIST ──────────────────────────────────────────────────
 function fetchAssets(): void
 {
+    // FIX: Release the PHP session lock immediately so this 
+    // request isn't blocked by other background network calls.
+    session_write_close(); 
+
     $pdo     = getDbConnection();
     $page    = max(1, (int)($_GET['page'] ?? 1));
     $perPage = max(1, (int)($_GET['per_page'] ?? 25));
@@ -114,15 +118,31 @@ function fetchAssets(): void
 
     $where  = "a.deleted_at IS NULL";
     $params = [];
+    $needsJoinsForCount = false;
 
     if (!empty($_GET['search'])) {
-        $where .= " AND (a.serial_number LIKE :search 
-                      OR a.description LIKE :search 
-                      OR po.po_number LIKE :search 
-                      OR v.name LIKE :search)";
-        $params[':search'] = '%' . $_GET['search'] . '%';
+        $term = $_GET['search'];
+        
+        $where .= " AND (
+            a.serial_number = :exact1 
+            OR po.po_number = :exact2 
+            OR a.serial_number LIKE :start1 
+            OR po.po_number LIKE :start2 
+            OR a.description LIKE :any1 
+            OR v.name LIKE :any2
+        )";
+        
+        $params[':exact1'] = $term;
+        $params[':exact2'] = $term;
+        $params[':start1'] = $term . '%';
+        $params[':start2'] = $term . '%';
+        $params[':any1']   = '%' . $term . '%';
+        $params[':any2']   = '%' . $term . '%';
+        
+        $needsJoinsForCount = true; 
     }
 
+    // Dropdown filters
     if (!empty($_GET['status'])) {
         $where .= " AND a.status = :status";
         $params[':status'] = $_GET['status'];
@@ -140,20 +160,26 @@ function fetchAssets(): void
         $params[':owner_id'] = (int) $_GET['owner_id'];
     }
 
-    $from = "FROM assets a
-        LEFT JOIN categories      c  ON a.category_id = c.id
-        LEFT JOIN locations       l  ON a.location_id  = l.id
-        LEFT JOIN process_owners  o  ON a.owner_id     = o.id
-        LEFT JOIN purchase_orders po ON a.po_id        = po.id
-        LEFT JOIN vendors         v  ON po.vendor_id   = v.id";
+    $countFrom = "FROM assets a";
+    if ($needsJoinsForCount) {
+        $countFrom .= " LEFT JOIN purchase_orders po ON a.po_id = po.id
+                        LEFT JOIN vendors v ON po.vendor_id = v.id";
+    }
 
-    $countSql  = "SELECT COUNT(*) $from WHERE $where";
+    $countSql  = "SELECT COUNT(*) $countFrom WHERE $where";
     $countStmt = $pdo->prepare($countSql);
     foreach ($params as $key => $val) {
         $countStmt->bindValue($key, $val);
     }
     $countStmt->execute();
     $totalRows = (int) $countStmt->fetchColumn();
+
+    $from = "FROM assets a
+        LEFT JOIN categories      c  ON a.category_id = c.id
+        LEFT JOIN locations       l  ON a.location_id  = l.id
+        LEFT JOIN process_owners  o  ON a.owner_id     = o.id
+        LEFT JOIN purchase_orders po ON a.po_id        = po.id
+        LEFT JOIN vendors         v  ON po.vendor_id   = v.id";
 
     $allowedSorts = [
         'a.serial_number', 'a.description', 'c.name', 'po.po_number', 
@@ -163,8 +189,7 @@ function fetchAssets(): void
     if (!in_array($sortCol, $allowedSorts)) {
         $sortCol = 'a.created_at';
     }
-    $sortDir = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' 
-        ? 'ASC' : 'DESC';
+    $sortDir = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
 
     $sql = "
         SELECT
@@ -404,14 +429,12 @@ function updateAsset(int $id): void
         
     $remarks    = sanitizeString($body['remarks'] ?? $old['remarks']);
     
-    // Now captures the transfer note from the UI
     $transferNote = sanitizeString($body['transfer_note'] ?? '');
 
     if (!validateEnum($status, ASSET_STATUSES)) {
         sendError('Invalid status value.', 422);
     }
 
-    // Duplicate serial check — only if serial is being changed
     if ($serial !== $old['serial_number']) {
         $dupChk = $pdo->prepare(
             'SELECT id FROM assets

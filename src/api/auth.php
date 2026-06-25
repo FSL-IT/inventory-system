@@ -47,8 +47,8 @@ function handleLogin(): void
     $stmt->execute([':username' => $username]);
     $user = $stmt->fetch();
 
-    if (!$user || !password_verify($password, $user['password_hash'])) {
-        sendError('Invalid username or password.', 401);
+    if (password_verify($new_password, $before['password_hash'])) {
+        sendError('New password cannot be the same as your current password.', 422);
     }
 
     session_regenerate_id(true);

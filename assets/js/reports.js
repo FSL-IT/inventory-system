@@ -1,6 +1,5 @@
 // assets/js/reports.js
 
-// Cache both report types so switching tabs never re-fetches
 const reportCache = {
     by_location: null,
     by_owner:    null,
@@ -9,31 +8,42 @@ const reportCache = {
 let reportType   = 'by_location';
 let reportSearch = '';
 
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    document
-        .getElementById('tab_by_location')
-        ?.addEventListener('click', () => switchTab('by_location'));
+function initReports() {
+    const searchInput = document.getElementById('report_search');
+    const tabLoc = document.getElementById('tab_by_location');
+    const tabOwn = document.getElementById('tab_by_owner');
+    const btnPrint = document.getElementById('btn_print');
 
-    document
-        .getElementById('tab_by_owner')
-        ?.addEventListener('click', () => switchTab('by_owner'));
+    if (tabLoc) tabLoc.addEventListener('click', () => switchTab('by_location'));
+    if (tabOwn) tabOwn.addEventListener('click', () => switchTab('by_owner'));
+    if (btnPrint) btnPrint.addEventListener('click', () => window.print());
 
-    document
-        .getElementById('btn_print')
-        ?.addEventListener('click', () => window.print());
+    if (searchInput) {
+        const debouncedFilter = debounce((term) => {
+            filterReport(term);
+        }, 300);
 
-    document
-        .getElementById('report_search')
-        ?.addEventListener('input', e => filterReport(e.target.value));
+        searchInput.addEventListener('input', (e) => {
+            debouncedFilter(e.target.value);
+        });
+    }
 
     loadReport('by_location');
-});
+}
 
-// ─── TAB SWITCH — uses cache, no re-fetch ─────────────────────────
+document.addEventListener('DOMContentLoaded', initReports);
+
 function switchTab(type) {
     if (reportType === type && reportCache[type]) {
-        // Already loaded and cached — just re-render with current search
         reportType = type;
         setReportTab(type);
         renderReport();
@@ -70,7 +80,6 @@ async function loadReport(type) {
 
     setReportTab(type);
 
-    // Return cached data without showing loading spinner
     if (reportCache[type]) {
         renderReport();
         return;
@@ -113,8 +122,8 @@ async function loadReport(type) {
 
 // ─── FILTER ───────────────────────────────────────────────────────
 function filterReport(term) {
-    reportSearch = term.toLowerCase();
-    renderReport();
+    reportSearch = String(term || '').toLowerCase(); 
+    renderReport(); 
 }
 
 // ─── RENDER ───────────────────────────────────────────────────────
@@ -277,14 +286,13 @@ function renderReport() {
 }
 
 function assetMatchesSearch(a, term) {
-    return (
-        (a.serial_number &&
-         a.serial_number.toLowerCase().includes(term)) ||
-        (a.description   &&
-         a.description.toLowerCase().includes(term))   ||
-        (a.category      &&
-         a.category.toLowerCase().includes(term))      ||
-        (a.po_number     &&
-         a.po_number.toLowerCase().includes(term))
-    );
+    const sn   = String(a.serial_number ?? '').toLowerCase();
+    const desc = String(a.description ?? '').toLowerCase();
+    const cat  = String(a.category ?? '').toLowerCase();
+    const po   = String(a.po_number ?? '').toLowerCase();
+
+    return sn.includes(term) ||
+           desc.includes(term) ||
+           cat.includes(term) ||
+           po.includes(term);
 }

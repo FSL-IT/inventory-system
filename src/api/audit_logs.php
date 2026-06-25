@@ -32,7 +32,10 @@ if ($method === 'GET' && $action === 'export') {
 function fetchAuditLogs(): void
 {
     $pdo     = getDbConnection();
-    $perPage = getQueryInt('per_page', 5000);
+    
+    $page    = getQueryInt('page', 1);
+    $perPage = getQueryInt('per_page', 50);
+    $offset  = ($page - 1) * $perPage;
 
     $total = (int) $pdo
         ->query('SELECT COUNT(*) FROM audit_logs')
@@ -51,12 +54,13 @@ function fetchAuditLogs(): void
         FROM audit_logs al
         LEFT JOIN users u ON al.user_id = u.id
         ORDER BY al.timestamp DESC
-        LIMIT :limit
+        LIMIT :limit OFFSET :offset
     ');
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
 
-    sendPaginated($stmt->fetchAll(), $total, 1, $perPage);
+    sendPaginated($stmt->fetchAll(), $total, $page, $perPage);
 }
 
 // ─── RESTORE A RECORD ─────────────────────────────────────────────
@@ -74,7 +78,6 @@ function restoreAuditRecord(): void
         sendError('Missing required fields.', 422);
     }
 
-    // Whitelist tables that can be restored
     $RESTORABLE = [
         'assets', 'purchase_orders', 'vendors',
         'locations', 'process_owners', 'categories',
@@ -89,8 +92,6 @@ function restoreAuditRecord(): void
 
     $pdo = getDbConnection();
 
-    // Build UPDATE from before fields
-    // Skip id, created_at and other meta columns
     $SKIP = ['id', 'created_at', 'deleted_at'];
 
     $setClauses = [];

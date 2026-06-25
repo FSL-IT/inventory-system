@@ -135,12 +135,13 @@ window.openEditUser = function(id, username, role) {
     
     if (unEl) {
         unEl.value = username;
-        unEl.setAttribute('readonly', 'true');
+        unEl.removeAttribute('readonly'); 
     }
     
     const hintEl = document.getElementById('pw_hint');
     if (hintEl) hintEl.classList.remove('hidden');
     
+    window.resetErrorStyles();
     window.validateUserForm();
     window.openModal('add_user');
 };
@@ -151,6 +152,10 @@ window.saveUser = async function() {
     const role     = getVal('user_role');
     const password = getVal('user_password');
     const confirm  = getVal('user_confirm_password');
+    const btn      = document.getElementById('user_save_btn');
+    const errText  = document.getElementById('user_form_error');
+
+    if (errText) errText.textContent = ''; 
 
     if (!username) {
         showToast('Username is required.', 'error');
@@ -188,6 +193,11 @@ window.saveUser = async function() {
         : '/src/api/users.php';
     const method = isEdit ? 'PUT' : 'POST';
 
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split spin"></i> Saving...';
+    }
+
     try {
         await apiFetch(url, { 
             method: method, 
@@ -199,7 +209,37 @@ window.saveUser = async function() {
         showToast(`User ${isEdit ? 'updated' : 'created'}.`, 'success');
         loadUsers();
     } catch (err) {
-        showToast(err.message, 'error');
+        const pwError = document.getElementById('pw_server_error');
+        const p1      = document.getElementById('user_password');
+        const p2      = document.getElementById('user_confirm_password');
+        const unEl    = document.getElementById('user_username');
+        
+        if (err.message.includes('current password') || err.message.toLowerCase().includes('password')) {
+            if (pwError) {
+                pwError.textContent = err.message;
+                pwError.style.display = 'block';
+            }
+            if (p1) { p1.style.borderColor = 'var(--red, #ef4444)'; p1.value = ''; }
+            if (p2) { p2.style.borderColor = 'var(--red, #ef4444)'; p2.value = ''; }
+            window.validateUserForm();
+            if (p1) p1.focus();
+        } 
+        else if (err.message.includes('taken') || err.message.includes('exists')) {
+            if (errText) errText.textContent = err.message;
+            if (unEl) {
+                unEl.focus();
+                unEl.style.borderColor = 'var(--red, #ef4444)';
+            }
+        } 
+        else {
+            showToast(err.message, 'error');
+            if (errText) errText.textContent = err.message;
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-floppy"></i> <span id="user_save_btn_text">Save User</span>';
+        }
     }
 };
 
@@ -216,6 +256,18 @@ window.deleteUser = function(id, username) {
         } catch (err) {
             showToast(err.message, 'error');
         }
+    });
+};
+
+window.resetErrorStyles = function() {
+    const pwError = document.getElementById('pw_server_error');
+    if (pwError) {
+        pwError.textContent = '';
+        pwError.style.display = 'none';
+    }
+    ['user_password', 'user_confirm_password', 'user_username'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.borderColor = '';
     });
 };
 
@@ -255,6 +307,8 @@ window.resetUserForm = function() {
     document.querySelectorAll('.pw-toggle-btn').forEach(btn => {
         btn.innerHTML = '<i class="bi bi-eye"></i>';
     });
+
+    window.resetErrorStyles();
 };
 
 window.validateUserForm = function() {
@@ -268,6 +322,8 @@ window.validateUserForm = function() {
 
     let isValid = true;
     let errMsg  = '';
+
+    window.resetErrorStyles();
 
     if (hintEl && id) {
         if (pw.length > 0) {

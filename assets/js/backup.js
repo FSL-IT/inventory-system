@@ -168,49 +168,73 @@ function confirmRestore(filename) {
 }
 
 async function executeRestore(filename) {
-    showToast('Restoring... please wait.', 'info');
+    window.openModal('restore_progress');
 
     try {
-        const response = await fetch(
-            '/src/api/backup.php?action=restore_server',
-            {
-                method:  'POST',
-                headers: {
-                    'Content-Type':  'application/json',
-                    'X-CSRF-Token':  getCsrfToken(),
-                },
-                body: JSON.stringify({ filename }),
-            }
-        );
+        const response = await fetch('/src/api/backup.php?action=restore_server', {
+            method:  'POST',
+            headers: {
+                'Content-Type':  'application/json',
+                'X-CSRF-Token':  getCsrfToken(),
+            },
+            body: JSON.stringify({ filename }),
+        });
         const json = await response.json();
 
-        if (!json.success) {
-            throw new Error(json.message);
-        }
+        if (!json.success) throw new Error(json.message);
 
-        showToast(
-            '✅ Database restored successfully.',
-            'success'
-        );
+        showToast('✅ Database restored successfully.', 'success');
         loadBackupList();
     } catch (err) {
-        showToast(
-            err.message ??
-            'Restore failed. Please try again.',
-            'error'
-        );
+        showToast(err.message ?? 'Restore failed.', 'error');
+    } finally {
+        window.closeModal('restore_progress');
     }
 }
 
 // ─── UPLOAD RESTORE ───────────────────────────────────────────────
-// Now accepts .xlsx instead of .sql
+async function uploadRestore(input) {
+    const file = input.files[0];
+    if (!file || !file.name.endsWith('.xlsx')) return;
+
+    showConfirm(
+        'Restore from Excel File',
+        `Restore from "${file.name}"? This will overwrite current data.`,
+        async () => {
+            window.openModal('restore_progress');
+            
+            const formData = new FormData();
+            formData.append('backup_file', file);
+
+            try {
+                const response = await fetch('/src/api/backup.php?action=restore', {
+                    method:  'POST',
+                    headers: { 'X-CSRF-Token': getCsrfToken() },
+                    body: formData,
+                });
+                const json = await response.json();
+
+                if (!json.success) throw new Error(json.message);
+
+                showToast('✅ Database restored successfully.', 'success');
+                loadBackupList();
+            } catch (err) {
+                showToast(err.message ?? 'Restore failed.', 'error');
+            } finally {
+                window.closeModal('restore_progress');
+                input.value = '';
+            }
+        }
+    );
+}
+
+// ─── UPLOAD RESTORE ───────────────────────────────────────────────
 async function uploadRestore(input) {
     const file = input.files[0];
     if (!file) {
         return;
     }
 
-    // Updated: accept .xlsx not .sql
     if (!file.name.endsWith('.xlsx')) {
         showToast(
             'Only Excel backup files (.xlsx) are accepted.',

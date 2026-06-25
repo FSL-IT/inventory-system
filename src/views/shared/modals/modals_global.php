@@ -9,6 +9,7 @@ include __DIR__ . '/modal_vendor.php';
 include __DIR__ . '/modal_location.php';
 include __DIR__ . '/modal_owner.php';
 include __DIR__ . '/modal_category.php';
+include __DIR__ . '/modal_restore_progress.php';
 
 if (function_exists('isAdmin') && isAdmin()) {
     include __DIR__ . '/modal_user.php';

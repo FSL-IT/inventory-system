@@ -127,6 +127,9 @@ function updateUser(int $id): void
     }
 
     $role = sanitizeString($body['role'] ?? $before['role']);
+    
+    // Allow Username change
+    $username = sanitizeString($body['username'] ?? $before['username']);
 
     if (!validateEnum($role, USER_ROLES)) {
         sendError('Invalid role.', 422);
@@ -136,18 +139,37 @@ function updateUser(int $id): void
         sendError('You cannot demote your own admin account.', 403);
     }
 
-    $sets   = ['role = :role'];
-    $params = [':role' => $role, ':id' => $id];
+    // Check if new username is already taken by someone else
+    if ($username !== $before['username']) {
+        $dup = $pdo->prepare('
+            SELECT id FROM users 
+            WHERE username = :u AND id != :id AND deleted_at IS NULL
+        ');
+        $dup->execute([':u' => $username, ':id' => $id]);
+        if ($dup->fetch()) {
+            sendError('Username already taken.', 409);
+        }
+    }
+
+    $sets   = ['role = :role', 'username = :username'];
+    $params = [':role' => $role, ':username' => $username, ':id' => $id];
 
     if (!empty($body['password'])) {
         $pw = $body['password'];
 
         if (!validatePassword($pw)) {
             sendError('Password must be at least 8 characters.', 422);
+            exit; 
         }
 
         if ($pw !== ($body['confirm_password'] ?? '')) {
             sendError('Passwords do not match.', 422);
+            exit; 
+        }
+
+        if (password_verify($pw, $before['password_hash'])) {
+            sendError('New password cannot be the same as your current password.', 422);
+            exit; 
         }
 
         $cost = (int) ($_ENV['BCRYPT_COST'] ?? 12);
@@ -163,8 +185,8 @@ function updateUser(int $id): void
     $upd->execute($params);
 
     logAudit($_SESSION['user_id'], 'UPDATE', 'users', $id, [
-        'before' => ['role' => $before['role']],
-        'after'  => ['role' => $role],
+        'before' => ['role' => $before['role'], 'username' => $before['username']],
+        'after'  => ['role' => $role, 'username' => $username],
     ]);
 
     sendSuccess([], 'User updated.');

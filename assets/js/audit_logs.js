@@ -282,6 +282,13 @@
                   `previous state? This will overwrite current data.`;
 
         window.showConfirm('Restore Record', msg, async function () {
+            
+            let confirmBtn = document.getElementById('modal_confirm_btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="bi bi-hourglass-split spin"></i> Restoring...';
+            }
+
             try {
                 await apiFetch('/src/api/audit_logs.php?action=restore', {
                     method: 'POST',
@@ -296,9 +303,19 @@
                     `${log.table_name} #${log.record_id} restored.`, 
                     'success'
                 );
+                
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('audit_detail');
+                }
+                
                 fetchInitialAuditLogs();
             } catch (err) {
                 showToast(err.message, 'error');
+            } finally {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'Confirm';
+                }
             }
         });
     };
@@ -575,5 +592,10 @@
             .replace(/_id$/, '')
             .replace(/_/g, ' ')
             .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    }
+
+    async function loadAuditLogs(page = 1) {
+        let url = `/src/api/audit_logs.php?page=${page}&per_page=50`;
+        let res = await apiFetch(url);
     }
 })();

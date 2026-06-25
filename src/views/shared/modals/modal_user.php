@@ -76,6 +76,8 @@
                     </button>
                 </div>
                 <div id="pw_match_msg" class="pw-text-sm mt-3"></div>
+                
+                <div id="pw_server_error" class="pw-text-sm text-red mt-2" style="display:none; font-weight:600;"></div>
             </div>
         </div>
         <div class="modal-footer" 
