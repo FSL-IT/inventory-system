@@ -197,19 +197,7 @@ function fetchAssets(): void
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
 
-    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    echo json_encode([
-        'success'    => true,
-        'data'       => $results,
-        'pagination' => [
-            'page'        => $page,
-            'per_page'    => $perPage,
-            'total'       => $totalRows,
-            'total_pages' => (int) ceil($totalRows / $perPage)
-        ]
-    ]);
-    exit;
+    sendPaginated($stmt->fetchAll(), $totalRows, $page, $perPage);
 }
 
 // ─── CREATE ──────────────────────────────────────────────────────

@@ -326,6 +326,11 @@ async function navigateTo(url, pushState = true) {
     setActiveNav(url);
     closeSidebar();
 
+    document.querySelectorAll('.modal-overlay.open').forEach(m => {
+        m.classList.remove('open');
+    });
+    document.body.style.overflow = '';
+
     if (typeof window.closeActiveSearchableSelect === 'function') {
         window.closeActiveSearchableSelect();
     }

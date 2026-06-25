@@ -21,6 +21,10 @@
         if (!document.querySelector('.modal-overlay.open')) {
             document.body.style.overflow = '';
         }
+
+        if (typeof window.closeActiveSearchableSelect === 'function') {
+            window.closeActiveSearchableSelect();
+        }
     };
 
     window.showConfirm = function (title, desc, onConfirm) {

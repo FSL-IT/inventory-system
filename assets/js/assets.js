@@ -14,6 +14,10 @@
     let filterOperational  = false;
 
     window.initAssets = function () {
+        currentSort = 'a.created_at';
+        currentDir  = 'desc';
+        currentPage = 1;
+
         let urlParams = new URLSearchParams(window.location.search);
         let urlSearch = urlParams.get('search');
         let action    = urlParams.get('action');
@@ -122,8 +126,9 @@
         let tbody = document.getElementById('assets_body');
         if (!tbody) return;
 
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">
-            <i class="bi bi-arrow-repeat spin"></i> Fetching records...
+        tbody.innerHTML = `<tr><td colspan="9" 
+            style="text-align:center;padding:30px">
+            <i class="bi bi-arrow-repeat spin"></i> Loading database...
         </td></tr>`;
 
         let params = new URLSearchParams({
@@ -142,48 +147,46 @@
             let url = `/src/api/assets.php?${params.toString()}`;
             let res = await apiFetch(url);
             
-            renderAssetTable(res.data || []);
+            let dataArr = res.data || [];
+            allAssets = dataArr; // Keep for the view modal
+            renderAssetTable(dataArr);
             
-            if (res.pagination) {
+            // Format meta mapping for app.js renderPagination
+            if (res.meta && res.meta.pagination) {
+                let pg = res.meta.pagination;
+                let standardizedPg = {
+                    page:        pg.current_page || pg.page,
+                    per_page:    pg.per_page,
+                    total:       pg.total,
+                    total_pages: pg.total_pages
+                };
+                
                 renderPagination(
                     'assets_pagination', 
-                    res.pagination, 
+                    standardizedPg, 
                     'changeClientPage'
                 );
-                renderCounter(res.pagination);
+                renderCounter(standardizedPg);
             }
         } catch (err) {
             showToast('Failed to load assets from server.', 'error');
         }
     }
 
-    window.changeClientPage = function (page) {
-        currentPage = page;
-        loadServerAssets();
-    };
-
     window.debouncedLoadAssets = debounce(function () {
         currentPage = 1;
         loadServerAssets();
     }, 350);
 
-    window.clearAssetFilters = function () {
-        let fields = [
-            'asset_search', 'filter_status', 'filter_category',
-            'filter_location', 'filter_owner'
-        ];
-        fields.forEach(id => safeSetVal(id, ''));
-
-        currentSort = 'a.created_at';
-        currentDir  = 'desc';
-        updateSortIcons();
-        window.debouncedLoadAssets();
+    window.changeClientPage = function (page) {
+        currentPage = page;
+        loadServerAssets();
     };
 
     window.onPerPageChange = function () {
         itemsPerPage = parseInt(getVal('asset_per_page')) || 25;
         currentPage  = 1;
-        window.debouncedLoadAssets();
+        loadServerAssets();
     };
 
     window.sortAssets = function (col) {
@@ -195,7 +198,7 @@
         }
         currentPage = 1;
         updateSortIcons();
-        window.debouncedLoadAssets();
+        loadServerAssets();
     };
 
     function updateSortIcons() {
@@ -285,20 +288,20 @@
         tbody.innerHTML = assets.map(a => {
             let safeHtmlSn = escapeHtml(a.serial_number);
             let safeJsSn   = escapeJsStr(a.serial_number);
-
+     
             let deleteBtn = isAdmin
                 ? `<button class="btn btn-danger btn-sm"
-                        onclick="onAssetDeleteClick(event, ${a.id}, '${safeJsSn}')"
-                        title="Delete Asset">
-                    <i class="bi bi-trash"></i>
-                </button>`
+                           onclick="onAssetDeleteClick(event, ${a.id}, '${safeJsSn}')"
+                           title="Delete Asset">
+                       <i class="bi bi-trash"></i>
+                   </button>`
                 : '';
      
             return `
                 <tr class="clickable-row"
                         onclick="onAssetViewClick(event, ${a.id})">
                     <td>
-                        <span class="serial-chip">${safeSn}</span>
+                        <span class="serial-chip">${safeHtmlSn}</span>
                     </td>
                     <td>${escapeHtml(a.description)}</td>
                     <td>
@@ -661,13 +664,7 @@
         if (!validateAssetForm(false)) return;
 
         let btn = document.getElementById('asset_save_btn');
-        let lbl = document.getElementById('asset_save_label');
-        let originalText = lbl ? lbl.textContent : 'Save Asset';
-        
-        if (btn) {
-            btn.disabled = true;
-            if (lbl) lbl.innerHTML = '<i class="bi bi-hourglass"></i>...';
-        }
+        if (btn) btn.disabled = true;
 
         let payload = {
             serial_number: getVal('asset_serial'),
@@ -682,26 +679,22 @@
         };
 
         let isEdit = !!id;
-        let url    = isEdit
-            ? `/src/api/assets.php?id=${id}`
-            : '/src/api/assets.php';
+        let url    = isEdit ? 
+            `/src/api/assets.php?id=${id}` : '/src/api/assets.php';
         let method = isEdit ? 'PUT' : 'POST';
 
         try {
-            await apiFetch(url, { 
-                method, body: JSON.stringify(payload) 
-            });
+            await apiFetch(url, { method, body: JSON.stringify(payload) });
             window.closeModal('add_asset');
-            let txt = `Asset ${isEdit ? 'updated' : 'created'}.`;
-            showToast(txt, 'success');
-            loadServerAssets();
+            showToast(`Asset ${isEdit ? 'updated' : 'created'} 
+                successfully.`, 'success');
+            fetchInitialAssets();
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
             if (btn) btn.disabled = false;
-            if (lbl) lbl.textContent = originalText;
         }
-    };
+    };  
 
     async function saveBulkAssets() {
         if (!validateAssetForm(true)) return;
